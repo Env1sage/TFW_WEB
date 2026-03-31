@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "print_areas" ADD COLUMN     "realHeightInches" DOUBLE PRECISION NOT NULL DEFAULT 16,
+ADD COLUMN     "realWidthInches" DOUBLE PRECISION NOT NULL DEFAULT 12;

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TFW Admin — Mockup Upload</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-white border-b px-6 py-4 shadow-sm flex items-center gap-4">
+    <h1 class="text-2xl font-bold text-gray-900">TFW Admin — Mockup Manager</h1>
+    <a href="/" class="text-blue-600 hover:underline text-sm ml-auto">← Back to Editor</a>
+  </header>
+
+  <div id="loading" class="flex items-center justify-center h-[60vh]">
+    <p class="text-gray-500 text-lg">Loading product...</p>
+  </div>
+
+  <div id="content" class="p-6 max-w-5xl mx-auto" style="display:none;">
+    <h2 id="productName" class="text-xl font-bold mb-1"></h2>
+    <p id="productSlug" class="text-sm text-gray-500 mb-6"></p>
+
+    <div id="colorsContainer" class="flex flex-col gap-8"></div>
+  </div>
+
+<script>
+const API = window.location.origin;
+const SLUG = 'test-tshirt';
+
+async function loadProduct() {
+  try {
+    const res = await fetch(`${API}/admin/products/${SLUG}`);
+    if (!res.ok) throw new Error('Product not found');
+    const product = await res.json();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('productName').textContent = product.name;
+    document.getElementById('productSlug').textContent = `Slug: ${product.slug} | SKU: ${product.sku}`;
+
+    renderColors(product);
+  } catch (err) {
+    document.getElementById('loading').innerHTML = '<p class="text-red-500">Failed to load product. Is the API running?</p>';
+  }
+}
+
+function renderColors(product) {
+  const container = document.getElementById('colorsContainer');
+  container.innerHTML = '';
+
+  product.colors.forEach(color => {
+    const sides = ['FRONT', 'BACK'];
+    const div = document.createElement('div');
+    div.className = 'bg-white rounded-lg border shadow-sm p-6';
+
+    let mockupsHtml = '';
+    sides.forEach(side => {
+      const mockup = color.mockups.find(m => m.side === side);
+      const imgUrl = mockup ? `${API}${mockup.imageUrl}` : '';
+      const hasMockup = !!mockup;
+
+      mockupsHtml += `
+        <div class="flex flex-col gap-3 p-4 border rounded-lg bg-gray-50">
+          <h4 class="font-semibold text-sm text-gray-700">${side}</h4>
+          <div class="w-48 h-60 border rounded bg-white flex items-center justify-center overflow-hidden" id="preview-${color.id}-${side}">
+            ${hasMockup
+              ? `<img src="${imgUrl}" class="max-w-full max-h-full object-contain" />`
+              : '<span class="text-gray-300 text-sm">No mockup</span>'}
+          </div>
+          <p class="text-xs text-gray-400 truncate" id="url-${color.id}-${side}">${mockup ? mockup.imageUrl : 'Not uploaded'}</p>
+          <label class="px-4 py-2 bg-blue-600 text-white rounded text-center cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
+            ${hasMockup ? 'Replace Image' : 'Upload Image'}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onchange="uploadMockup('${color.id}', '${side}', this)" class="hidden" />
+          </label>
+          <div id="status-${color.id}-${side}" class="text-xs"></div>
+        </div>
+      `;
+    });
+
+    div.innerHTML = `
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-full border-2 border-gray-300" style="background-color:${color.hexCode}"></div>
+        <h3 class="text-lg font-bold">${color.name}</h3>
+        <span class="text-xs text-gray-400">ID: ${color.id}</span>
+      </div>
+      <div class="flex gap-6 flex-wrap">${mockupsHtml}</div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+async function uploadMockup(colorId, side, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById(`status-${colorId}-${side}`);
+  statusEl.innerHTML = '<span class="text-blue-600">Uploading...</span>';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('side', side);
+
+  try {
+    const res = await fetch(`${API}/admin/products/colors/${colorId}/mockup`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Upload failed');
+
+    statusEl.innerHTML = '<span class="text-green-600">Uploaded successfully!</span>';
+
+    // Update preview
+    const previewEl = document.getElementById(`preview-${colorId}-${side}`);
+    previewEl.innerHTML = `<img src="${API}${data.imageUrl}" class="max-w-full max-h-full object-contain" />`;
+    document.getElementById(`url-${colorId}-${side}`).textContent = data.imageUrl;
+
+    // Clear status after 3s
+    setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+  } catch (err) {
+    statusEl.innerHTML = `<span class="text-red-600">Error: ${err.message}</span>`;
+  }
+
+  input.value = '';
+}
+
+loadProduct();
+</script>
+</body>
+</html>

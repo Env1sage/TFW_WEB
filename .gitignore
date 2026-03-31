@@ -1,0 +1,21 @@
+node_modules
+dist
+.env
+.env.production
+*.log
+.turbo
+.next
+coverage
+postgres_data
+production-files
+uploads
+.venv
+nginx/ssl/
+*.pyc
+__pycache__
+
+# Large binary/design files (not needed in production)
+PSD_MOCKUP/
+Mockups/
+*.psd
+*.zip

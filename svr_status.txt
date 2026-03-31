@@ -1,0 +1,23 @@
+PSD: 4000x4000
+[V] Background kind=solidcolorfill blend=BlendMode.NORMAL op=255
+[V] Shirt kind=group blend=BlendMode.PASS_THROUGH op=255
+  [V] Shadows kind=pixel bbox=(888, 3382, 3081, 3675) blend=BlendMode.LINEAR_BURN op=179
+  [V] Shirt kind=pixel bbox=(865, 698, 3086, 3331) blend=BlendMode.NORMAL op=255
+[V] Collar kind=solidcolorfill blend=BlendMode.LINEAR_BURN op=255
+[V] Mockup kind=group blend=BlendMode.PASS_THROUGH op=255
+  [V] Design kind=group bbox=(1168, 687, 2807, 3343) blend=BlendMode.PASS_THROUGH op=255
+    [V] Front kind=smartobject bbox=(1168, 687, 2807, 3343) blend=BlendMode.MULTIPLY op=255
+  [V] Sleeves kind=group bbox=(854, 853, 3131, 1815) blend=BlendMode.PASS_THROUGH op=255
+    [V] Left sleeve kind=smartobject bbox=(854, 905, 1636, 1815) blend=BlendMode.MULTIPLY op=255
+    [V] Right sleeve kind=smartobject bbox=(2333, 853, 3131, 1785) blend=BlendMode.MULTIPLY op=255
+  [V] Inside kind=group bbox=(1725, 757, 2248, 899) blend=BlendMode.PASS_THROUGH op=255
+    [V] Inside kind=smartobject bbox=(1725, 757, 2248, 899) blend=BlendMode.MULTIPLY op=255
+  [V] Highlights kind=group bbox=(865, 698, 3086, 3331) blend=BlendMode.SCREEN op=255
+    [V] Highlights kind=pixel bbox=(865, 698, 3086, 3331) blend=BlendMode.SCREEN op=255
+  [V] Contrast kind=group bbox=(0, 0, 0, 0) blend=BlendMode.PASS_THROUGH op=255
+    [V] Contrast kind=curves bbox=(0, 0, 0, 0) blend=BlendMode.NORMAL op=255
+[H] Left sleeve kind=smartobject blend=BlendMode.LINEAR_BURN op=255
+[H] Right sleeve kind=smartobject blend=BlendMode.LINEAR_BURN op=255
+[H] Front kind=smartobject blend=BlendMode.NORMAL op=255
+[H] Inside kind=smartobject blend=BlendMode.MULTIPLY op=255
+[V] Delete this layer  kind=pixel blend=BlendMode.NORMAL op=255

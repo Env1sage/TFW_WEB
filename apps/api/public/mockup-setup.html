@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <title>Mockup Setup — TheFramedWall</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #f5f5f5; padding: 40px; max-width: 1100px; margin: 0 auto; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .subtitle { color: #666; margin-bottom: 30px; }
+    .step { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .step h2 { font-size: 16px; margin-bottom: 12px; color: #333; }
+    .step p { font-size: 14px; color: #666; margin-bottom: 12px; }
+    .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafafa; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #3b82f6; background: #eff6ff; }
+    .drop-zone input { display: none; }
+    .preview-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; }
+    .preview-card { background: #f9f9f9; border: 1px solid #eee; border-radius: 8px; padding: 16px; text-align: center; flex: 1; min-width: 240px; position: relative; }
+    .preview-card canvas { max-width: 100%; max-height: 400px; border-radius: 4px; }
+    .preview-card h3 { font-size: 14px; margin: 8px 0 4px; }
+    .preview-card .dims { font-size: 11px; color: #999; }
+    .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .status { padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; }
+    .status.success { background: #dcfce7; color: #166534; }
+    .status.error { background: #fef2f2; color: #991b1b; }
+    .status.info { background: #dbeafe; color: #1e40af; }
+    .split-controls { margin-top: 16px; padding: 16px; background: #f9fafb; border-radius: 8px; }
+    .split-controls label { font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px; }
+    .split-controls input[type=range] { width: 100%; }
+    .split-val { font-size: 12px; color: #666; }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+    .check-row input[type=checkbox] { width: 16px; height: 16px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .progress-bar { height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+    .progress-bar .fill { height: 100%; background: #3b82f6; transition: width 0.3s; border-radius: 2px; }
+    canvas.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>T-Shirt Mockup Setup</h1>
+  <p class="subtitle">Upload your combined t-shirt image, split it by color, preview the print area, and upload as mockups.</p>
+
+  <!-- STEP 1: Upload -->
+  <div class="step">
+    <h2>Step 1: Upload Combined Mockup Image</h2>
+    <p>Drop or paste your image that contains multiple t-shirt colors (e.g., white on left, black on right).</p>
+    <div class="drop-zone" id="dropZone">
+      <p style="font-size:14px;color:#888;">Drop image here, click to browse, or paste (Ctrl+V)</p>
+      <p style="font-size:12px;color:#aaa;margin-top:4px;">PNG, JPG, or WebP — max 10MB</p>
+      <input type="file" accept="image/*" id="fileInput"/>
+    </div>
+    <div id="sourcePreview" style="display:none;margin-top:16px;">
+      <img id="sourceImg" style="max-width:100%;max-height:400px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"/>
+      <p id="sourceDims" style="font-size:12px;color:#888;margin-top:8px;"></p>
+    </div>
+  </div>
+
+  <!-- STEP 2: Split & Preview -->
+  <div class="step" id="step2" style="display:none;">
+    <h2>Step 2: Split & Preview Print Area</h2>
+    <p>Adjust the split position. The blue dashed rectangle shows the print area where designs will be placed.</p>
+    <div class="split-controls">
+      <label>Split Position: <span id="splitVal" class="split-val">50%</span></label>
+      <input type="range" id="splitSlider" min="20" max="80" value="50" oninput="updateSplit()"/>
+    </div>
+    <div class="preview-row" id="splitPreviews"></div>
+  </div>
+
+  <!-- STEP 3: Assign & Upload -->
+  <div class="step" id="step3" style="display:none;">
+    <h2>Step 3: Upload Mockups</h2>
+    <p>Each split image will be uploaded as <strong>both FRONT and BACK</strong> mockup for the assigned color.</p>
+    <div id="colorAssignments"></div>
+    <div class="check-row">
+      <input type="checkbox" id="uploadBothSides" checked/>
+      <label for="uploadBothSides">Upload as both FRONT and BACK for each color</label>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:12px;">
+      <button class="btn btn-primary" id="uploadBtn" onclick="uploadAll()">Upload All Mockups</button>
+      <a href="/" class="btn btn-success" id="goToEditor" style="display:none;text-decoration:none;line-height:1.5;">Open Designer →</a>
+    </div>
+    <div class="progress-bar" id="progressBar" style="display:none;"><div class="fill" id="progressFill" style="width:0%;"></div></div>
+    <div id="uploadStatus"></div>
+  </div>
+
+  <canvas id="cropCanvas" class="hidden"></canvas>
+
+  <script>
+    var API = window.location.origin;
+    var sourceImage = null;
+    var splitPosition = 50;
+    var product = null;
+    var croppedBlobs = [];
+
+    // Load product data
+    async function loadProduct() {
+      try {
+        var res = await fetch(API + '/admin/products/test-tshirt');
+        product = await res.json();
+      } catch(e) { console.error('Failed to load product:', e); }
+    }
+    loadProduct();
+
+    // Drop zone
+    var dropZone = document.getElementById('dropZone');
+    var fileInput = document.getElementById('fileInput');
+
+    dropZone.onclick = function() { fileInput.click(); };
+    dropZone.ondragover = function(e) { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = function() { dropZone.classList.remove('dragover'); };
+    dropZone.ondrop = function(e) {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    };
+    fileInput.onchange = function(e) { if (e.target.files.length) handleFile(e.target.files[0]); };
+
+    // Clipboard paste support
+    document.addEventListener('paste', function(e) {
+      var items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          handleFile(items[i].getAsFile());
+          break;
+        }
+      }
+    });
+
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) return alert('Please select an image file');
+      var reader = new FileReader();
+      reader.onload = function() {
+        var img = new Image();
+        img.onload = function() {
+          sourceImage = img;
+          document.getElementById('sourcePreview').style.display = 'block';
+          document.getElementById('sourceImg').src = img.src;
+          document.getElementById('sourceDims').textContent = img.naturalWidth + ' x ' + img.naturalHeight + ' px';
+          document.getElementById('step2').style.display = 'block';
+          updateSplit();
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function updateSplit() {
+      if (!sourceImage) return;
+      splitPosition = Number(document.getElementById('splitSlider').value);
+      document.getElementById('splitVal').textContent = splitPosition + '%';
+
+      var cropCanvas = document.getElementById('cropCanvas');
+      var ctx = cropCanvas.getContext('2d');
+      var w = sourceImage.naturalWidth;
+      var h = sourceImage.naturalHeight;
+      var splitX = Math.round(w * splitPosition / 100);
+
+      var leftBlob = cropToBlob(cropCanvas, ctx, sourceImage, 0, 0, splitX, h);
+      var rightBlob = cropToBlob(cropCanvas, ctx, sourceImage, splitX, 0, w - splitX, h);
+
+      Promise.all([leftBlob, rightBlob]).then(function(results) {
+        croppedBlobs = [
+          { blob: results[0], label: 'Left (White)', suggestedColor: 'White', cropW: splitX, cropH: h },
+          { blob: results[1], label: 'Right (Black)', suggestedColor: 'Black', cropW: w - splitX, cropH: h },
+        ];
+        renderSplitPreviews();
+        document.getElementById('step3').style.display = 'block';
+        renderColorAssignments();
+      });
+    }
+
+    function cropToBlob(canvas, ctx, img, sx, sy, sw, sh) {
+      canvas.width = sw;
+      canvas.height = sh;
+      ctx.clearRect(0, 0, sw, sh);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      return new Promise(function(resolve) { canvas.toBlob(resolve, 'image/png'); });
+    }
+
+    function renderSplitPreviews() {
+      var container = document.getElementById('splitPreviews');
+      container.innerHTML = '';
+      croppedBlobs.forEach(function(item, i) {
+        var card = document.createElement('div');
+        card.className = 'preview-card';
+
+        // Create a canvas to show split image WITH print area overlay
+        var previewCanvas = document.createElement('canvas');
+        var cw = item.cropW;
+        var ch = item.cropH;
+        previewCanvas.width = cw;
+        previewCanvas.height = ch;
+        var pCtx = previewCanvas.getContext('2d');
+
+        // Draw the cropped image
+        var url = URL.createObjectURL(item.blob);
+        var tempImg = new Image();
+        tempImg.onload = function() {
+          pCtx.drawImage(tempImg, 0, 0, cw, ch);
+
+          // Draw print area overlay (scaled proportionally to the image)
+          // Canvas in editor is 800x1000, print area is at (240,230,320,360)
+          var pa = getPrintArea();
+          var scaleX = cw / 800;
+          var scaleY = ch / 1000;
+          var px = pa.x * scaleX;
+          var py = pa.y * scaleY;
+          var pw = pa.w * scaleX;
+          var ph = pa.h * scaleY;
+
+          // Semi-transparent overlay outside print area
+          pCtx.fillStyle = 'rgba(0,0,0,0.05)';
+          pCtx.fillRect(0, 0, cw, ch);
+          pCtx.clearRect(px, py, pw, ph);
+          pCtx.drawImage(tempImg, px, py, pw, ph, px, py, pw, ph);
+
+          // Print area border
+          pCtx.strokeStyle = 'rgba(59,130,246,0.6)';
+          pCtx.lineWidth = 2;
+          pCtx.setLineDash([8, 4]);
+          pCtx.strokeRect(px, py, pw, ph);
+
+          // Label
+          pCtx.setLineDash([]);
+          pCtx.fillStyle = 'rgba(59,130,246,0.7)';
+          pCtx.font = 'bold ' + Math.max(12, Math.round(14 * scaleX)) + 'px Inter, Arial, sans-serif';
+          pCtx.textAlign = 'center';
+          pCtx.fillText('PRINT AREA', px + pw / 2, py - 6);
+
+          URL.revokeObjectURL(url);
+        };
+        tempImg.src = url;
+
+        var heading = document.createElement('h3');
+        heading.textContent = item.label;
+        var dims = document.createElement('div');
+        dims.className = 'dims';
+        dims.textContent = item.cropW + ' x ' + item.cropH + ' px (' + Math.round(item.blob.size / 1024) + ' KB)';
+
+        card.appendChild(previewCanvas);
+        card.appendChild(heading);
+        card.appendChild(dims);
+        container.appendChild(card);
+      });
+    }
+
+    function getPrintArea() {
+      if (product && product.printAreas && product.printAreas.length > 0) {
+        var pa = product.printAreas[0];
+        return { x: pa.xPosition, y: pa.yPosition, w: pa.width, h: pa.height };
+      }
+      return { x: 240, y: 230, w: 320, h: 360 };
+    }
+
+    function renderColorAssignments() {
+      if (!product) return;
+      var container = document.getElementById('colorAssignments');
+      container.innerHTML = '';
+      croppedBlobs.forEach(function(item, i) {
+        var div = document.createElement('div');
+        div.style.cssText = 'display:flex;gap:12px;align-items:center;margin-bottom:10px;padding:10px;background:#f9fafb;border-radius:8px;';
+        var colorOpts = product.colors.map(function(c) {
+          return '<option value="' + c.id + '"' + (c.name === item.suggestedColor ? ' selected' : '') + '>' + c.name + ' (' + c.hexCode + ')</option>';
+        }).join('');
+        div.innerHTML =
+          '<span style="font-weight:600;min-width:120px;font-size:13px;">' + item.label + '</span>' +
+          '<span style="font-size:12px;color:#888;">→ Color:</span>' +
+          '<select id="color_' + i + '" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">' + colorOpts + '</select>' +
+          '<span class="badge badge-blue">FRONT + BACK</span>';
+        container.appendChild(div);
+      });
+    }
+
+    async function uploadAll() {
+      var btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+      var statusDiv = document.getElementById('uploadStatus');
+      statusDiv.innerHTML = '';
+      var progressBar = document.getElementById('progressBar');
+      var progressFill = document.getElementById('progressFill');
+      progressBar.style.display = 'block';
+
+      var bothSides = document.getElementById('uploadBothSides').checked;
+      var sides = bothSides ? ['FRONT', 'BACK'] : ['FRONT'];
+      var totalUploads = croppedBlobs.length * sides.length;
+      var completed = 0;
+      var allOk = true;
+
+      for (var i = 0; i < croppedBlobs.length; i++) {
+        var item = croppedBlobs[i];
+        var colorId = document.getElementById('color_' + i).value;
+        var colorName = item.suggestedColor.toLowerCase();
+
+        for (var s = 0; s < sides.length; s++) {
+          var side = sides[s];
+          var formData = new FormData();
+          formData.append('file', item.blob, colorName + '-' + side.toLowerCase() + '.png');
+          formData.append('side', side);
+
+          try {
+            var res = await fetch(API + '/admin/products/colors/' + colorId + '/mockup', {
+              method: 'POST',
+              body: formData,
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            var data = await res.json();
+            statusDiv.innerHTML += '<div class="status success">✓ ' + item.label + ' → ' + side + ' uploaded (' + data.imageUrl + ')</div>';
+          } catch(err) {
+            allOk = false;
+            statusDiv.innerHTML += '<div class="status error">✗ ' + item.label + ' ' + side + ' failed: ' + err.message + '</div>';
+          }
+          completed++;
+          progressFill.style.width = Math.round(completed / totalUploads * 100) + '%';
+        }
+      }
+
+      if (allOk) {
+        statusDiv.innerHTML += '<div class="status info" style="margin-top:8px;font-weight:600;">All mockups uploaded successfully!</div>';
+        document.getElementById('goToEditor').style.display = 'inline-block';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Upload All Mockups';
+    }
+  </script>
+</body>
+</html>

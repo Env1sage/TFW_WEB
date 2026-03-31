@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: tfw_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: tfw
+      POSTGRES_PASSWORD: tfwpassword
+      POSTGRES_DB: tfw_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

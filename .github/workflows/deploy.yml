@@ -1,0 +1,60 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DEPLOY_PATH: /opt/tfw
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install website dependencies
+        working-directory: website
+        run: npm install
+
+      - name: Build client
+        working-directory: website
+        run: npm run build:client
+
+      - name: Build server
+        working-directory: website
+        run: npm run build:server
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            cd ${{ env.DEPLOY_PATH }}
+
+            # Pull latest code
+            git pull origin main
+
+            # Build and restart containers
+            docker compose --env-file .env.production -f docker-compose.prod.yml build --no-cache app
+            docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+
+            # Clean up old images
+            docker image prune -f
+
+            # Health check
+            sleep 10
+            curl -f http://localhost:5000/api/health || (echo "ERROR: Health check failed"; exit 1)
+
+            echo "Deployment complete!"
