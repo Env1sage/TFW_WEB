@@ -12,6 +12,8 @@ jobs:
   build-and-deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
+    env:
+      HAS_DEPLOY_SECRETS: ${{ secrets.VPS_HOST }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,7 +36,7 @@ jobs:
         run: npm run build:server
 
       - name: Deploy to VPS via SSH
-        if: ${{ secrets.VPS_HOST != '' }}
+        if: ${{ env.HAS_DEPLOY_SECRETS != '' }}
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -56,6 +58,6 @@ jobs:
 
             # Health check
             sleep 10
-            curl -f http://localhost:5000/api/health || (echo "ERROR: Health check failed"; exit 1)
+            curl -f http://localhost/api/health || (echo "ERROR: Health check failed"; exit 1)
 
             echo "Deployment complete!"
