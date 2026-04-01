@@ -985,6 +985,40 @@ router.post('/orders/:id/tracking/event', authMiddleware, requireRole('admin', '
   }
 });
 
+/* ── Corporate / Bulk Inquiry Routes ── */
+// Public — anyone can submit
+router.post('/corporate-inquiry', async (req: Request, res: Response) => {
+  try {
+    const { companyName, contactName, email, phone, productInterest, quantity, message } = req.body;
+    if (!companyName || !contactName || !email) return res.status(400).json({ error: 'Company name, contact name, and email are required' });
+    const inquiry = await db.addCorporateInquiry({ companyName, contactName, email, phone: phone || '', productInterest: productInterest || '', quantity: Number(quantity) || 100, message: message || '' });
+    res.json(inquiry);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: list all inquiries
+router.get('/corporate-inquiries', authMiddleware, requireRole('admin', 'order_manager'), async (_req: Request, res: Response) => {
+  try {
+    const inquiries = await db.getCorporateInquiries();
+    res.json(inquiries);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: update inquiry status
+router.put('/corporate-inquiries/:id', authMiddleware, requireRole('admin', 'order_manager'), async (req: Request, res: Response) => {
+  try {
+    const updated = await db.updateInquiryStatus(String(req.params.id), req.body.status, req.body.adminNotes || '');
+    if (!updated) return res.status(404).json({ error: 'Inquiry not found' });
+    res.json(updated);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Get single product (public) — MUST be after all named routes to avoid shadowing
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -1064,40 +1098,6 @@ router.delete('/:id', authMiddleware, requireRole('admin', 'product_manager'), a
     if (!existing) return res.status(404).json({ error: 'Product not found' });
     await db.deleteProduct(String(req.params.id));
     res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/* ── Corporate / Bulk Inquiry Routes ── */
-// Public — anyone can submit
-router.post('/corporate-inquiry', async (req: Request, res: Response) => {
-  try {
-    const { companyName, contactName, email, phone, productInterest, quantity, message } = req.body;
-    if (!companyName || !contactName || !email) return res.status(400).json({ error: 'Company name, contact name, and email are required' });
-    const inquiry = await db.addCorporateInquiry({ companyName, contactName, email, phone: phone || '', productInterest: productInterest || '', quantity: Number(quantity) || 100, message: message || '' });
-    res.json(inquiry);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Admin: list all inquiries
-router.get('/corporate-inquiries', authMiddleware, requireRole('admin', 'order_manager'), async (_req: Request, res: Response) => {
-  try {
-    const inquiries = await db.getCorporateInquiries();
-    res.json(inquiries);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Admin: update inquiry status
-router.put('/corporate-inquiries/:id', authMiddleware, requireRole('admin', 'order_manager'), async (req: Request, res: Response) => {
-  try {
-    const updated = await db.updateInquiryStatus(String(req.params.id), req.body.status, req.body.adminNotes || '');
-    if (!updated) return res.status(404).json({ error: 'Inquiry not found' });
-    res.json(updated);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

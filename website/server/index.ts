@@ -15,8 +15,24 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.API_PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const ALLOWED_ORIGINS = [
+  CLIENT_URL,
+  'http://187.127.141.125',
+  'http://theframedwall.com',
+  'https://theframedwall.com',
+  'http://www.theframedwall.com',
+  'https://www.theframedwall.com',
+];
 
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 

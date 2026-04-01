@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import * as db from '../database.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tfw-secret-key-change-in-prod';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET env var not set'); process.exit(1); }
 
 /* Valid roles (hierarchical): super_admin > admin > product_manager / order_manager > user */
 export const ROLES = ['user', 'order_manager', 'product_manager', 'admin', 'super_admin'] as const;
@@ -13,7 +14,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'No token provided' });
 
   try {
-    const decoded = jwt.verify(header.slice(7), JWT_SECRET) as any;
+    const decoded = jwt.verify(header.slice(7), JWT_SECRET!) as any;
     if (decoded.pending2FA) return res.status(401).json({ error: '2FA verification pending' });
     (req as any).userId = decoded.id;
     (req as any).userRole = decoded.role;
