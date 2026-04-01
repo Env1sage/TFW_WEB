@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" fill="none">
-  <rect width="400" height="500" rx="8" fill="#f5f5f5"/>
-  <rect x="100" y="110" width="200" height="260" rx="12" fill="#e0e0e0" stroke="#ccc" stroke-width="2"/>
-  <ellipse cx="200" cy="110" rx="60" ry="15" fill="#e0e0e0" stroke="#ccc" stroke-width="2"/>
-  <path d="M250 130 Q280 100 280 80 Q280 60 260 60 L260 80" fill="#e0e0e0" stroke="#ccc" stroke-width="2"/>
-  <text x="200" y="450" text-anchor="middle" fill="#999" font-family="system-ui" font-size="16" font-weight="500">Mug</text>
-</svg>

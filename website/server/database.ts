@@ -238,28 +238,6 @@ export async function initDB() {
       FROM website_categories c
       WHERE LOWER(p.category) = LOWER(c.name) AND p.category_id IS NULL;
     `);
-
-    // Replace external Unsplash image URLs with local placeholders (one-time migration)
-    const externalUrlMap: Record<string, string> = {
-      't-shirts': '/placeholders/tshirt.svg',
-      'hoodies': '/placeholders/hoodie.svg',
-      'mugs': '/placeholders/mug.svg',
-      'phone cases': '/placeholders/phone-case.svg',
-      'posters': '/placeholders/poster.svg',
-      'canvas': '/placeholders/canvas.svg',
-      'stickers': '/placeholders/sticker.svg',
-      'tote bags': '/placeholders/tote-bag.svg',
-      'polo t shirt': '/placeholders/polo-tshirt.svg',
-      'roundneck t-shirt': '/placeholders/tshirt.svg',
-    };
-    const { rows: extRows } = await client.query(`SELECT id, category FROM website_products WHERE image LIKE 'https://%'`);
-    if (extRows.length > 0) {
-      for (const row of extRows) {
-        const placeholder = externalUrlMap[row.category.toLowerCase()] || '/placeholders/tshirt.svg';
-        await client.query(`UPDATE website_products SET image = $1 WHERE id = $2`, [placeholder, row.id]);
-      }
-      console.log(`Replaced ${extRows.length} external image URLs with local placeholders`);
-    }
   } finally {
     client.release();
   }
@@ -287,18 +265,18 @@ async function seedCategories(client: pg.PoolClient) {
 
 async function seedProducts(client: pg.PoolClient) {
   const products = [
-    { id: 'prod_1', sku: 'TFW-TS-1001-WHT', name: 'Classic Custom T-Shirt', description: 'Premium 100% combed cotton t-shirt with your custom design. Bio-washed, pre-shrunk, and perfect for everyday wear.', price: 599, category: 'T-Shirts', image: '/placeholders/tshirt.svg', customizable: true, colors: ['#ffffff', '#1a1a1a', '#1b2a4a', '#c0392b', '#2d5a3d'], sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], stock: 150, rating: 4.8, reviewCount: 234, featured: true },
-    { id: 'prod_2', sku: 'TFW-HD-1001-BLK', name: 'Premium Custom Hoodie', description: 'Cozy fleece-lined hoodie with custom print. 300 GSM terry cotton, warm and uniquely yours.', price: 1299, category: 'Hoodies', image: '/placeholders/hoodie.svg', customizable: true, colors: ['#1a1a1a', '#1b2a4a', '#36454f', '#6b1c23', '#ffffff'], sizes: ['S', 'M', 'L', 'XL', 'XXL'], stock: 80, rating: 4.7, reviewCount: 156, featured: true },
-    { id: 'prod_3', sku: 'TFW-MG-1001-WHT', name: 'Personalized Ceramic Mug', description: 'High-quality 11oz ceramic mug with vibrant custom print. Dishwasher & microwave safe.', price: 399, category: 'Mugs', image: '/placeholders/mug.svg', customizable: true, colors: ['#ffffff'], sizes: ['11oz', '15oz'], stock: 200, rating: 4.9, reviewCount: 312, featured: true },
-    { id: 'prod_4', sku: 'TFW-PC-1001-WHT', name: 'Custom Phone Case', description: 'Slim-fit protective phone case with your design. Impact-resistant and scratch-proof.', price: 499, category: 'Phone Cases', image: '/placeholders/phone-case.svg', customizable: true, colors: ['#ffffff', '#1a1a1a', '#87ceeb'], sizes: ['iPhone 14', 'iPhone 15', 'iPhone 16', 'Samsung S24', 'Pixel 8'], stock: 120, rating: 4.6, reviewCount: 189, featured: false },
-    { id: 'prod_5', sku: 'TFW-PS-1001', name: 'Custom Art Poster', description: 'Museum-quality poster printed on thick, durable matte paper. Perfect for any room.', price: 449, category: 'Posters', image: '/placeholders/poster.svg', customizable: true, colors: [], sizes: ['12x16', '18x24', '24x36'], stock: 300, rating: 4.8, reviewCount: 267, featured: true },
-    { id: 'prod_6', sku: 'TFW-CV-1001', name: 'Canvas Print', description: 'Gallery-wrapped canvas with your custom artwork. Ready to hang with a modern edge.', price: 999, category: 'Canvas', image: '/placeholders/canvas.svg', customizable: true, colors: [], sizes: ['8x10', '16x20', '24x36', '30x40'], stock: 60, rating: 4.9, reviewCount: 98, featured: true },
-    { id: 'prod_7', sku: 'TFW-ST-1001', name: 'Custom Vinyl Stickers', description: 'Weather-resistant vinyl sticker pack with your designs. Perfect for laptops, bottles, and more.', price: 199, category: 'Stickers', image: '/placeholders/sticker.svg', customizable: true, colors: [], sizes: ['3 Pack', '6 Pack', '12 Pack'], stock: 500, rating: 4.7, reviewCount: 421, featured: false },
-    { id: 'prod_8', sku: 'TFW-TB-1001-WHT', name: 'Custom Tote Bag', description: 'Durable cotton canvas tote with custom print. Eco-friendly and stylish for everyday use.', price: 349, category: 'Tote Bags', image: '/placeholders/tote-bag.svg', customizable: true, colors: ['#ffffff', '#1a1a1a', '#c2b280'], sizes: ['Standard'], stock: 100, rating: 4.5, reviewCount: 143, featured: false },
-    { id: 'prod_9', sku: 'TFW-TS-1002-AOP', name: 'All-Over Print Tee', description: 'Full sublimation print t-shirt. Your design wraps around the entire shirt for maximum impact.', price: 899, category: 'T-Shirts', image: '/placeholders/tshirt.svg', customizable: true, colors: [], sizes: ['S', 'M', 'L', 'XL'], stock: 70, rating: 4.6, reviewCount: 87, featured: false },
-    { id: 'prod_10', sku: 'TFW-HD-1002-ZIP', name: 'Custom Zip Hoodie', description: 'Full-zip hoodie with custom design. 300 GSM, perfect layering piece for any season.', price: 1499, category: 'Hoodies', image: '/placeholders/hoodie.svg', customizable: true, colors: ['#1a1a1a', '#36454f', '#1b2a4a'], sizes: ['S', 'M', 'L', 'XL', 'XXL'], stock: 55, rating: 4.8, reviewCount: 67, featured: false },
-    { id: 'prod_11', sku: 'TFW-MG-1002-TRV', name: 'Travel Mug', description: 'Stainless steel insulated travel mug with custom print. Keeps drinks hot for 12 hours.', price: 649, category: 'Mugs', image: '/placeholders/mug.svg', customizable: true, colors: ['#ffffff', '#1a1a1a'], sizes: ['16oz', '20oz'], stock: 90, rating: 4.7, reviewCount: 134, featured: false },
-    { id: 'prod_12', sku: 'TFW-CV-1002-FRM', name: 'Framed Art Print', description: 'Custom art in a sleek modern frame. Premium paper with vivid colour reproduction.', price: 1299, category: 'Canvas', image: '/placeholders/canvas.svg', customizable: true, colors: [], sizes: ['8x10', '11x14', '16x20'], stock: 45, rating: 4.9, reviewCount: 76, featured: true },
+    { id: 'prod_1', sku: 'TFW-TS-1001-WHT', name: 'Classic Custom T-Shirt', description: 'Premium 100% combed cotton t-shirt with your custom design. Bio-washed, pre-shrunk, and perfect for everyday wear.', price: 599, category: 'T-Shirts', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500', customizable: true, colors: ['#ffffff', '#1a1a1a', '#1b2a4a', '#c0392b', '#2d5a3d'], sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], stock: 150, rating: 4.8, reviewCount: 234, featured: true },
+    { id: 'prod_2', sku: 'TFW-HD-1001-BLK', name: 'Premium Custom Hoodie', description: 'Cozy fleece-lined hoodie with custom print. 300 GSM terry cotton, warm and uniquely yours.', price: 1299, category: 'Hoodies', image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', customizable: true, colors: ['#1a1a1a', '#1b2a4a', '#36454f', '#6b1c23', '#ffffff'], sizes: ['S', 'M', 'L', 'XL', 'XXL'], stock: 80, rating: 4.7, reviewCount: 156, featured: true },
+    { id: 'prod_3', sku: 'TFW-MG-1001-WHT', name: 'Personalized Ceramic Mug', description: 'High-quality 11oz ceramic mug with vibrant custom print. Dishwasher & microwave safe.', price: 399, category: 'Mugs', image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=500', customizable: true, colors: ['#ffffff'], sizes: ['11oz', '15oz'], stock: 200, rating: 4.9, reviewCount: 312, featured: true },
+    { id: 'prod_4', sku: 'TFW-PC-1001-WHT', name: 'Custom Phone Case', description: 'Slim-fit protective phone case with your design. Impact-resistant and scratch-proof.', price: 499, category: 'Phone Cases', image: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=500', customizable: true, colors: ['#ffffff', '#1a1a1a', '#87ceeb'], sizes: ['iPhone 14', 'iPhone 15', 'iPhone 16', 'Samsung S24', 'Pixel 8'], stock: 120, rating: 4.6, reviewCount: 189, featured: false },
+    { id: 'prod_5', sku: 'TFW-PS-1001', name: 'Custom Art Poster', description: 'Museum-quality poster printed on thick, durable matte paper. Perfect for any room.', price: 449, category: 'Posters', image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=500', customizable: true, colors: [], sizes: ['12x16', '18x24', '24x36'], stock: 300, rating: 4.8, reviewCount: 267, featured: true },
+    { id: 'prod_6', sku: 'TFW-CV-1001', name: 'Canvas Print', description: 'Gallery-wrapped canvas with your custom artwork. Ready to hang with a modern edge.', price: 999, category: 'Canvas', image: 'https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?w=500', customizable: true, colors: [], sizes: ['8x10', '16x20', '24x36', '30x40'], stock: 60, rating: 4.9, reviewCount: 98, featured: true },
+    { id: 'prod_7', sku: 'TFW-ST-1001', name: 'Custom Vinyl Stickers', description: 'Weather-resistant vinyl sticker pack with your designs. Perfect for laptops, bottles, and more.', price: 199, category: 'Stickers', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=500', customizable: true, colors: [], sizes: ['3 Pack', '6 Pack', '12 Pack'], stock: 500, rating: 4.7, reviewCount: 421, featured: false },
+    { id: 'prod_8', sku: 'TFW-TB-1001-WHT', name: 'Custom Tote Bag', description: 'Durable cotton canvas tote with custom print. Eco-friendly and stylish for everyday use.', price: 349, category: 'Tote Bags', image: 'https://images.unsplash.com/photo-1597633425046-08f5110420b5?w=500', customizable: true, colors: ['#ffffff', '#1a1a1a', '#c2b280'], sizes: ['Standard'], stock: 100, rating: 4.5, reviewCount: 143, featured: false },
+    { id: 'prod_9', sku: 'TFW-TS-1002-AOP', name: 'All-Over Print Tee', description: 'Full sublimation print t-shirt. Your design wraps around the entire shirt for maximum impact.', price: 899, category: 'T-Shirts', image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=500', customizable: true, colors: [], sizes: ['S', 'M', 'L', 'XL'], stock: 70, rating: 4.6, reviewCount: 87, featured: false },
+    { id: 'prod_10', sku: 'TFW-HD-1002-ZIP', name: 'Custom Zip Hoodie', description: 'Full-zip hoodie with custom design. 300 GSM, perfect layering piece for any season.', price: 1499, category: 'Hoodies', image: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500', customizable: true, colors: ['#1a1a1a', '#36454f', '#1b2a4a'], sizes: ['S', 'M', 'L', 'XL', 'XXL'], stock: 55, rating: 4.8, reviewCount: 67, featured: false },
+    { id: 'prod_11', sku: 'TFW-MG-1002-TRV', name: 'Travel Mug', description: 'Stainless steel insulated travel mug with custom print. Keeps drinks hot for 12 hours.', price: 649, category: 'Mugs', image: 'https://images.unsplash.com/photo-1577937927133-66ef06acdf18?w=500', customizable: true, colors: ['#ffffff', '#1a1a1a'], sizes: ['16oz', '20oz'], stock: 90, rating: 4.7, reviewCount: 134, featured: false },
+    { id: 'prod_12', sku: 'TFW-CV-1002-FRM', name: 'Framed Art Print', description: 'Custom art in a sleek modern frame. Premium paper with vivid colour reproduction.', price: 1299, category: 'Canvas', image: 'https://images.unsplash.com/photo-1513519245088-0e12902e35ca?w=500', customizable: true, colors: [], sizes: ['8x10', '11x14', '16x20'], stock: 45, rating: 4.9, reviewCount: 76, featured: true },
   ];
   for (const p of products) {
     await client.query(

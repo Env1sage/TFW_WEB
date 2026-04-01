@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" fill="none">
-  <rect width="400" height="500" rx="8" fill="#f5f5f5"/>
-  <path d="M120 130 L80 160 L60 220 L100 240 L115 180 L115 380 L285 380 L285 180 L300 240 L340 220 L320 160 L280 130 L240 140 Q200 170 160 140 Z" fill="#e0e0e0" stroke="#ccc" stroke-width="2"/>
-  <path d="M180 130 L190 160 L200 155 L210 160 L220 130" fill="none" stroke="#ccc" stroke-width="2"/>
-  <text x="200" y="450" text-anchor="middle" fill="#999" font-family="system-ui" font-size="16" font-weight="500">Polo T-Shirt</text>
-</svg>
