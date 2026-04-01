@@ -72,11 +72,35 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Global error handling middleware
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[Error]', err.message || err);
+  res.status(err.status || 500).json({ error: 'Internal server error' });
+});
+
+// Process-level error handlers
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled Rejection:', reason);
+  process.exit(1);
+});
+
 // Initialize PostgreSQL tables & seed, then start
 initDB()
   .then(() => {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`API server running on http://localhost:${PORT} (PostgreSQL)`);
+    });
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, closing gracefully...');
+      server.close(async () => {
+        await pool.end();
+        process.exit(0);
+      });
     });
   })
   .catch((err) => {

@@ -34,6 +34,7 @@ jobs:
         run: npm run build:server
 
       - name: Deploy to VPS via SSH
+        if: ${{ secrets.VPS_HOST != '' }}
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}

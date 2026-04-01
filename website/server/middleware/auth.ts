@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import * as db from '../database.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET env var not set'); process.exit(1); }
+if (!JWT_SECRET || JWT_SECRET.trim().length === 0) { console.error('FATAL: JWT_SECRET env var not set or empty'); process.exit(1); }
 
 /* Valid roles (hierarchical): super_admin > admin > product_manager / order_manager > user */
 export const ROLES = ['user', 'order_manager', 'product_manager', 'admin', 'super_admin'] as const;
