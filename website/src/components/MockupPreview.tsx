@@ -9,7 +9,10 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   if (cached?.complete && cached.naturalWidth > 0) return Promise.resolve(cached);
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for external URLs; local paths served by nginx don't need CORS
+    if (/^https?:\/\//.test(src)) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => { imgCache.set(src, img); resolve(img); };
     img.onerror = reject;
     img.src = src;
