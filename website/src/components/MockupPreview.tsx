@@ -153,14 +153,11 @@ function getFrontPrintArea(mockup: ProductMockup): { left: number; top: number; 
 export default function MockupPreview({ category, designImage, color = '#ffffff', className, mockup }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
-  const [imgError, setImgError] = useState(false);
 
-  // Show mockup if we have mockup data — even for external design images (show colored blank shirt)
-  const hasMockup = !!mockup?.frontImage;
-  const hasLocalDesign = isDesignArtwork(designImage);
+  const shouldMockup = !!mockup?.frontImage && isDesignArtwork(designImage);
 
   const render = useCallback(async () => {
-    if (!hasMockup || !canvasRef.current || !mockup) { setState('fallback'); return; }
+    if (!shouldMockup || !canvasRef.current || !mockup) { setState('fallback'); return; }
     const printArea = getFrontPrintArea(mockup);
     if (!printArea) { setState('fallback'); return; }
     try {
@@ -171,8 +168,7 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
 
       const [base, design, dropShadow, highlights] = await Promise.all([
         loadImg(baseSrc),
-        // Only load design if it's a local upload (external URLs hit CORS on canvas)
-        hasLocalDesign ? loadImg(designImage).catch(() => null) : Promise.resolve(null),
+        loadImg(designImage).catch(() => null),
         shadowSrc ? loadImg(shadowSrc).catch(() => null) : Promise.resolve(null),
         loadImg(highlightsSrc).catch(() => null),
       ]);
@@ -185,20 +181,13 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
     } catch {
       setState('fallback');
     }
-  }, [hasMockup, hasLocalDesign, designImage, color, mockup]);
+  }, [shouldMockup, designImage, color, mockup]);
 
   useEffect(() => { setState('loading'); render(); }, [render]);
 
-  // No mockup data → show product photo directly with broken-image fallback
-  if (!hasMockup || state === 'fallback') {
-    if (imgError) {
-      return (
-        <div className={`mockup-placeholder ${className || ''}`}>
-          <span>{category || 'Product'}</span>
-        </div>
-      );
-    }
-    return <img src={designImage} alt="Product" className={className} loading="lazy" onError={() => setImgError(true)} />;
+  // No mockup data or not a design artwork → show product photo directly
+  if (!shouldMockup || state === 'fallback') {
+    return <img src={designImage} alt="Product" className={className} loading="lazy" />;
   }
 
   return (
