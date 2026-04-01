@@ -1,0 +1,21 @@
+; Zone file for theframedwall.com
+; Generated on 2026-04-01 06:00:18 UTC
+
+$ORIGIN theframedwall.com
+$TTL 3600
+
+@                              3600 IN SOA   ns1.dns-parking.com. dns.hostinger.com. 2024051700 10000 2400 604800 600
+@                              600 IN A     187.127.141.125
+                               600 IN A     91.108.107.160
+@                              14400 IN MX    10 mx2.hostinger.com
+                               14400 IN MX    5 mx1.hostinger.com
+@                              86400 IN NS    ns1.dns-parking.com.
+                               86400 IN NS    ns2.dns-parking.com.
+@                              3600 IN TXT   "v=spf1 include:_spf.mail.hostinger.com ~all"
+_dmarc                         3600 IN TXT   "v=DMARC1; p=none"
+autoconfig                     300 IN CNAME autoconfig.mail.hostinger.com.
+autodiscover                   300 IN CNAME autodiscover.mail.hostinger.com.
+ftp                            1800 IN A     91.108.107.160
+hostingermail-a._domainkey     300 IN CNAME hostingermail-a.dkim.mail.hostinger.com.
+hostingermail-b._domainkey     300 IN CNAME hostingermail-b.dkim.mail.hostinger.com.
+hostingermail-c._domainkey     300 IN CNAME hostingermail-c.dkim.mail.hostinger.com.

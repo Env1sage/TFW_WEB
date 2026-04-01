@@ -29,7 +29,7 @@ export default function Payment() {
   const { clearCart } = useCart();
   const state = location.state as PaymentPageState | null;
 
-  const [rpOrder,       setRpOrder]       = useState<{ orderId: string; amount: number; currency: string; keyId: string } | null>(null);
+  const [rpOrder,       setRpOrder]       = useState<{ orderId: string; amount: number; currency: string; keyId: string; simulated?: boolean } | null>(null);
   const [loadingOrder,  setLoadingOrder]  = useState(true);
   const [processing,    setProcessing]    = useState(false);
 
@@ -99,6 +99,13 @@ export default function Payment() {
   /* ── Real Razorpay checkout popup ── */
   const handleRazorpayPayment = () => {
     if (!rpOrder || !user || !state) return;
+
+    // Simulated mode (Razorpay keys not configured on server)
+    if (rpOrder.simulated) {
+      placeAfterPayment({ razorpayOrderId: rpOrder.orderId, paymentId: `sim_pay_${Date.now()}` });
+      return;
+    }
+
     setProcessing(true);
     const options = {
       key:         rpOrder.keyId,
