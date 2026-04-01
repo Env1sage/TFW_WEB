@@ -45,8 +45,8 @@ app.use('/api/auth/verify-2fa', authLimiter);
 app.use('/api/products/corporate-inquiry', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: 'Too many inquiries, try again later' } }));
 app.use('/api', apiLimiter);
 
-// Serve uploaded mockup images
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Serve uploaded files — in production __dirname is /app/dist/server, uploads are at /app/uploads
+app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
