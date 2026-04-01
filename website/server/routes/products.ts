@@ -17,6 +17,15 @@ const SHIPROCKET_BASE = 'https://apiv2.shiprocket.in/v1/external';
 let _srToken: string | null = null;
 let _srTokenExpiry: number = 0;
 
+async function safeJsonParse(res: globalThis.Response): Promise<any> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Shiprocket returned non-JSON (HTTP ${res.status}): ${text.substring(0, 200)}`);
+  }
+}
+
 async function getShiprocketToken(): Promise<string> {
   const email = process.env.SHIPROCKET_EMAIL;
   const password = process.env.SHIPROCKET_PASSWORD;
@@ -27,7 +36,7 @@ async function getShiprocketToken(): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json() as any;
+  const data = await safeJsonParse(res);
   if (!res.ok || !data.token) throw new Error(data.message || 'Shiprocket auth failed');
   _srToken = data.token;
   _srTokenExpiry = Date.now() + 23 * 60 * 60 * 1000; // 23 hours
@@ -41,9 +50,52 @@ async function shiprocketRequest(method: string, endpoint: string, body?: object
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json() as any;
-  if (!res.ok) throw new Error(data.message || `Shiprocket API error: ${res.status}`);
+  const data = await safeJsonParse(res);
+  if (!res.ok) {
+    const errMsg = data?.errors ? JSON.stringify(data.errors) : (data?.message || `Shiprocket API error: ${res.status}`);
+    throw new Error(errMsg);
+  }
   return data;
+}
+
+// Parse shipping address into Shiprocket-compatible fields
+function parseShippingAddress(address: string, fallbackName?: string, fallbackEmail?: string) {
+  const lines = address.split('\n').map(l => l.trim()).filter(Boolean);
+  const nameLine = lines[0] || '';
+  const addrLine = lines[1] || '';
+  const cityStatePinLine = lines[2] || '';
+
+  const namePhone = nameLine.split(',').map(s => s.trim());
+  const customerName = namePhone[0] || fallbackName || 'Customer';
+  // Strip country code (+91, 91, 0) from phone — Shiprocket needs 10 digits only
+  let phone = (namePhone[1] || '').replace(/[^\d]/g, '');
+  if (phone.length > 10) phone = phone.slice(-10);
+  if (phone.length < 10) phone = '9000000000';
+
+  // Extract pincode — look for 6-digit number anywhere in address
+  const pincodeMatch = address.match(/\b(\d{6})\b/);
+  const pincode = pincodeMatch ? pincodeMatch[1] : '400001';
+
+  // Parse city, state from last line: "city, state - pincode" or "city, state pincode"
+  const cityStatePin = cityStatePinLine.split(',');
+  const city = cityStatePin[0]?.trim() || 'Mumbai';
+  // State: remove pincode from the state part
+  const statePart = (cityStatePin[1] || '').trim();
+  const state = statePart.replace(/[-–]?\s*\d{6}/, '').trim() || 'Maharashtra';
+
+  return {
+    billing_customer_name: customerName.substring(0, 50),
+    billing_last_name: '',
+    billing_address: addrLine || address.replace(/\n/g, ', '),
+    billing_address_2: '',
+    billing_city: city.substring(0, 50),
+    billing_pincode: pincode,
+    billing_state: state.substring(0, 50),
+    billing_country: 'India',
+    billing_email: fallbackEmail || '',
+    billing_phone: phone,
+    shipping_is_billing: true,
+  };
 }
 
 // ── Shiprocket status sync helper ──
@@ -798,16 +850,7 @@ router.post('/orders/:id/create-shipment', authMiddleware, requireRole('admin', 
       return res.status(409).json({ error: 'Shipment already exists for this order', shipment: existing });
     }
 
-    // Parse address from the stored string format: "Name, Phone\nLine1, Line2\nCity, State - Pincode"
-    const lines = order.shippingAddress.split('\n');
-    const nameLine = lines[0] || '';
-    const addrLine = lines[1] || '';
-    const cityStatePinLine = lines[2] || '';
-    const namePhone = nameLine.split(',').map(s => s.trim());
-    const cityStatePin = cityStatePinLine.split(',');
-    const cityPart = cityStatePin[0]?.trim() || '';
-    const statePinPart = cityStatePin[1]?.trim() || '';
-    const statePin = statePinPart.split('-').map(s => s.trim());
+    const addressFields = parseShippingAddress(order.shippingAddress, order.customerName, order.customerEmail);
 
     // Merge any body overrides (admin can supply weight/dimensions)
     const { weight = 0.5, length = 30, breadth = 20, height = 5 } = req.body;
@@ -828,16 +871,7 @@ router.post('/orders/:id/create-shipment', authMiddleware, requireRole('admin', 
       order_id: `TFW-${orderId.slice(0, 12)}`,
       order_date: new Date(order.createdAt).toISOString().split('T')[0],
       pickup_location: pickupLocation,
-      billing_customer_name: namePhone[0] || 'Customer',
-      billing_last_name: '',
-      billing_address: addrLine || order.shippingAddress,
-      billing_city: cityPart || 'Mumbai',
-      billing_pincode: statePin[1] || '400001',
-      billing_state: statePin[0] || 'Maharashtra',
-      billing_country: 'India',
-      billing_email: order.customerEmail || '',
-      billing_phone: namePhone[1] || '9000000000',
-      shipping_is_billing: true,
+      ...addressFields,
       order_items: order.items.map((item: any) => ({
         name: item.productName || 'Custom Item',
         sku: item.productId || 'CUSTOM',
@@ -849,7 +883,7 @@ router.post('/orders/:id/create-shipment', authMiddleware, requireRole('admin', 
       length, breadth, height, weight,
     };
 
-    console.log('[Shiprocket] Creating order with pickup:', pickupLocation);
+    console.log('[Shiprocket] Creating order payload:', JSON.stringify(srPayload, null, 2).substring(0, 500));
     const srResponse = await shiprocketRequest('POST', '/orders/create/adhoc', srPayload);
     console.log('[Shiprocket] Response:', JSON.stringify(srResponse).substring(0, 300));
 
@@ -891,16 +925,7 @@ router.post('/design-orders/:id/create-shipment', authMiddleware, requireRole('a
       return res.status(409).json({ error: 'Shipment already exists for this order', shipment: existing });
     }
 
-    // Parse address from the stored string format: "Name, Phone\nLine1, Line2\nCity, State - Pincode"
-    const lines = order.shippingAddress.split('\n');
-    const nameLine = lines[0] || '';
-    const addrLine = lines[1] || '';
-    const cityStatePinLine = lines[2] || '';
-    const namePhone = nameLine.split(',').map(s => s.trim());
-    const cityStatePin = cityStatePinLine.split(',');
-    const cityPart = cityStatePin[0]?.trim() || '';
-    const statePinPart = cityStatePin[1]?.trim() || '';
-    const statePin = statePinPart.split('-').map(s => s.trim());
+    const addressFields = parseShippingAddress(order.shippingAddress, order.customerName, order.customerEmail);
 
     const { weight = 0.5, length = 30, breadth = 20, height = 5 } = req.body;
     let { pickupLocation } = req.body;
@@ -919,16 +944,7 @@ router.post('/design-orders/:id/create-shipment', authMiddleware, requireRole('a
       order_id: `TFW-D-${orderId.slice(0, 10)}`,
       order_date: new Date(order.createdAt).toISOString().split('T')[0],
       pickup_location: pickupLocation,
-      billing_customer_name: namePhone[0] || order.customerName || 'Customer',
-      billing_last_name: '',
-      billing_address: addrLine || order.shippingAddress,
-      billing_city: cityPart || 'Mumbai',
-      billing_pincode: statePin[1] || '400001',
-      billing_state: statePin[0] || 'Maharashtra',
-      billing_country: 'India',
-      billing_email: order.customerEmail || '',
-      billing_phone: namePhone[1] || '9000000000',
-      shipping_is_billing: true,
+      ...addressFields,
       order_items: [{
         name: `Custom ${order.productType}`,
         sku: `CUSTOM-${order.productType.toUpperCase().replace(/\s+/g, '-')}`,
@@ -940,7 +956,7 @@ router.post('/design-orders/:id/create-shipment', authMiddleware, requireRole('a
       length, breadth, height, weight,
     };
 
-    console.log('[Shiprocket] Creating design order with pickup:', pickupLocation);
+    console.log('[Shiprocket] Creating design order payload:', JSON.stringify(srPayload, null, 2).substring(0, 500));
     const srResponse = await shiprocketRequest('POST', '/orders/create/adhoc', srPayload);
     console.log('[Shiprocket] Response:', JSON.stringify(srResponse).substring(0, 300));
 
