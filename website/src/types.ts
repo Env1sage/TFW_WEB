@@ -52,8 +52,36 @@ export interface Order {
   total: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shippingAddress: string;
+  razorpayOrderId?: string;
+  paymentId?: string;
+  paymentStatus?: string;
+  couponCode?: string;
+  discountAmount?: number;
   customerName?: string;
   customerEmail?: string;
+  createdAt: string;
+  shipment?: {
+    id: string; orderId: string;
+    shiprocketOrderId?: string; shiprocketShipmentId?: string;
+    awbCode?: string; courierName?: string;
+    status: string; trackingData?: any; createdAt: string;
+  };
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  description: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minOrderAmount: number;
+  maxUses: number | null;
+  useCount: number;
+  validFrom: string | null;
+  validUntil: string | null;
+  active: boolean;
+  popupEnabled: boolean;
+  popupMessage: string;
   createdAt: string;
 }
 

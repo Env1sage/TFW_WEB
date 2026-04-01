@@ -8,7 +8,11 @@ import * as db from '../database.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'tfw-secret-key-change-in-prod';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set');
+  process.exit(1);
+}
 
 // Register
 router.post('/register', async (req: Request, res: Response) => {

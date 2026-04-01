@@ -21,7 +21,6 @@ import TwoFactorSetup from './pages/TwoFactorSetup';
 import TwoFactorVerify from './pages/TwoFactorVerify';
 import Profile from './pages/Profile';
 import Orders from './pages/Orders';
-import SavedDesigns from './pages/SavedDesigns';
 import Admin from './pages/Admin';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -29,6 +28,9 @@ import FAQ from './pages/FAQ';
 import CorporateInquiry from './pages/CorporateInquiry';
 import Customizer from './pages/Customizer';
 import DesignStudioCart from './pages/DesignStudioCart';
+import Payment from './pages/Payment';
+import PaymentSuccess from './pages/PaymentSuccess';
+import OrderTracking from './pages/OrderTracking';
 
 function AppContent() {
   const location = useLocation();
@@ -68,13 +70,15 @@ function AppContent() {
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id" element={<ProductDetail />} />
               <Route path="/cart" element={<Cart />} />
+              <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
+              <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
+              <Route path="/orders/:id/track" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/2fa-verify" element={<TwoFactorVerify />} />
               <Route path="/2fa-setup" element={<ProtectedRoute><TwoFactorSetup /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-              <Route path="/saved-designs" element={<ProtectedRoute><SavedDesigns /></ProtectedRoute>} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/faq" element={<FAQ />} />

@@ -1,10 +1,12 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, User, LogOut, Shield, Menu, X, Search, Package, Palette, Truck, Bookmark, Shirt, Coffee, Smartphone, Image, Frame, Sticker, ShoppingBag, Sparkles, ArrowRight, Moon, Sun } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Shield, Menu, X, Search, Package, Palette, Truck, Shirt, Coffee, Smartphone, Image, Frame, Sticker, ShoppingBag, Sparkles, ArrowRight, Moon, Sun, Tag, Copy, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { api } from '../api';
+import type { Coupon } from '../types';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -17,6 +19,44 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
   const [annClosed, setAnnClosed] = useState(false);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponIdx, setCouponIdx] = useState(0);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Fetch active coupons
+  useEffect(() => {
+    const fetchCoupons = () => api.getActiveCoupons().then(c => setCoupons(c)).catch(() => {});
+    fetchCoupons();
+    const poll = setInterval(fetchCoupons, 30_000); // re-fetch every 30s
+    return () => clearInterval(poll);
+  }, []);
+
+  // Rotate coupons every 5 seconds
+  useEffect(() => {
+    if (coupons.length <= 1) return;
+    const interval = setInterval(() => {
+      setCouponIdx(prev => (prev + 1) % coupons.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [coupons.length]);
+
+  const copyCode = useCallback((code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  }, []);
+
+  const currentCoupon = coupons[couponIdx];
+
+  const formatCouponMessage = (coupon: Coupon) => {
+    const val = coupon.discountType === 'percentage'
+      ? `${coupon.discountValue}%`
+      : `₹${coupon.discountValue}`;
+    if (coupon.popupMessage) return coupon.popupMessage;
+    const minText = coupon.minOrderAmount > 0 ? ` on orders above ₹${coupon.minOrderAmount}` : '';
+    return `Get ${val} OFF${minText}`;
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,11 +77,45 @@ export default function Navbar() {
 
   return (
     <>
-      {!annClosed && (
+      {!annClosed && currentCoupon && (
         <div className="announcement-bar">
-          <Truck size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.35rem' }} />
-          <strong>Free Shipping</strong> on orders above ₹999 · Use code{' '}
-          <strong style={{ color: 'var(--accent)' }}>WELCOME10</strong> for 10% off your first order
+          <div className="ann-shimmer" />
+          <div className="ann-confetti-container">
+            <span className="ann-conf ann-conf-1" />
+            <span className="ann-conf ann-conf-2" />
+            <span className="ann-conf ann-conf-3" />
+            <span className="ann-conf ann-conf-4" />
+            <span className="ann-conf ann-conf-5" />
+            <span className="ann-conf ann-conf-6" />
+            <span className="ann-conf ann-conf-7" />
+            <span className="ann-conf ann-conf-8" />
+          </div>
+          <div className="ann-content">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentCoupon.id}
+                className="ann-slide"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Sparkles size={14} className="ann-sparkle" />
+                <span className="ann-text">{formatCouponMessage(currentCoupon)}</span>
+                <span className="ann-separator">·</span>
+                <span className="ann-use-label">Use code</span>
+                <button className="ann-code-btn" onClick={() => copyCode(currentCoupon.code)}>
+                  <span className="ann-code">{currentCoupon.code}</span>
+                  {copiedCode === currentCoupon.code ? (
+                    <CheckCircle size={12} className="ann-copy-icon ann-copied" />
+                  ) : (
+                    <Copy size={12} className="ann-copy-icon" />
+                  )}
+                </button>
+                <Sparkles size={14} className="ann-sparkle" />
+              </motion.div>
+            </AnimatePresence>
+          </div>
           <button className="ann-close" onClick={() => setAnnClosed(true)} aria-label="Close">×</button>
         </div>
       )}
@@ -100,9 +174,6 @@ export default function Navbar() {
                     </Link>
                     <Link to="/orders" className="dropdown-item" onClick={() => setProfileOpen(false)}>
                       <Package size={16} /> My Orders
-                    </Link>
-                    <Link to="/saved-designs" className="dropdown-item" onClick={() => setProfileOpen(false)}>
-                      <Bookmark size={16} /> Saved Designs
                     </Link>
                     {user.role && ['admin', 'super_admin', 'product_manager', 'order_manager'].includes(user.role) && (
                       <Link to="/admin" className="dropdown-item" onClick={() => setProfileOpen(false)}>

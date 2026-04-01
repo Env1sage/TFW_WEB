@@ -22,7 +22,7 @@ const categories = [
 const testimonials = [
   { name: 'Aarav Sharma', city: 'Delhi', avatar: 'A', rating: 5, text: 'Absolutely love the quality! Ordered custom t-shirts for my college fest and everyone was blown away. Super easy designer tool and fast delivery.' },
   { name: 'Priya Mehta', city: 'Mumbai', avatar: 'P', rating: 5, text: 'TheFramedWall delivered exactly what I designed. The print quality is outstanding and the hoodie fabric is really premium. Will order again!' },
-  { name: 'Rohan Gupta', city: 'Bangalore', avatar: 'R', rating: 5, text: 'Used them for my startup merchandise. The design studio is incredibly intuitive â€” placed front & back prints with ease. Highly recommended!' },
+  { name: 'Rohan Gupta', city: 'Bangalore', avatar: 'R', rating: 5, text: 'Used them for my startup merchandise. The design studio is incredibly intuitive — placed front & back prints with ease. Highly recommended!' },
   { name: 'Sneha Patel', city: 'Ahmedabad', avatar: 'S', rating: 4, text: 'Great experience from start to finish. The customizable canvas prints look stunning in my home office. Packaging was also very careful.' },
   { name: 'Karan Verma', city: 'Pune', avatar: 'K', rating: 5, text: 'Ordered bulk tees for our sports team. The quality is consistent across all pieces and the turnaround time was impressive. 10/10!' },
   { name: 'Ananya Singh', city: 'Hyderabad', avatar: 'A', rating: 5, text: 'The tote bags I designed for my brand promotion turned out perfect! Every detail came through clearly. Excellent value for money.' },
@@ -44,7 +44,7 @@ export default function Home() {
 
   return (
     <div className="home-page">
-      {/* Hero â€” Dark Bold */}
+      {/* Hero — Dark Bold */}
       <section className="hero">
         <div className="hero-bg">
           <div className="hero-glow-1" />
@@ -55,7 +55,7 @@ export default function Home() {
           <motion.div className="hero-content" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
             <span className="hero-eyebrow"><Flag size={14} /> India's #1 Custom Print Studio</span>
             <h1>Design Your Vision.<br /><span className="gradient-text">Print Your Story.</span></h1>
-            <p>Professional custom t-shirts, mugs, canvas prints â€” crafted with 300 DPI precision and delivered pan-India in 3â€“5 business days.</p>
+            <p>Professional custom t-shirts, mugs, canvas prints — crafted with 300 DPI precision and delivered pan-India in 3–5 business days.</p>
             <div className="hero-actions">
               <Link to="/products" className="btn btn-primary btn-lg">
                 Shop Products <ArrowRight size={18} />
@@ -67,7 +67,7 @@ export default function Home() {
             <div className="hero-stats">
               <div className="stat"><strong>10K+</strong><span>Happy Customers</span></div>
               <div className="stat"><strong>300 DPI</strong><span>Print Precision</span></div>
-              <div className="stat"><strong>3â€“5 Days</strong><span>Pan-India Delivery</span></div>
+              <div className="stat"><strong>3–5 Days</strong><span>Pan-India Delivery</span></div>
               <div className="stat"><strong>4.9</strong><span>Average Rating</span></div>
             </div>
           </motion.div>
@@ -84,7 +84,7 @@ export default function Home() {
               </div>
               <div className="hero-badge hero-badge-2">
                 <Star size={16} className="badge-icon-gold" fill="var(--accent)" stroke="var(--accent)" />
-                4.9â˜… Rated Platform
+                4.9★ Rated Platform
               </div>
             </div>
           </motion.div>
@@ -95,9 +95,9 @@ export default function Home() {
       <div className="trust-bar">
         <div className="container">
           <div className="trust-items">
-            <div className="trust-item"><Truck size={15} /><span>Free Shipping over â‚¹999</span></div>
+            <div className="trust-item"><Truck size={15} /><span>Free Shipping over ₹999</span></div>
             <div className="trust-item"><CheckCircle size={15} /><span>7-Day Easy Returns</span></div>
-            <div className="trust-item"><Zap size={15} /><span>3â€“5 Day Delivery</span></div>
+            <div className="trust-item"><Zap size={15} /><span>3–5 Day Delivery</span></div>
             <div className="trust-item"><Shield size={15} /><span>100% Secure Payments</span></div>
             <div className="trust-item"><Phone size={15} /><span>WhatsApp Support</span></div>
           </div>
@@ -144,7 +144,7 @@ export default function Home() {
               <div className="step-badge">1</div>
               <div className="how-step-icon"><Package size={28} /></div>
               <h3>Choose a Product</h3>
-              <p>Browse our catalog of 100+ customizable products â€” t-shirts, hoodies, mugs, posters, and more.</p>
+              <p>Browse our catalog of 100+ customizable products — t-shirts, hoodies, mugs, posters, and more.</p>
             </motion.div>
             <div className="how-step-arrow"><ArrowRight size={20} /></div>
             <motion.div className="how-step" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={2}>
@@ -160,7 +160,7 @@ export default function Home() {
               <div className="step-badge">3</div>
               <div className="how-step-icon"><Truck size={28} /></div>
               <h3>We Print & Deliver</h3>
-              <p>We produce your product using 300 DPI precision printing and deliver it pan-India in 3â€“5 business days.</p>
+              <p>We produce your product using 300 DPI precision printing and deliver it pan-India in 3–5 business days.</p>
             </motion.div>
           </div>
           <div className="section-cta">
@@ -188,7 +188,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* Features â€” Dark Section */}
+      {/* Features — Dark Section */}
       <section className="section features-section">
         <div className="container">
           <motion.div className="section-header" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0}>
@@ -200,7 +200,7 @@ export default function Home() {
             {[
               { icon: <Palette size={28} />, title: 'Professional Designer', desc: 'Powerful drag-and-drop studio with layers, text, shapes, and real-time mockup preview.' },
               { icon: <Star size={28} />, title: 'Premium Print Quality', desc: '300 DPI printing on high-quality materials for vibrant, long-lasting results.' },
-              { icon: <Truck size={28} />, title: 'Pan-India Delivery', desc: 'Fast and reliable delivery across India. Free shipping on orders above â‚¹999.' },
+              { icon: <Truck size={28} />, title: 'Pan-India Delivery', desc: 'Fast and reliable delivery across India. Free shipping on orders above ₹999.' },
               { icon: <Shield size={28} />, title: '100% Satisfaction', desc: 'Not happy with your order? We offer a 7-day return & replacement guarantee.' },
             ].map((f, i) => (
               <motion.div key={f.title} className="feature-card" custom={i} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
@@ -250,7 +250,7 @@ export default function Home() {
             <div className="newsletter-content">
               <span className="hero-eyebrow"><Sparkles size={14} /> Stay Updated</span>
               <h2>Get Exclusive Deals & Design Inspiration</h2>
-              <p>Subscribe for special offers, new product launches, and creative tips â€” straight to your inbox.</p>
+              <p>Subscribe for special offers, new product launches, and creative tips — straight to your inbox.</p>
               {newsletterSent ? (
                 <div className="newsletter-success"><CheckCircle size={20} /> Thanks for subscribing! Exciting offers coming soon.</div>
               ) : (

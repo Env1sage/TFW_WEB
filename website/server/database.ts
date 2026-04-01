@@ -3,8 +3,13 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
 export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://tfw:tfwpassword@localhost:5432/tfw_db',
+  connectionString: process.env.DATABASE_URL,
 });
+
+if (!process.env.DATABASE_URL) {
+  console.error('FATAL: DATABASE_URL environment variable is not set');
+  process.exit(1);
+}
 
 /* ── Schema bootstrap ── */
 export async function initDB() {
@@ -119,6 +124,41 @@ export async function initDB() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS website_coupons (
+        id TEXT PRIMARY KEY,
+        code TEXT UNIQUE NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        discount_type TEXT NOT NULL DEFAULT 'percentage',
+        discount_value NUMERIC(10,2) NOT NULL DEFAULT 0,
+        min_order_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+        max_uses INT,
+        use_count INT NOT NULL DEFAULT 0,
+        valid_from TIMESTAMPTZ,
+        valid_until TIMESTAMPTZ,
+        active BOOLEAN NOT NULL DEFAULT true,
+        popup_enabled BOOLEAN NOT NULL DEFAULT false,
+        popup_message TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- Add popup columns to existing tables (safe for existing deployments)
+      ALTER TABLE website_coupons ADD COLUMN IF NOT EXISTS popup_enabled BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE website_coupons ADD COLUMN IF NOT EXISTS popup_message TEXT NOT NULL DEFAULT '';
+
+      CREATE TABLE IF NOT EXISTS website_shipments (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL REFERENCES website_orders(id),
+        shiprocket_order_id TEXT,
+        shiprocket_shipment_id TEXT,
+        awb_code TEXT,
+        courier_name TEXT,
+        courier_id INT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        tracking_data JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS website_mockup_categories (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -142,6 +182,15 @@ export async function initDB() {
       ALTER TABLE website_products ADD COLUMN IF NOT EXISTS mockup_id TEXT REFERENCES website_mockups(id) ON DELETE SET NULL;
     `);
 
+    // Add payment and coupon columns to orders
+    await client.query(`
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT;
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS payment_id TEXT;
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
+    `);
+
     // Ensure unique constraints exist on categories (safe to run repeatedly)
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug ON website_categories(slug);
@@ -157,13 +206,14 @@ export async function initDB() {
     // Seed default admin if not exists
     const adminCheck = await client.query(`SELECT id FROM website_users WHERE email = $1`, ['admin@theframedwall.com']);
     if (adminCheck.rows.length === 0) {
-      const hashed = await bcrypt.hash('admin123', 12);
+      const defaultPw = process.env.ADMIN_DEFAULT_PASSWORD || 'TFW@dmin2026!Secure';
+      const hashed = await bcrypt.hash(defaultPw, 12);
       await client.query(
         `INSERT INTO website_users (id, name, email, password, role, two_factor_enabled, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
         ['admin-001', 'Admin', 'admin@theframedwall.com', hashed, 'admin', false]
       );
-      console.log('Created default admin: admin@theframedwall.com / admin123');
+      console.log('Created default admin: admin@theframedwall.com (password set via ADMIN_DEFAULT_PASSWORD env var or secure default)');
     }
 
     // Seed categories if empty
@@ -477,7 +527,10 @@ export async function deleteProduct(id: string) {
 export interface DBOrder {
   id: string; userId: string; items: any[]; total: number; status: string;
   shippingAddress: string; createdAt: string;
+  razorpayOrderId?: string; paymentId?: string; paymentStatus: string;
+  couponCode?: string; discountAmount: number;
   customerName?: string; customerEmail?: string;
+  shipment?: DBShipment;
 }
 
 function rowToOrder(row: any): DBOrder {
@@ -485,39 +538,258 @@ function rowToOrder(row: any): DBOrder {
     id: row.id, userId: row.user_id, items: row.items || [],
     total: parseFloat(row.total), status: row.status,
     shippingAddress: row.shipping_address, createdAt: row.created_at,
+    razorpayOrderId: row.razorpay_order_id || undefined,
+    paymentId: row.payment_id || undefined,
+    paymentStatus: row.payment_status || 'pending',
+    couponCode: row.coupon_code || undefined,
+    discountAmount: parseFloat(row.discount_amount || '0'),
     customerName: row.customer_name || undefined,
     customerEmail: row.customer_email || undefined,
+    shipment: row.ship_id ? {
+      id: row.ship_id, orderId: row.id,
+      shiprocketOrderId: row.ship_sr_order_id || undefined,
+      shiprocketShipmentId: row.ship_sr_shipment_id || undefined,
+      awbCode: row.ship_awb || undefined,
+      courierName: row.ship_courier || undefined,
+      status: row.ship_status || 'pending',
+      trackingData: row.ship_tracking || {},
+      createdAt: row.ship_created_at,
+    } : undefined,
   };
 }
 
-export async function addOrder(o: { id: string; userId: string; items: any[]; total: number; status: string; shippingAddress: string }) {
+export async function addOrder(o: {
+  id: string; userId: string; items: any[]; total: number; status: string;
+  shippingAddress: string; razorpayOrderId?: string; paymentId?: string;
+  paymentStatus?: string; couponCode?: string; discountAmount?: number;
+}) {
   const { rows } = await pool.query(
-    `INSERT INTO website_orders (id, user_id, items, total, status, shipping_address, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
-    [o.id, o.userId, JSON.stringify(o.items), o.total, o.status, o.shippingAddress]
+    `INSERT INTO website_orders (id, user_id, items, total, status, shipping_address, razorpay_order_id, payment_id, payment_status, coupon_code, discount_amount, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING *`,
+    [o.id, o.userId, JSON.stringify(o.items), o.total, o.status, o.shippingAddress,
+     o.razorpayOrderId || null, o.paymentId || null, o.paymentStatus || 'paid',
+     o.couponCode || null, o.discountAmount || 0]
   );
   return rowToOrder(rows[0]);
 }
 
 export async function getOrdersByUser(userId: string): Promise<DBOrder[]> {
-  const { rows } = await pool.query(`SELECT * FROM website_orders WHERE user_id = $1 ORDER BY created_at DESC`, [userId]);
+  const { rows } = await pool.query(
+    `SELECT o.*,
+            s.id AS ship_id, s.shiprocket_order_id AS ship_sr_order_id,
+            s.shiprocket_shipment_id AS ship_sr_shipment_id,
+            s.awb_code AS ship_awb, s.courier_name AS ship_courier,
+            s.status AS ship_status, s.tracking_data AS ship_tracking,
+            s.created_at AS ship_created_at
+     FROM website_orders o
+     LEFT JOIN website_shipments s ON s.order_id = o.id
+     WHERE o.user_id = $1 ORDER BY o.created_at DESC`, [userId]);
   return rows.map(rowToOrder);
 }
 
 export async function getAllOrders(): Promise<DBOrder[]> {
   const { rows } = await pool.query(
-    `SELECT o.*, u.name as customer_name, u.email as customer_email
+    `SELECT o.*, u.name as customer_name, u.email as customer_email,
+            s.id AS ship_id, s.shiprocket_order_id AS ship_sr_order_id,
+            s.shiprocket_shipment_id AS ship_sr_shipment_id,
+            s.awb_code AS ship_awb, s.courier_name AS ship_courier,
+            s.status AS ship_status, s.tracking_data AS ship_tracking,
+            s.created_at AS ship_created_at
      FROM website_orders o
      LEFT JOIN website_users u ON o.user_id = u.id
+     LEFT JOIN website_shipments s ON s.order_id = o.id
      ORDER BY o.created_at DESC`
   );
   return rows.map(rowToOrder);
+}
+
+export async function getOrderById(id: string): Promise<DBOrder | null> {
+  const { rows } = await pool.query(
+    `SELECT o.*, u.name as customer_name, u.email as customer_email,
+            s.id AS ship_id, s.shiprocket_order_id AS ship_sr_order_id,
+            s.shiprocket_shipment_id AS ship_sr_shipment_id,
+            s.awb_code AS ship_awb, s.courier_name AS ship_courier,
+            s.status AS ship_status, s.tracking_data AS ship_tracking,
+            s.created_at AS ship_created_at
+     FROM website_orders o
+     LEFT JOIN website_users u ON o.user_id = u.id
+     LEFT JOIN website_shipments s ON s.order_id = o.id
+     WHERE o.id = $1`,
+    [id]
+  );
+  return rows.length ? rowToOrder(rows[0]) : null;
 }
 
 export async function updateOrder(id: string, patch: { status?: string }): Promise<DBOrder | null> {
   if (!patch.status) return null;
   const { rows } = await pool.query(`UPDATE website_orders SET status = $1 WHERE id = $2 RETURNING *`, [patch.status, id]);
   return rows.length ? rowToOrder(rows[0]) : null;
+}
+
+/* ── Coupon queries ── */
+export interface DBCoupon {
+  id: string; code: string; description: string;
+  discountType: 'percentage' | 'fixed'; discountValue: number;
+  minOrderAmount: number; maxUses: number | null; useCount: number;
+  validFrom: string | null; validUntil: string | null;
+  active: boolean; popupEnabled: boolean; popupMessage: string; createdAt: string;
+}
+
+function rowToCoupon(r: any): DBCoupon {
+  return {
+    id: r.id, code: r.code, description: r.description,
+    discountType: r.discount_type, discountValue: parseFloat(r.discount_value),
+    minOrderAmount: parseFloat(r.min_order_amount),
+    maxUses: r.max_uses ? parseInt(r.max_uses) : null,
+    useCount: parseInt(r.use_count), validFrom: r.valid_from || null,
+    validUntil: r.valid_until || null, active: r.active,
+    popupEnabled: !!r.popup_enabled, popupMessage: r.popup_message || '',
+    createdAt: r.created_at,
+  };
+}
+
+export async function getCoupons(): Promise<DBCoupon[]> {
+  const { rows } = await pool.query(`SELECT * FROM website_coupons ORDER BY created_at DESC`);
+  return rows.map(rowToCoupon);
+}
+
+export async function getCouponByCode(code: string): Promise<DBCoupon | null> {
+  const { rows } = await pool.query(`SELECT * FROM website_coupons WHERE UPPER(code) = UPPER($1)`, [code]);
+  return rows.length ? rowToCoupon(rows[0]) : null;
+}
+
+export async function addCoupon(c: {
+  id: string; code: string; description: string;
+  discountType: string; discountValue: number;
+  minOrderAmount: number; maxUses?: number | null;
+  validFrom?: string | null; validUntil?: string | null;
+  popupEnabled?: boolean; popupMessage?: string;
+}): Promise<DBCoupon> {
+  const { rows } = await pool.query(
+    `INSERT INTO website_coupons (id, code, description, discount_type, discount_value, min_order_amount, max_uses, valid_from, valid_until, active, popup_enabled, popup_message, created_at)
+     VALUES ($1, UPPER($2), $3, $4, $5, $6, $7, $8, $9, true, $10, $11, NOW()) RETURNING *`,
+    [c.id, c.code, c.description, c.discountType, c.discountValue, c.minOrderAmount,
+     c.maxUses || null, c.validFrom || null, c.validUntil || null,
+     c.popupEnabled ?? false, c.popupMessage ?? '']
+  );
+  return rowToCoupon(rows[0]);
+}
+
+export async function updateCoupon(id: string, patch: Partial<Omit<DBCoupon, 'id' | 'createdAt' | 'useCount'>>): Promise<DBCoupon | null> {
+  const fieldMap: Record<string, string> = {
+    code: 'code', description: 'description', discountType: 'discount_type',
+    discountValue: 'discount_value', minOrderAmount: 'min_order_amount',
+    maxUses: 'max_uses', validFrom: 'valid_from', validUntil: 'valid_until',
+    active: 'active', popupEnabled: 'popup_enabled', popupMessage: 'popup_message',
+  };
+  const sets: string[] = []; const vals: any[] = []; let idx = 1;
+  for (const [key, col] of Object.entries(fieldMap)) {
+    if (key in patch) {
+      const val = (patch as any)[key];
+      sets.push(key === 'code' ? `${col} = UPPER($${idx})` : `${col} = $${idx}`);
+      vals.push(val ?? null); idx++;
+    }
+  }
+  if (!sets.length) return null;
+  vals.push(id);
+  const { rows } = await pool.query(`UPDATE website_coupons SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
+  return rows.length ? rowToCoupon(rows[0]) : null;
+}
+
+export async function deleteCoupon(id: string) {
+  await pool.query(`DELETE FROM website_coupons WHERE id = $1`, [id]);
+}
+
+export async function incrementCouponUseCount(code: string) {
+  await pool.query(`UPDATE website_coupons SET use_count = use_count + 1 WHERE UPPER(code) = UPPER($1)`, [code]);
+}
+
+export async function getActivePopupCoupon(): Promise<DBCoupon | null> {
+  const now = new Date().toISOString();
+  const { rows } = await pool.query(
+    `SELECT * FROM website_coupons
+     WHERE popup_enabled = true AND active = true
+       AND (valid_from IS NULL OR valid_from <= $1)
+       AND (valid_until IS NULL OR valid_until >= $1)
+       AND (max_uses IS NULL OR use_count < max_uses)
+     ORDER BY created_at DESC LIMIT 1`,
+    [now]
+  );
+  return rows.length ? rowToCoupon(rows[0]) : null;
+}
+
+export async function getActiveCoupons(): Promise<DBCoupon[]> {
+  const now = new Date().toISOString();
+  const { rows } = await pool.query(
+    `SELECT * FROM website_coupons
+     WHERE active = true AND popup_enabled = true
+       AND (valid_from IS NULL OR valid_from <= $1)
+       AND (valid_until IS NULL OR valid_until >= $1)
+       AND (max_uses IS NULL OR use_count < max_uses)
+     ORDER BY created_at DESC`,
+    [now]
+  );
+  return rows.map(rowToCoupon);
+}
+
+/* ── Shipment queries ── */
+export interface DBShipment {
+  id: string; orderId: string;
+  shiprocketOrderId?: string; shiprocketShipmentId?: string;
+  awbCode?: string; courierName?: string; courierId?: number;
+  status: string; trackingData: any; createdAt: string;
+}
+
+function rowToShipment(r: any): DBShipment {
+  return {
+    id: r.id, orderId: r.order_id,
+    shiprocketOrderId: r.shiprocket_order_id || undefined,
+    shiprocketShipmentId: r.shiprocket_shipment_id || undefined,
+    awbCode: r.awb_code || undefined, courierName: r.courier_name || undefined,
+    courierId: r.courier_id || undefined, status: r.status,
+    trackingData: r.tracking_data || {}, createdAt: r.created_at,
+  };
+}
+
+export async function getShipmentByOrderId(orderId: string): Promise<DBShipment | null> {
+  const { rows } = await pool.query(`SELECT * FROM website_shipments WHERE order_id = $1`, [orderId]);
+  return rows.length ? rowToShipment(rows[0]) : null;
+}
+
+export async function addShipment(s: {
+  id: string; orderId: string; shiprocketOrderId?: string;
+  shiprocketShipmentId?: string; awbCode?: string;
+  courierName?: string; courierId?: number; status?: string;
+}): Promise<DBShipment> {
+  const { rows } = await pool.query(
+    `INSERT INTO website_shipments (id, order_id, shiprocket_order_id, shiprocket_shipment_id, awb_code, courier_name, courier_id, status, tracking_data, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'{}',NOW(),NOW()) RETURNING *`,
+    [s.id, s.orderId, s.shiprocketOrderId || null, s.shiprocketShipmentId || null,
+     s.awbCode || null, s.courierName || null, s.courierId || null, s.status || 'processing']
+  );
+  return rowToShipment(rows[0]);
+}
+
+export async function deleteShipment(id: string): Promise<void> {
+  await pool.query(`DELETE FROM website_shipments WHERE id = $1`, [id]);
+}
+
+export async function updateShipment(id: string, patch: {
+  awbCode?: string; courierName?: string; courierId?: number;
+  status?: string; trackingData?: any; shiprocketShipmentId?: string;
+}): Promise<DBShipment | null> {
+  const sets: string[] = []; const vals: any[] = []; let idx = 1;
+  if (patch.awbCode !== undefined) { sets.push(`awb_code = $${idx}`); vals.push(patch.awbCode); idx++; }
+  if (patch.courierName !== undefined) { sets.push(`courier_name = $${idx}`); vals.push(patch.courierName); idx++; }
+  if (patch.courierId !== undefined) { sets.push(`courier_id = $${idx}`); vals.push(patch.courierId); idx++; }
+  if (patch.status !== undefined) { sets.push(`status = $${idx}`); vals.push(patch.status); idx++; }
+  if (patch.trackingData !== undefined) { sets.push(`tracking_data = $${idx}`); vals.push(JSON.stringify(patch.trackingData)); idx++; }
+  if (patch.shiprocketShipmentId !== undefined) { sets.push(`shiprocket_shipment_id = $${idx}`); vals.push(patch.shiprocketShipmentId); idx++; }
+  if (!sets.length) return null;
+  sets.push(`updated_at = NOW()`);
+  vals.push(id);
+  const { rows } = await pool.query(`UPDATE website_shipments SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
+  return rows.length ? rowToShipment(rows[0]) : null;
 }
 
 /* ── Mockup queries ── */
@@ -859,5 +1131,3 @@ export async function updateInquiryStatus(id: string, status: string, adminNotes
   );
   return rows.length ? rowToInquiry(rows[0]) : null;
 }
-
-export { pool };

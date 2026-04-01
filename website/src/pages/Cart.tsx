@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, CreditCard, Palette } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, CreditCard, Palette, Tag, X, CheckCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
@@ -25,9 +25,13 @@ export default function Cart() {
   const { items, designItems, removeItem, updateQuantity, removeDesignItem, updateDesignQuantity, clearCart, total, count } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [checking, setChecking] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [form, setForm] = useState({ fullName: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '' });
+
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number; description: string } | null>(null);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -37,103 +41,46 @@ export default function Cart() {
 
   const formValid = form.fullName && form.phone && form.addressLine1 && form.city && form.state && form.pincode.length === 6;
 
-  const handleCheckout = async () => {
-    if (!user) { navigate('/login?redirect=/cart'); return; }
-    if (!formValid) { toast.error('Please fill in all required address fields'); return; }
-    setChecking(true);
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    if (!user) { toast.error('Please log in to apply coupons'); return; }
+    setCouponLoading(true);
     try {
-      const finalTotal = total >= 999 ? total : total + 49;
-
-      // Step 1: Create Razorpay order
-      const rpOrder = await api.createRazorpayOrder(finalTotal);
-
-      // Step 2: Open Razorpay checkout
-      if (rpOrder.simulated) {
-        await placeAllOrders();
-        return;
-      }
-
-      const options = {
-        key: rpOrder.keyId,
-        amount: rpOrder.amount,
-        currency: rpOrder.currency,
-        name: 'TheFramedWall',
-        description: `Order — ${count} item${count > 1 ? 's' : ''}`,
-        order_id: rpOrder.orderId,
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            const verification = await api.verifyRazorpayPayment(response);
-            if (verification.verified) {
-              await placeAllOrders();
-            } else {
-              toast.error('Payment verification failed');
-              setChecking(false);
-            }
-          } catch {
-            toast.error('Payment verification failed');
-            setChecking(false);
-          }
-        },
-        prefill: {
-          name: form.fullName,
-          contact: form.phone,
-          email: user.email || '',
-        },
-        theme: { color: '#0E7C61' },
-        modal: {
-          ondismiss: () => { setChecking(false); },
-        },
-      };
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
+      const subtotal = total >= 999 ? total : total + 49;
+      const result = await api.validateCoupon(couponInput.trim(), subtotal);
+      setAppliedCoupon({ code: couponInput.trim().toUpperCase(), discountAmount: result.discountAmount, description: result.coupon.description });
+      toast.success(`Coupon applied! You save ₹${result.discountAmount.toFixed(0)}`);
     } catch (e: any) {
-      toast.error(e.message || 'Checkout failed');
-      setChecking(false);
+      toast.error(e.message || 'Invalid coupon');
+    } finally {
+      setCouponLoading(false);
     }
   };
 
-  const placeAllOrders = async () => {
-    try {
-      const address = buildAddress();
-      const promises: Promise<any>[] = [];
+  const removeCoupon = () => { setAppliedCoupon(null); setCouponInput(''); };
 
-      // Place regular product orders
-      if (items.length > 0) {
-        const orderItems = items.map(i => ({
-          productId: i.product.id,
-          quantity: i.quantity,
-          color: i.color,
-          size: i.size,
-          customText: i.customText,
-        }));
-        promises.push(api.createOrder(orderItems, address));
-      }
+  const handleCheckout = () => {
+    if (!user) { navigate('/login?redirect=/cart'); return; }
+    if (!formValid) { toast.error('Please fill in all required address fields'); return; }
 
-      // Place design orders
-      for (const d of designItems) {
-        promises.push(api.createDesignOrder({
-          productType: d.productType,
-          colorHex: d.colorHex,
-          colorName: d.colorName,
-          printSize: d.printSize,
-          sides: d.sides,
-          designImages: d.designImages,
-          uploadedImages: d.uploadedImages,
-          quantity: d.quantity,
-          unitPrice: d.unitPrice,
-          total: d.total,
-          shippingAddress: address,
-        }));
-      }
+    const subtotal    = total;
+    const shippingCost = total >= 999 ? 0 : 49;
+    const discount    = appliedCoupon?.discountAmount || 0;
+    const finalTotal  = Math.max(0, subtotal + shippingCost - discount);
 
-      await Promise.all(promises);
-      clearCart();
-      sessionStorage.removeItem('tfw_design_cart');
-      toast.success('Order placed successfully!');
-      navigate('/orders');
-    } catch (e: any) {
-      toast.error(e.message || 'Order creation failed');
-    } finally { setChecking(false); }
+    navigate('/payment', {
+      state: {
+        items,
+        designItems,
+        shippingAddress: buildAddress(),
+        form,
+        subtotal,
+        shippingCost,
+        discount,
+        finalTotal,
+        appliedCoupon,
+      },
+    });
   };
 
   if (count === 0) {
@@ -237,7 +184,40 @@ export default function Cart() {
             <h3>Order Summary</h3>
             <div className="summary-row"><span>Subtotal</span><span>₹{total.toFixed(0)}</span></div>
             <div className="summary-row"><span>Shipping</span><span>{total >= 999 ? 'Free' : '₹49'}</span></div>
-            <div className="summary-row total"><span>Total</span><span>₹{(total >= 999 ? total : total + 49).toFixed(0)}</span></div>
+            {appliedCoupon && (
+              <div className="summary-row" style={{ color: 'var(--success, #16a34a)' }}>
+                <span>Discount ({appliedCoupon.code})</span><span>-₹{appliedCoupon.discountAmount.toFixed(0)}</span>
+              </div>
+            )}
+            <div className="summary-row total"><span>Total</span>
+              <span>₹{Math.max(0, (total >= 999 ? total : total + 49) - (appliedCoupon?.discountAmount || 0)).toFixed(0)}</span>
+            </div>
+
+            {/* Coupon Code */}
+            {!appliedCoupon ? (
+              <div className="coupon-row">
+                <Tag size={15} style={{ color: 'var(--primary)' }} />
+                <input
+                  type="text"
+                  placeholder="Coupon code"
+                  value={couponInput}
+                  onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-outline btn-sm" onClick={handleApplyCoupon} disabled={couponLoading || !couponInput.trim()}>
+                  {couponLoading ? <div className="spinner-sm" /> : 'Apply'}
+                </button>
+              </div>
+            ) : (
+              <div className="coupon-applied">
+                <CheckCircle size={15} style={{ color: 'var(--success, #16a34a)' }} />
+                <span style={{ flex: 1 }}>
+                  <strong>{appliedCoupon.code}</strong>{appliedCoupon.description ? ` — ${appliedCoupon.description}` : ''}
+                </span>
+                <button className="icon-btn" onClick={removeCoupon} title="Remove coupon"><X size={14} /></button>
+              </div>
+            )}
 
             {!showCheckout ? (
               <button className="btn btn-primary btn-block btn-lg" onClick={() => user ? setShowCheckout(true) : navigate('/login?redirect=/cart')}>
@@ -283,8 +263,8 @@ export default function Cart() {
                 <div className="checkout-pay-note">
                   <CreditCard size={15} /> Secure payment via Razorpay — UPI / Card / Net Banking / Wallets
                 </div>
-                <button className="btn btn-primary btn-block btn-lg" onClick={handleCheckout} disabled={checking || !formValid}>
-                  {checking ? <div className="spinner-sm" /> : <><CreditCard size={18} /> Place Order</>}
+                <button className="btn btn-primary btn-block btn-lg" onClick={handleCheckout} disabled={!formValid}>
+                  <CreditCard size={18} /> Proceed to Pay
                 </button>
               </div>
             )}

@@ -4,6 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import rateLimit from 'express-rate-limit';
 import { initDB, pool } from './database.js';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
@@ -18,6 +19,15 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
+
+// Rate limiting
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Too many attempts, please try again after 15 minutes' } });
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: { error: 'Too many requests, please slow down' } });
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/verify-2fa', authLimiter);
+app.use('/api/products/corporate-inquiry', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: 'Too many inquiries, try again later' } }));
+app.use('/api', apiLimiter);
 
 // Serve uploaded mockup images
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));

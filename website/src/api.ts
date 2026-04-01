@@ -82,8 +82,8 @@ export const api = {
     request<any>(`/products/${id}`, { method: 'DELETE' }),
 
   // Orders
-  createOrder: (items: any[], shippingAddress: string) =>
-    request<any>('/products/orders', { method: 'POST', body: JSON.stringify({ items, shippingAddress }) }),
+  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; couponCode?: string; discountAmount?: number }) =>
+    request<any>('/products/orders', { method: 'POST', body: JSON.stringify({ items, shippingAddress, ...extra }) }),
 
   // Razorpay
   createRazorpayOrder: (amount: number) =>
@@ -179,6 +179,28 @@ export const api = {
   // Invoice
   getOrderInvoice: (orderId: string) =>
     request<any>(`/products/orders/${orderId}/invoice`),
+
+  // Coupons (admin)
+  getCoupons: () => request<any[]>('/products/coupons'),
+  createCoupon: (data: any) => request<any>('/products/coupons', { method: 'POST', body: JSON.stringify(data) }),
+  updateCoupon: (id: string, data: any) => request<any>(`/products/coupons/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCoupon: (id: string) => request<any>(`/products/coupons/${id}`, { method: 'DELETE' }),
+  validateCoupon: (code: string, orderAmount: number) =>
+    request<{ valid: boolean; coupon: any; discountAmount: number }>('/products/coupons/validate', { method: 'POST', body: JSON.stringify({ code, orderAmount }) }),
+  getPopupCoupon: () => request<any | null>('/products/coupons/popup'),
+  getActiveCoupons: () => request<any[]>('/products/coupons/active'),
+
+  // Shiprocket / Tracking
+  createShipment: (orderId: string, data?: { weight?: number; length?: number; breadth?: number; height?: number; pickupLocation?: string }) =>
+    request<any>(`/products/orders/${orderId}/create-shipment`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  getOrderTracking: (orderId: string) =>
+    request<any>(`/products/orders/${orderId}/tracking`),
+  getOrder: (id: string) =>
+    request<any>(`/products/orders/${id}`),
+  updateManualTracking: (orderId: string, data: { courierName?: string; awbCode?: string; status?: string; estimatedDelivery?: string }) =>
+    request<any>(`/products/orders/${orderId}/tracking/manual`, { method: 'POST', body: JSON.stringify(data) }),
+  addTrackingEvent: (orderId: string, event: { status: string; message: string; location?: string }) =>
+    request<any>(`/products/orders/${orderId}/tracking/event`, { method: 'POST', body: JSON.stringify(event) }),
 
   // Corporate Inquiries
   submitCorporateInquiry: (data: { companyName: string; contactName: string; email: string; phone?: string; productInterest?: string; quantity?: number; message?: string }) =>

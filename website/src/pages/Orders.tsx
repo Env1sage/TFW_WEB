@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, Clock, CheckCircle, Truck, XCircle, FileText, Palette, Download } from 'lucide-react';
+import { Package, Clock, CheckCircle, Truck, XCircle, FileText, Palette, Download, MapPin, CreditCard } from 'lucide-react';
 import { api } from '../api';
 import type { Order, Product, DesignOrder } from '../types';
 import toast from 'react-hot-toast';
@@ -141,30 +141,78 @@ ${invoice.items.map((i: any) => `<tr><td>${i.name}</td><td>${i.size || '-'}</td>
                               {statusIcons[order.status]} {statusLabel[order.status] ?? order.status}
                             </span>
                           </div>
-                          <div className="order-items">
+                          <div className="order-items-grid">
                             {order.items.map((item, j) => {
                               const product = productMap[item.productId];
+                              const imgSrc = item.productImage || product?.image || product?.images?.[0];
                               return (
-                                <div key={j} className="order-item">
-                                  {product ? (
-                                    <Link to={`/products/${item.productId}`} className="item-name">{product.name}</Link>
-                                  ) : (
-                                    <span className="item-name">Custom Item</span>
-                                  )}
-                                  <span className="item-qty">×{item.quantity}</span>
-                                  {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' || item.color === '#fff' ? '1px solid #ddd' : 'none' }} />}
-                                  {item.size && <span className="item-size">{item.size}</span>}
-                                  <span className="item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
+                                <div key={j} className="order-item-card">
+                                  <div className="order-item-thumb">
+                                    {imgSrc ? (
+                                      <img src={imgSrc} alt={item.productName || product?.name || 'Product'} />
+                                    ) : (
+                                      <Package size={24} />
+                                    )}
+                                  </div>
+                                  <div className="order-item-details">
+                                    {product ? (
+                                      <Link to={`/products/${item.productId}`} className="order-item-name">{product.name}</Link>
+                                    ) : (
+                                      <span className="order-item-name">{item.productName || 'Custom Item'}</span>
+                                    )}
+                                    <div className="order-item-meta">
+                                      {item.size && <span className="item-size">{item.size}</span>}
+                                      {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' || item.color === '#fff' ? '1px solid #ddd' : 'none' }} />}
+                                      <span className="item-qty">×{item.quantity}</span>
+                                    </div>
+                                  </div>
+                                  <span className="order-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
                                 </div>
                               );
                             })}
                           </div>
+                          {/* Shipment / Tracking Info */}
+                          {order.shipment && order.status !== 'cancelled' && (
+                            <div className="order-tracking">
+                              <Truck size={14} />
+                              <span>
+                                {order.shipment.courierName && <strong>{order.shipment.courierName} </strong>}
+                                {order.shipment.awbCode ? (
+                                  <>AWB: <strong>{order.shipment.awbCode}</strong></>
+                                ) : 'Shipment created'}
+                              </span>
+                              {order.shipment.trackingData?.tracking_data?.shipment_track?.[0]?.current_status && (
+                                <span className="track-status">
+                                  <MapPin size={12} /> {order.shipment.trackingData.tracking_data.shipment_track[0].current_status}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {order.status === 'cancelled' && (
+                            <div className="order-tracking order-tracking-cancelled">
+                              <XCircle size={14} />
+                              <span>This order has been cancelled</span>
+                            </div>
+                          )}
+                          {/* Payment & Coupon Info */}
+                          {(order.couponCode || (order.discountAmount && order.discountAmount > 0)) ? (
+                            <div className="order-coupon-info">
+                              <CreditCard size={13} />
+                              {order.couponCode && <span>Coupon: <strong>{order.couponCode}</strong></span>}
+                              {order.discountAmount != null && order.discountAmount > 0 && <span style={{ color: 'var(--success, #16a34a)' }}>Saved ₹{order.discountAmount.toFixed(0)}</span>}
+                            </div>
+                          ) : null}
                           <div className="order-footer">
-                            <span className="order-address">{order.shippingAddress}</span>
+                            <span className="order-address">{order.shippingAddress.replace(/\n/g, ', ')}</span>
                             <div className="order-total-col">
                               <button className="invoice-btn" onClick={() => handleDownloadInvoice(order.id)} title="Download Invoice">
                                 <FileText size={16} /> Invoice
                               </button>
+                              {['pending', 'processing', 'shipped', 'delivered'].includes(order.status) && (
+                                <Link to={`/orders/${order.id}/track`} state={{ order }} className="invoice-btn" title="Track Order">
+                                  <MapPin size={16} /> Track
+                                </Link>
+                              )}
                               <span className="order-total-label">Order Total</span>
                               <span className="order-total">₹{order.total.toFixed(0)}</span>
                             </div>
@@ -237,7 +285,7 @@ ${invoice.items.map((i: any) => `<tr><td>${i.name}</td><td>${i.size || '-'}</td>
                             </div>
 
                             <div className="order-footer">
-                              <span className="order-address">{order.shippingAddress}</span>
+                              <span className="order-address">{order.shippingAddress.replace(/\n/g, ', ')}</span>
                               <div className="order-total-col">
                                 <span className="order-total-label">Order Total</span>
                                 <span className="order-total">₹{order.total.toLocaleString('en-IN')}</span>

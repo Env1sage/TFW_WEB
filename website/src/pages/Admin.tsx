@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, Edit3, Trash2, X, Save, ShoppingCart,
-  BarChart3, Users, IndianRupee, TrendingUp, Image, Eye, EyeOff, Database, Palette, Download, Upload, Tag, Copy, Check, ChevronDown, ChevronUp, MapPin, Mail, User, Clock, Hash, LogOut,
+  BarChart3, Users, IndianRupee, TrendingUp, Image, Eye, EyeOff, Database, Palette, Download, Upload, Tag, Copy, Check, ChevronDown, ChevronUp, MapPin, Mail, User, Clock, Hash, LogOut, Truck, Percent, DollarSign, Calendar, Sparkles,
 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import type { Product, Order, DesignOrder } from '../types';
+import type { Product, Order, DesignOrder, Coupon } from '../types';
 import toast from 'react-hot-toast';
 
 interface Mockup {
@@ -81,7 +81,13 @@ function normalizePrintArea(pa: any): { layouts: PrintLayout[]; allowMultipleLay
   return { layouts, allowMultipleLayouts: false, allowBackPrint: layouts.some(l => l.side === 'BACK') };
 }
 
-type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'database';
+type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database';
+
+const defaultCoupon: Partial<Coupon> = {
+  code: '', description: '', discountType: 'percentage', discountValue: 0,
+  minOrderAmount: 0, maxUses: null, validFrom: null, validUntil: null,
+  active: true, popupEnabled: false, popupMessage: '',
+};
 
 export default function Admin() {
   const { logout } = useAuth();
@@ -137,13 +143,28 @@ export default function Admin() {
   const paeDragRef = useRef<{ startX: number; startY: number; dragging: boolean; mode: 'draw' | 'move'; offsetX: number; offsetY: number }>({ startX: 0, startY: 0, dragging: false, mode: 'draw', offsetX: 0, offsetY: 0 });
   const paeContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Coupons
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [showCouponForm, setShowCouponForm] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [couponForm, setCouponForm] = useState<Partial<Coupon>>({ ...defaultCoupon });
+  const [savingCoupon, setSavingCoupon] = useState(false);
+
+  // Shipment creation
+  const [creatingShipmentFor, setCreatingShipmentFor] = useState<string | null>(null);
+  // Tracking modal
+  const [trackingModal, setTrackingModal] = useState<string | null>(null);
+  const [trackingManualForm, setTrackingManualForm] = useState({ courierName: '', awbCode: '', estimatedDelivery: '' });
+  const [trackingEventForm, setTrackingEventForm] = useState({ status: '', message: '', location: '' });
+  const [savingTracking, setSavingTracking] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
-      const [p, o, a, m, d, cats, mockupCats] = await Promise.all([
-        api.getProducts(), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(),
+      const [p, o, a, m, d, cats, mockupCats, coup] = await Promise.all([
+        api.getProducts(), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(), api.getCoupons(),
       ]);
-      setProducts(p); setOrders(o); setAnalytics(a); setMockups(m); setDesignOrders(d); setCategories(cats); setMockupCategories(mockupCats);
+      setProducts(p); setOrders(o); setAnalytics(a); setMockups(m); setDesignOrders(d); setCategories(cats); setMockupCategories(mockupCats); setCoupons(coup);
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   };
@@ -434,6 +455,116 @@ export default function Admin() {
     } catch { toast.error('Update failed'); }
   };
 
+  // IST timezone helpers (UTC+5:30)
+  const utcToIST = (utc: string | null | undefined): string => {
+    if (!utc) return '';
+    const d = new Date(utc);
+    const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+    return ist.toISOString().slice(0, 16);
+  };
+  const istToUTC = (local: string | null | undefined): string | null => {
+    if (!local) return null;
+    const d = new Date(local + ':00.000Z');
+    return new Date(d.getTime() - 5.5 * 60 * 60 * 1000).toISOString();
+  };
+  const istNow = (): string => {
+    const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 16);
+  };
+  const istPreset = (daysFromNow: number, endOfDay = false): string => {
+    const d = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    d.setDate(d.getDate() + daysFromNow);
+    if (endOfDay) { d.setHours(23, 59, 0, 0); }
+    return d.toISOString().slice(0, 16);
+  };
+
+  // Coupon CRUD
+  const openNewCoupon = () => { setEditingCoupon(null); setCouponForm({ ...defaultCoupon }); setShowCouponForm(true); };
+  const openEditCoupon = (c: Coupon) => {
+    setEditingCoupon(c);
+    setCouponForm({ ...c,
+      validFrom: c.validFrom ? utcToIST(c.validFrom) : null,
+      validUntil: c.validUntil ? utcToIST(c.validUntil) : null,
+    });
+    setShowCouponForm(true);
+  };
+  const closeCouponForm = () => { setShowCouponForm(false); setEditingCoupon(null); };
+  const handleSaveCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCoupon(true);
+    const payload = { ...couponForm,
+      validFrom: istToUTC(couponForm.validFrom),
+      validUntil: istToUTC(couponForm.validUntil),
+    };
+    try {
+      if (editingCoupon) {
+        await api.updateCoupon(editingCoupon.id, payload);
+        toast.success('Coupon updated');
+      } else {
+        await api.createCoupon(payload);
+        toast.success('Coupon created');
+      }
+      closeCouponForm();
+      load();
+    } catch { toast.error('Save failed'); }
+    finally { setSavingCoupon(false); }
+  };
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm('Delete this coupon?')) return;
+    try { await api.deleteCoupon(id); toast.success('Coupon deleted'); load(); }
+    catch { toast.error('Delete failed'); }
+  };
+
+  // Shipment
+  const handleCreateShipment = async (orderId: string) => {
+    setCreatingShipmentFor(orderId);
+    try { await api.createShipment(orderId); toast.success('Shipment created!'); load(); }
+    catch (err: any) { toast.error(err?.message || 'Shipment creation failed'); }
+    finally { setCreatingShipmentFor(null); }
+  };
+
+  const openTrackingModal = (order: Order) => {
+    setTrackingManualForm({
+      courierName: order.shipment?.courierName || '',
+      awbCode: order.shipment?.awbCode || '',
+      estimatedDelivery: (order.shipment?.trackingData as any)?.estimatedDelivery || '',
+    });
+    setTrackingEventForm({ status: '', message: '', location: '' });
+    setTrackingModal(order.id);
+  };
+
+  const handleSaveManualTracking = async () => {
+    if (!trackingModal) return;
+    setSavingTracking(true);
+    try {
+      await api.updateManualTracking(trackingModal, trackingManualForm);
+      toast.success('Tracking info saved');
+      load();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save tracking');
+    } finally {
+      setSavingTracking(false);
+    }
+  };
+
+  const handleAddTrackingEvent = async () => {
+    if (!trackingModal) return;
+    if (!trackingEventForm.status.trim() || !trackingEventForm.message.trim()) {
+      return toast.error('Status and message are required');
+    }
+    setSavingTracking(true);
+    try {
+      await api.addTrackingEvent(trackingModal, trackingEventForm);
+      toast.success('Tracking event added');
+      setTrackingEventForm({ status: '', message: '', location: '' });
+      load();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to add event');
+    } finally {
+      setSavingTracking(false);
+    }
+  };
+
   // Order
   const handleStatusChange = async (id: string, status: string) => {
     try { await api.updateOrderStatus(id, status); toast.success('Status updated'); load(); }
@@ -501,6 +632,7 @@ export default function Admin() {
           <button className={`tab ${tab === 'mockup-categories' ? 'active' : ''}`} onClick={() => setTab('mockup-categories')}><Tag size={16} /> Mockup Categories</button>
           <button className={`tab ${tab === 'orders' ? 'active' : ''}`} onClick={() => setTab('orders')}><ShoppingCart size={16} /> Orders</button>
           <button className={`tab ${tab === 'mockups' ? 'active' : ''}`} onClick={() => setTab('mockups')}><Image size={16} /> Mockups</button>
+          <button className={`tab ${tab === 'coupons' ? 'active' : ''}`} onClick={() => setTab('coupons')}><Percent size={16} /> Coupons ({coupons.length})</button>
           <button className={`tab ${tab === 'database' ? 'active' : ''}`} onClick={() => { setTab('database'); if (!dbData) loadDb(); }}><Database size={16} /> Database</button>
         </div>
 
@@ -965,6 +1097,43 @@ export default function Admin() {
                                       <span>Total</span>
                                       <strong>₹{o.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
                                     </div>
+                                    {o.discountAmount != null && o.discountAmount > 0 && (
+                                      <div className="order-total-row" style={{ color: '#10b981', fontSize: '0.82rem' }}>
+                                        <span>Coupon {o.couponCode ? `(${o.couponCode})` : ''} Discount</span>
+                                        <span>−₹{Number(o.discountAmount).toFixed(2)}</span>
+                                      </div>
+                                    )}
+                                    {o.shipment ? (
+                                      <div className="order-tracking" style={{ marginTop: 8 }}>
+                                        <Truck size={14} /> {o.shipment.courierName || 'Shipment created'}
+                                        {o.shipment.awbCode && <span className="track-status"> AWB: {o.shipment.awbCode}</span>}
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                          onClick={e => { e.stopPropagation(); openTrackingModal(o); }}>
+                                          <MapPin size={12} /> Manage Tracking
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      o.status !== 'cancelled' && (
+                                        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                          <button
+                                            className="btn btn-sm btn-outline"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                            onClick={e => { e.stopPropagation(); handleCreateShipment(o.id); }}
+                                            disabled={creatingShipmentFor === o.id}>
+                                            <Truck size={14} />
+                                            {creatingShipmentFor === o.id ? 'Creating...' : 'Create Shipment'}
+                                          </button>
+                                          <button
+                                            className="btn btn-sm btn-outline"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                            onClick={e => { e.stopPropagation(); openTrackingModal(o); }}>
+                                            <MapPin size={14} /> Add Tracking
+                                          </button>
+                                        </div>
+                                      )
+                                    )}
                                   </div>
                                 </div>
                               </motion.div>
@@ -1186,6 +1355,216 @@ export default function Admin() {
             </div>
           </motion.div>
         )}
+
+        {/* Coupons Tab */}
+        {tab === 'coupons' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="section-toolbar">
+              <h2>Coupon Codes</h2>
+              <button className="btn btn-primary" onClick={openNewCoupon}><Plus size={16} /> New Coupon</button>
+            </div>
+            {coupons.length === 0 ? (
+              <p className="empty-msg">No coupons yet. Create your first coupon code above.</p>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Description</th>
+                      <th>Discount</th>
+                      <th>Min Order</th>
+                      <th>Uses</th>
+                      <th>Valid Until</th>
+                      <th>Active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coupons.map(c => (
+                      <tr key={c.id}>
+                        <td><code style={{ fontWeight: 700, color: '#6366f1' }}>{c.code}</code></td>
+                        <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{c.description || '—'}</td>
+                        <td>
+                          {c.discountType === 'percentage'
+                            ? <span style={{ color: '#f59e0b' }}>{c.discountValue}%</span>
+                            : <span style={{ color: '#10b981' }}>₹{c.discountValue}</span>}
+                        </td>
+                        <td>{c.minOrderAmount ? `₹${c.minOrderAmount}` : '—'}</td>
+                        <td>{c.useCount}{c.maxUses != null ? ` / ${c.maxUses}` : ''}</td>
+                        <td style={{ fontSize: '0.82rem' }}>{c.validUntil ? new Date(c.validUntil).toLocaleDateString('en-IN') : '—'}</td>
+                        <td>
+                          <span style={{ color: c.active ? '#10b981' : '#ef4444', fontWeight: 600, fontSize: '0.82rem' }}>
+                            {c.active ? 'Yes' : 'No'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="icon-btn" onClick={() => openEditCoupon(c)} title="Edit"><Edit3 size={15} /></button>
+                            <button className="icon-btn danger" onClick={() => handleDeleteCoupon(c.id)} title="Delete"><Trash2 size={15} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Coupon Form Modal */}
+        <AnimatePresence>
+          {showCouponForm && (
+            <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={closeCouponForm}>
+              <motion.div className="modal cpn-modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                onClick={e => e.stopPropagation()}>
+                <div className="modal-header cpn-header">
+                  <div className="cpn-header-left">
+                    <div className="cpn-header-icon"><Tag size={18} /></div>
+                    <div>
+                      <h2>{editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}</h2>
+                      <p className="cpn-header-sub">Set up a discount code for your customers</p>
+                    </div>
+                  </div>
+                  <button className="icon-btn" onClick={closeCouponForm}><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSaveCoupon} className="modal-body">
+
+                  {/* Section: Basic Info */}
+                  <div className="cpn-section">
+                    <h4 className="cpn-section-title"><Hash size={14} /> Coupon Details</h4>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Coupon Code *</label>
+                        <input type="text" value={couponForm.code || ''} onChange={e => setCouponForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                          placeholder="e.g. SAVE20" required style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }} />
+                      </div>
+                      <div className="form-group">
+                        <label>Description</label>
+                        <input type="text" value={couponForm.description || ''} onChange={e => setCouponForm(f => ({ ...f, description: e.target.value }))}
+                          placeholder="Internal note (not shown to customers)" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section: Discount */}
+                  <div className="cpn-section">
+                    <h4 className="cpn-section-title"><Percent size={14} /> Discount</h4>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Type *</label>
+                        <select value={couponForm.discountType || 'percentage'} onChange={e => setCouponForm(f => ({ ...f, discountType: e.target.value as 'percentage' | 'fixed' }))}>
+                          <option value="percentage">Percentage (%)</option>
+                          <option value="fixed">Fixed Amount (₹)</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Value *</label>
+                        <input type="number" min="0" step="0.01" value={couponForm.discountValue ?? ''} onChange={e => setCouponForm(f => ({ ...f, discountValue: parseFloat(e.target.value) }))}
+                          placeholder={couponForm.discountType === 'percentage' ? 'e.g. 20' : 'e.g. 200'} required />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Min Order Amount (₹)</label>
+                        <input type="number" min="0" step="0.01" value={couponForm.minOrderAmount ?? ''} onChange={e => setCouponForm(f => ({ ...f, minOrderAmount: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                          placeholder="0 = no minimum" />
+                      </div>
+                      <div className="form-group">
+                        <label>Max Uses</label>
+                        <input type="number" min="1" step="1" value={couponForm.maxUses ?? ''} onChange={e => setCouponForm(f => ({ ...f, maxUses: e.target.value ? parseInt(e.target.value) : null }))}
+                          placeholder="Blank = unlimited" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section: Validity */}
+                  <div className="cpn-section">
+                    <h4 className="cpn-section-title"><Calendar size={14} /> Validity Period <span className="cpn-tz-badge">IST (UTC+5:30)</span></h4>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Start Date</label>
+                        <input type="datetime-local" value={couponForm.validFrom || ''} onChange={e => setCouponForm(f => ({ ...f, validFrom: e.target.value || null }))} />
+                        <div className="cpn-presets">
+                          <button type="button" onClick={() => setCouponForm(f => ({ ...f, validFrom: istNow() }))}>Now</button>
+                          <button type="button" onClick={() => setCouponForm(f => ({ ...f, validFrom: istPreset(0) }))}>Today</button>
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label>End Date</label>
+                        <input type="datetime-local" value={couponForm.validUntil || ''} onChange={e => setCouponForm(f => ({ ...f, validUntil: e.target.value || null }))} />
+                        <div className="cpn-presets">
+                          <button type="button" onClick={() => setCouponForm(f => ({ ...f, validUntil: istPreset(0, true) }))}>Tonight</button>
+                          <button type="button" onClick={() => setCouponForm(f => ({ ...f, validUntil: istPreset(7, true) }))}>+7 Days</button>
+                          <button type="button" onClick={() => setCouponForm(f => ({ ...f, validUntil: istPreset(30, true) }))}>+30 Days</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section: Status & Popup */}
+                  <div className="cpn-section cpn-section-toggles">
+                    <label className="cpn-toggle-row">
+                      <span className="cpn-toggle-info">
+                        <strong>Active</strong>
+                        <span>Coupon can be used by customers at checkout</span>
+                      </span>
+                      <input type="checkbox" className="cpn-switch" checked={couponForm.active ?? true} onChange={e => setCouponForm(f => ({ ...f, active: e.target.checked }))} />
+                    </label>
+
+                    <div className="cpn-toggle-divider" />
+
+                    <label className="cpn-toggle-row">
+                      <span className="cpn-toggle-info">
+                        <strong>Show on Banner</strong>
+                        <span>Display this coupon in the site announcement bar</span>
+                      </span>
+                      <input type="checkbox" className="cpn-switch" checked={couponForm.popupEnabled ?? false}
+                        onChange={e => setCouponForm(f => ({ ...f, popupEnabled: e.target.checked }))} />
+                    </label>
+
+                    {couponForm.popupEnabled && (
+                      <div className="form-group cpn-popup-msg">
+                        <label>Banner Message</label>
+                        <div className="cpn-msg-row">
+                          <input type="text" value={couponForm.popupMessage || ''}
+                            onChange={e => setCouponForm(f => ({ ...f, popupMessage: e.target.value }))}
+                            placeholder="Leave empty for auto-generated message" />
+                          <button type="button" className="btn btn-sm btn-outline cpn-autogen-btn" onClick={() => {
+                            const val = couponForm.discountType === 'percentage'
+                              ? `${couponForm.discountValue}%` : `₹${couponForm.discountValue}`;
+                            const code = couponForm.code || 'CODE';
+                            const min = couponForm.minOrderAmount && couponForm.minOrderAmount > 0
+                              ? ` on orders above ₹${couponForm.minOrderAmount}` : '';
+                            const msgs = [
+                              `🎉 Get ${val} OFF${min} — use code ${code} at checkout!`,
+                              `🔥 Flash Deal! Save ${val}${min} with code ${code}`,
+                              `✨ Exclusive ${val} discount${min}! Apply ${code} now`,
+                              `🎁 Special offer: ${val} OFF${min} — Code: ${code}`,
+                              `💸 Don't miss out! ${val} OFF${min} with ${code}`,
+                            ];
+                            setCouponForm(f => ({ ...f, popupMessage: msgs[Math.floor(Math.random() * msgs.length)] }));
+                          }}>
+                            <Sparkles size={13} /> Generate
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={closeCouponForm}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={savingCoupon}>
+                      {savingCoupon ? <div className="spinner-sm" /> : (editingCoupon ? 'Update Coupon' : 'Create Coupon')}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Database Tab */}
         {tab === 'database' && (
@@ -1601,6 +1980,108 @@ export default function Admin() {
               </motion.div>
             </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Tracking Management Modal */}
+        <AnimatePresence>
+          {trackingModal && (() => {
+            const tOrder = orders.find(o => o.id === trackingModal);
+            const manualEvents: any[] = (tOrder?.shipment?.trackingData as any)?.manual_events || [];
+            return (
+              <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setTrackingModal(null)}>
+                <motion.div className="modal tracking-modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={e => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2><Truck size={18} /> Manage Tracking — #{trackingModal.slice(0, 8).toUpperCase()}</h2>
+                    <button className="icon-btn" onClick={() => setTrackingModal(null)}><X size={20} /></button>
+                  </div>
+                  <div className="modal-body tracking-modal-body">
+                    {/* Section 1: Shipment Info */}
+                    <div className="tracking-modal-section">
+                      <h4>Shipment Info</h4>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Courier Name</label>
+                          <input type="text" placeholder="e.g. Delhivery, BlueDart" value={trackingManualForm.courierName}
+                            onChange={e => setTrackingManualForm(f => ({ ...f, courierName: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>AWB / Tracking Number</label>
+                          <input type="text" placeholder="e.g. 1234567890" value={trackingManualForm.awbCode}
+                            onChange={e => setTrackingManualForm(f => ({ ...f, awbCode: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Estimated Delivery Date</label>
+                          <input type="date" value={trackingManualForm.estimatedDelivery}
+                            onChange={e => setTrackingManualForm(f => ({ ...f, estimatedDelivery: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Shipment Status</label>
+                          <select value="" onChange={e => {
+                            if (e.target.value) handleSaveManualTracking();
+                          }}>
+                            <option value="">Select to update status…</option>
+                            <option value="processing">Processing</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                          </select>
+                        </div>
+                      </div>
+                      <button className="btn btn-primary" style={{ marginTop: 4 }} onClick={handleSaveManualTracking} disabled={savingTracking}>
+                        {savingTracking ? <div className="spinner-sm" /> : <><Save size={14} /> Save Shipment Info</>}
+                      </button>
+                    </div>
+
+                    {/* Section 2: Add Tracking Event */}
+                    <div className="tracking-modal-section">
+                      <h4>Add Tracking Checkpoint</h4>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Status / Title</label>
+                          <input type="text" placeholder="e.g. Out for Delivery" value={trackingEventForm.status}
+                            onChange={e => setTrackingEventForm(f => ({ ...f, status: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Location (optional)</label>
+                          <input type="text" placeholder="e.g. Mumbai Hub" value={trackingEventForm.location}
+                            onChange={e => setTrackingEventForm(f => ({ ...f, location: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label>Message / Description</label>
+                        <input type="text" placeholder="Short description of this checkpoint" value={trackingEventForm.message}
+                          onChange={e => setTrackingEventForm(f => ({ ...f, message: e.target.value }))} />
+                      </div>
+                      <button className="btn btn-primary" style={{ marginTop: 4 }} onClick={handleAddTrackingEvent} disabled={savingTracking}>
+                        {savingTracking ? <div className="spinner-sm" /> : <><Plus size={14} /> Add Checkpoint</>}
+                      </button>
+                    </div>
+
+                    {/* Section 3: Existing Events */}
+                    {manualEvents.length > 0 && (
+                      <div className="tracking-modal-section">
+                        <h4>Tracking History</h4>
+                        <div className="tracking-modal-events">
+                          {manualEvents.map((ev: any, i: number) => (
+                            <div key={ev.id || i} className="tracking-modal-event">
+                              <div className="tme-dot" />
+                              <div className="tme-body">
+                                <p className="tme-status">{ev.status}</p>
+                                <p className="tme-message">{ev.message}</p>
+                                {ev.location && <p className="tme-location"><MapPin size={10} /> {ev.location}</p>}
+                                <p className="tme-time">{new Date(ev.timestamp).toLocaleString('en-IN')}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            );
+          })()}
         </AnimatePresence>
       </div>
     </div>
