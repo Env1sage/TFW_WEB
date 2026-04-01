@@ -104,4 +104,10 @@ export interface DesignOrder {
   createdAt: string;
   customerName?: string;
   customerEmail?: string;
+  shipment?: {
+    id: string; orderId: string;
+    shiprocketOrderId?: string; shiprocketShipmentId?: string;
+    awbCode?: string; courierName?: string;
+    status: string; trackingData?: any; createdAt: string;
+  };
 }

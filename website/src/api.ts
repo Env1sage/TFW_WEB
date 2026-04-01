@@ -193,6 +193,8 @@ export const api = {
   // Shiprocket / Tracking
   createShipment: (orderId: string, data?: { weight?: number; length?: number; breadth?: number; height?: number; pickupLocation?: string }) =>
     request<any>(`/products/orders/${orderId}/create-shipment`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  createDesignShipment: (orderId: string, data?: { weight?: number; length?: number; breadth?: number; height?: number; pickupLocation?: string }) =>
+    request<any>(`/products/design-orders/${orderId}/create-shipment`, { method: 'POST', body: JSON.stringify(data || {}) }),
   getOrderTracking: (orderId: string) =>
     request<any>(`/products/orders/${orderId}/tracking`),
   getOrder: (id: string) =>

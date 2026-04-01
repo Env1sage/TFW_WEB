@@ -968,6 +968,7 @@ export interface DBDesignOrder {
   quantity: number; unitPrice: number; total: number;
   status: string; shippingAddress: string; createdAt: string;
   customerName?: string; customerEmail?: string;
+  shipment?: DBShipment;
 }
 
 function rowToDesignOrder(row: any): DBDesignOrder {
@@ -981,6 +982,16 @@ function rowToDesignOrder(row: any): DBDesignOrder {
     shippingAddress: row.shipping_address, createdAt: row.created_at,
     customerName: row.customer_name || undefined,
     customerEmail: row.customer_email || undefined,
+    shipment: row.ship_id ? {
+      id: row.ship_id, orderId: row.id,
+      shiprocketOrderId: row.ship_sr_order_id || undefined,
+      shiprocketShipmentId: row.ship_sr_shipment_id || undefined,
+      awbCode: row.ship_awb || undefined,
+      courierName: row.ship_courier || undefined,
+      status: row.ship_status || 'pending',
+      trackingData: row.ship_tracking || {},
+      createdAt: row.ship_created_at,
+    } : undefined,
   };
 }
 
@@ -1005,9 +1016,15 @@ export async function addDesignOrder(o: {
 
 export async function getAllDesignOrders(): Promise<DBDesignOrder[]> {
   const { rows } = await pool.query(
-    `SELECT d.*, u.name AS customer_name, u.email AS customer_email
+    `SELECT d.*, u.name AS customer_name, u.email AS customer_email,
+            s.id AS ship_id, s.shiprocket_order_id AS ship_sr_order_id,
+            s.shiprocket_shipment_id AS ship_sr_shipment_id,
+            s.awb_code AS ship_awb, s.courier_name AS ship_courier,
+            s.status AS ship_status, s.tracking_data AS ship_tracking,
+            s.created_at AS ship_created_at
      FROM website_design_orders d
      LEFT JOIN website_users u ON u.id = d.user_id
+     LEFT JOIN website_shipments s ON s.order_id = d.id
      ORDER BY d.created_at DESC`
   );
   return rows.map(rowToDesignOrder);
@@ -1019,7 +1036,13 @@ export async function getDesignOrdersByUser(userId: string): Promise<DBDesignOrd
 }
 
 export async function getDesignOrderById(id: string): Promise<DBDesignOrder | null> {
-  const { rows } = await pool.query(`SELECT * FROM website_design_orders WHERE id = $1`, [id]);
+  const { rows } = await pool.query(
+    `SELECT d.*, u.name AS customer_name, u.email AS customer_email
+     FROM website_design_orders d
+     LEFT JOIN website_users u ON u.id = d.user_id
+     WHERE d.id = $1`,
+    [id]
+  );
   return rows.length ? rowToDesignOrder(rows[0]) : null;
 }
 

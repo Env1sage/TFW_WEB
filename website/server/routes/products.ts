@@ -878,6 +878,95 @@ router.post('/orders/:id/create-shipment', authMiddleware, requireRole('admin', 
   }
 });
 
+// Admin: create Shiprocket shipment for a design/custom order
+router.post('/design-orders/:id/create-shipment', authMiddleware, requireRole('admin', 'order_manager'), async (req: Request, res: Response) => {
+  try {
+    const orderId = String(req.params.id);
+    const order = await db.getDesignOrderById(orderId);
+    if (!order) return res.status(404).json({ error: 'Design order not found' });
+
+    // Check if shipment already exists
+    const existing = await db.getShipmentByOrderId(orderId);
+    if (existing?.shiprocketOrderId) {
+      return res.status(409).json({ error: 'Shipment already exists for this order', shipment: existing });
+    }
+
+    // Parse address from the stored string format: "Name, Phone\nLine1, Line2\nCity, State - Pincode"
+    const lines = order.shippingAddress.split('\n');
+    const nameLine = lines[0] || '';
+    const addrLine = lines[1] || '';
+    const cityStatePinLine = lines[2] || '';
+    const namePhone = nameLine.split(',').map(s => s.trim());
+    const cityStatePin = cityStatePinLine.split(',');
+    const cityPart = cityStatePin[0]?.trim() || '';
+    const statePinPart = cityStatePin[1]?.trim() || '';
+    const statePin = statePinPart.split('-').map(s => s.trim());
+
+    const { weight = 0.5, length = 30, breadth = 20, height = 5 } = req.body;
+    let { pickupLocation } = req.body;
+
+    if (!pickupLocation) {
+      try {
+        const pickups = await shiprocketRequest('GET', '/settings/company/pickup');
+        const active = pickups?.data?.shipping_address?.find((a: any) => a.status === 1);
+        pickupLocation = active?.pickup_location || pickups?.data?.shipping_address?.[0]?.pickup_location || 'Primary';
+      } catch {
+        pickupLocation = 'Primary';
+      }
+    }
+
+    const srPayload = {
+      order_id: `TFW-D-${orderId.slice(0, 10)}`,
+      order_date: new Date(order.createdAt).toISOString().split('T')[0],
+      pickup_location: pickupLocation,
+      billing_customer_name: namePhone[0] || order.customerName || 'Customer',
+      billing_last_name: '',
+      billing_address: addrLine || order.shippingAddress,
+      billing_city: cityPart || 'Mumbai',
+      billing_pincode: statePin[1] || '400001',
+      billing_state: statePin[0] || 'Maharashtra',
+      billing_country: 'India',
+      billing_email: order.customerEmail || '',
+      billing_phone: namePhone[1] || '9000000000',
+      shipping_is_billing: true,
+      order_items: [{
+        name: `Custom ${order.productType}`,
+        sku: `CUSTOM-${order.productType.toUpperCase().replace(/\s+/g, '-')}`,
+        units: order.quantity || 1,
+        selling_price: order.unitPrice || 0,
+      }],
+      payment_method: 'Prepaid',
+      sub_total: order.total,
+      length, breadth, height, weight,
+    };
+
+    console.log('[Shiprocket] Creating design order with pickup:', pickupLocation);
+    const srResponse = await shiprocketRequest('POST', '/orders/create/adhoc', srPayload);
+    console.log('[Shiprocket] Response:', JSON.stringify(srResponse).substring(0, 300));
+
+    if (existing) {
+      await db.deleteShipment(existing.id);
+    }
+
+    const shipment = await db.addShipment({
+      id: uuid(), orderId,
+      shiprocketOrderId: String(srResponse.order_id || ''),
+      shiprocketShipmentId: String(srResponse.shipment_id || ''),
+      awbCode: srResponse.awb_code || undefined,
+      courierName: srResponse.courier_name || undefined,
+      courierId: srResponse.courier_id || undefined,
+      status: 'processing',
+    });
+
+    await db.updateDesignOrder(orderId, { status: 'processing' });
+
+    res.json({ shipment, shiprocketResponse: srResponse });
+  } catch (e: any) {
+    console.error('[Shiprocket] Create design shipment error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Auth: get shipment/tracking for an order (customer or admin)
 router.get('/orders/:id/tracking', authMiddleware, async (req: Request, res: Response) => {
   try {

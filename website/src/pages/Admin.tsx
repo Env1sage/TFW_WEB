@@ -523,6 +523,13 @@ export default function Admin() {
     finally { setCreatingShipmentFor(null); }
   };
 
+  const handleCreateDesignShipment = async (orderId: string) => {
+    setCreatingShipmentFor(orderId);
+    try { await api.createDesignShipment(orderId); toast.success('Shipment created!'); load(); }
+    catch (err: any) { toast.error(err?.message || 'Shipment creation failed'); }
+    finally { setCreatingShipmentFor(null); }
+  };
+
   const openTrackingModal = (order: Order) => {
     setTrackingManualForm({
       courierName: order.shipment?.courierName || '',
@@ -1304,6 +1311,39 @@ export default function Admin() {
                                       </button>
                                     )}
                                   </div>
+
+                                  {/* Shipment Actions */}
+                                  {o.shipment ? (
+                                    <div className="order-tracking" style={{ marginTop: 8 }}>
+                                      <Truck size={14} /> {o.shipment.courierName || 'Shipment created'}
+                                      {o.shipment.awbCode && <span className="track-status"> AWB: {o.shipment.awbCode}</span>}
+                                      <button
+                                        className="btn btn-sm btn-outline"
+                                        style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                        onClick={e => { e.stopPropagation(); openTrackingModal({ ...o, items: [{ productId: o.productType, productName: `Custom ${o.productType}`, quantity: o.quantity, price: o.unitPrice }] } as any); }}>
+                                        <MapPin size={12} /> Manage Tracking
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    o.status !== 'cancelled' && (
+                                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                          onClick={e => { e.stopPropagation(); handleCreateDesignShipment(o.id); }}
+                                          disabled={creatingShipmentFor === o.id}>
+                                          <Truck size={14} />
+                                          {creatingShipmentFor === o.id ? 'Creating...' : 'Create Shipment'}
+                                        </button>
+                                        <button
+                                          className="btn btn-sm btn-outline"
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                          onClick={e => { e.stopPropagation(); openTrackingModal({ ...o, items: [{ productId: o.productType, productName: `Custom ${o.productType}`, quantity: o.quantity, price: o.unitPrice }] } as any); }}>
+                                          <MapPin size={14} /> Add Tracking
+                                        </button>
+                                      </div>
+                                    )
+                                  )}
                                 </div>
                               </motion.div>
                             )}
