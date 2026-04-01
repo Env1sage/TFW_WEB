@@ -37,9 +37,21 @@ jobs:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
+      - name: Check if deploy secrets are configured
+        id: secrets-check
+        run: |
+          if [ -n "$DEPLOY_HOST" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::Deploy secrets not configured. Add VPS_HOST, VPS_USER, VPS_SSH_KEY to repo secrets to enable auto-deploy."
+          fi
+        env:
+          DEPLOY_HOST: ${{ secrets.VPS_HOST }}
+
       - name: Deploy to VPS via SSH
+        if: steps.secrets-check.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
