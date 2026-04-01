@@ -13,6 +13,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+// Trust first proxy (nginx) — required for express-rate-limit behind reverse proxy
+app.set('trust proxy', 1);
 const PORT = process.env.API_PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 const ALLOWED_ORIGINS = [

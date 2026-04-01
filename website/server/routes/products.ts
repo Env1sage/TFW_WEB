@@ -504,8 +504,8 @@ router.post('/razorpay/create-order', authMiddleware, async (req: Request, res: 
     });
     res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId: RAZORPAY_KEY_ID });
   } catch (e: any) {
-    console.error('Razorpay order error:', e.message);
-    res.status(500).json({ error: 'Failed to create payment order' });
+    console.error('Razorpay order error:', e?.error?.description || e?.message || JSON.stringify(e));
+    res.status(500).json({ error: e?.error?.description || 'Failed to create payment order' });
   }
 });
 
