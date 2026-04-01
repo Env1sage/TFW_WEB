@@ -485,6 +485,11 @@ router.post('/razorpay/create-order', authMiddleware, async (req: Request, res: 
     const { amount } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valid amount required' });
 
+    // If Razorpay keys not configured, return simulated order
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      return res.json({ orderId: `sim_${uuid().slice(0, 12)}`, amount: Math.round(amount * 100), currency: 'INR', keyId: '', simulated: true });
+    }
+
     // Create a Razorpay order via API
     const Razorpay = await import('razorpay').then(m => m.default || m);
     const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
@@ -496,10 +501,6 @@ router.post('/razorpay/create-order', authMiddleware, async (req: Request, res: 
     res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId: RAZORPAY_KEY_ID });
   } catch (e: any) {
     console.error('Razorpay order error:', e.message);
-    // Fallback: if Razorpay is unavailable or keys are not set, still allow checkout
-    if (!RAZORPAY_KEY_ID) {
-      return res.json({ orderId: `sim_${uuid().slice(0, 12)}`, amount: Math.round(req.body.amount * 100), currency: 'INR', keyId: RAZORPAY_KEY_ID, simulated: true });
-    }
     res.status(500).json({ error: 'Failed to create payment order' });
   }
 });
