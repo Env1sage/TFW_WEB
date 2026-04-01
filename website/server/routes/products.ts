@@ -83,10 +83,11 @@ async function syncShiprocketStatus(shipment: db.DBShipment): Promise<db.DBShipm
   return shipment;
 }
 
-const MOCKUP_UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads', 'mockups');
+// In production __dirname is /app/dist/server/routes/, so we need 3 levels up to reach /app/uploads/
+const MOCKUP_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'mockups');
 if (!fs.existsSync(MOCKUP_UPLOADS_DIR)) fs.mkdirSync(MOCKUP_UPLOADS_DIR, { recursive: true });
 
-const PRODUCT_UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads', 'products');
+const PRODUCT_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'products');
 if (!fs.existsSync(PRODUCT_UPLOADS_DIR)) fs.mkdirSync(PRODUCT_UPLOADS_DIR, { recursive: true });
 
 const mockupStorage = multer.diskStorage({
@@ -151,10 +152,13 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // Product image upload
-router.post('/upload', authMiddleware, requireRole('admin', 'product_manager'), uploadProduct.single('image'), (req: Request, res: Response) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const url = `/uploads/products/${req.file.filename}`;
-  res.json({ url });
+router.post('/upload', authMiddleware, requireRole('admin', 'product_manager'), (req: Request, res: Response) => {
+  uploadProduct.single('image')(req, res, (err: any) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const url = `/uploads/products/${req.file.filename}`;
+    res.json({ url });
+  });
 });
 
 // Get categories (public) — returns full category objects with id/name/slug/tokenId
@@ -645,10 +649,13 @@ router.put('/orders/:id/status', authMiddleware, requireRole('admin', 'order_man
 });
 
 // Mockup image upload
-router.post('/mockups/upload', authMiddleware, requireRole('admin', 'product_manager'), uploadMockup.single('image'), (req: Request, res: Response) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const url = `/uploads/mockups/${req.file.filename}`;
-  res.json({ url });
+router.post('/mockups/upload', authMiddleware, requireRole('admin', 'product_manager'), (req: Request, res: Response) => {
+  uploadMockup.single('image')(req, res, (err: any) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const url = `/uploads/mockups/${req.file.filename}`;
+    res.json({ url });
+  });
 });
 
 // Mockup CRUD

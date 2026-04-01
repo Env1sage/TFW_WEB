@@ -26,7 +26,7 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Copy uploads directory structure (will be mounted as volume)
-RUN mkdir -p uploads
+RUN mkdir -p uploads/mockups uploads/products
 
 # Non-root user for security
 RUN addgroup -g 1001 -S nodejs && \

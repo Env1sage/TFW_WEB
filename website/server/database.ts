@@ -2,14 +2,17 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
-export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
 if (!process.env.DATABASE_URL) {
   console.error('FATAL: DATABASE_URL environment variable is not set');
   process.exit(1);
 }
+
+export const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
 
 /* ── Schema bootstrap ── */
 export async function initDB() {

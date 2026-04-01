@@ -147,10 +147,14 @@ router.post('/disable-2fa', authMiddleware, async (req: Request, res: Response) 
 
 // Get current user profile
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
-  const user = await db.findUserById((req as any).userId);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  const { password: _, twoFactorSecret: __, ...safe } = user;
-  res.json(safe);
+  try {
+    const user = await db.findUserById((req as any).userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { password: _, twoFactorSecret: __, ...safe } = user;
+    res.json(safe);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Update profile
