@@ -29,15 +29,19 @@ async function safeJsonParse(res: globalThis.Response): Promise<any> {
 async function getShiprocketToken(): Promise<string> {
   const email = process.env.SHIPROCKET_EMAIL;
   const password = process.env.SHIPROCKET_PASSWORD;
-  if (!email || !password) throw new Error('Shiprocket credentials not configured');
+  if (!email || !password) throw new Error('Shiprocket credentials not configured — set SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD env vars');
   if (_srToken && Date.now() < _srTokenExpiry) return _srToken;
+  console.log(`[Shiprocket] Authenticating with email=${email}, password length=${password.length}`);
   const res = await fetch(`${SHIPROCKET_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
   const data = await safeJsonParse(res);
-  if (!res.ok || !data.token) throw new Error(data.message || 'Shiprocket auth failed');
+  if (!res.ok || !data.token) {
+    console.error(`[Shiprocket] Auth failed (HTTP ${res.status}):`, JSON.stringify(data).substring(0, 300));
+    throw new Error(`Shiprocket login failed (${res.status}): ${data.message || 'check credentials'}`);
+  }
   _srToken = data.token;
   _srTokenExpiry = Date.now() + 23 * 60 * 60 * 1000; // 23 hours
   return _srToken!;
@@ -52,8 +56,10 @@ async function shiprocketRequest(method: string, endpoint: string, body?: object
   });
   const data = await safeJsonParse(res);
   if (!res.ok) {
+    // If 401/403, invalidate cached token so next request re-authenticates
+    if (res.status === 401 || res.status === 403) { _srToken = null; _srTokenExpiry = 0; }
     const errMsg = data?.errors ? JSON.stringify(data.errors) : (data?.message || `Shiprocket API error: ${res.status}`);
-    throw new Error(errMsg);
+    throw new Error(`Shiprocket: ${errMsg}`);
   }
   return data;
 }
@@ -908,7 +914,7 @@ router.post('/orders/:id/create-shipment', authMiddleware, requireRole('admin', 
     res.json({ shipment, shiprocketResponse: srResponse });
   } catch (e: any) {
     console.error('[Shiprocket] Create shipment error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: `Shipment error: ${e.message}` });
   }
 });
 
@@ -979,7 +985,7 @@ router.post('/design-orders/:id/create-shipment', authMiddleware, requireRole('a
     res.json({ shipment, shiprocketResponse: srResponse });
   } catch (e: any) {
     console.error('[Shiprocket] Create design shipment error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: `Shipment error: ${e.message}` });
   }
 });
 
