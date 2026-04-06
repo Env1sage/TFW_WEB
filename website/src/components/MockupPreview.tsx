@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ProductMockup } from '../types';
+import { CW, CH } from '../mockups';
 
 /* ── Helpers ── */
 const imgCache = new Map<string, HTMLImageElement>();
@@ -145,12 +146,18 @@ interface Props {
   mockup?: ProductMockup;
 }
 
-/** Extract the FRONT print‐area layout from a DB mockup, converting to our internal format */
+/** Extract the FRONT print‐area layout from a DB mockup, normalized to 0–1 fractions */
 function getFrontPrintArea(mockup: ProductMockup): { left: number; top: number; width: number; height: number } | null {
   const pa = mockup.printArea;
   if (!pa?.layouts?.length) return null;
   const front = pa.layouts.find((l: any) => l.side === 'FRONT') ?? pa.layouts[0];
-  return { left: front.x, top: front.y, width: front.w, height: front.h };
+  // DB stores pixel coords in 800×1000 space — divide by CW/CH to get 0-1 fractions
+  return {
+    left:   front.x / CW,
+    top:    front.y / CH,
+    width:  front.w / CW,
+    height: front.h / CH,
+  };
 }
 
 export default function MockupPreview({ category, designImage, color = '#ffffff', className, mockup }: Props) {
