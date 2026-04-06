@@ -156,6 +156,8 @@ function getFrontPrintArea(mockup: ProductMockup): { left: number; top: number; 
 export default function MockupPreview({ category, designImage, color = '#ffffff', className, mockup }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
+  const [designFailed, setDesignFailed] = useState(false);
+  const [paStyle, setPaStyle] = useState<React.CSSProperties | null>(null);
 
   const shouldMockup = !!mockup?.frontImage && isDesignArtwork(designImage);
 
@@ -163,6 +165,18 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
     if (!shouldMockup || !canvasRef.current || !mockup) { setState('fallback'); return; }
     const printArea = getFrontPrintArea(mockup);
     if (!printArea) { setState('fallback'); return; }
+
+    // Pre-compute CSS for overlay fallback (design positioned at print area)
+    setPaStyle({
+      position: 'absolute',
+      left: `${printArea.left * 100}%`,
+      top: `${printArea.top * 100}%`,
+      width: `${printArea.width * 100}%`,
+      height: `${printArea.height * 100}%`,
+      objectFit: 'contain' as const,
+      pointerEvents: 'none' as const,
+    });
+
     try {
       const baseSrc = mockup.frontImage;
       const shadowSrc = mockup.frontShadow;
@@ -176,6 +190,10 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
         loadImg(highlightsSrc).catch(() => null),
       ]);
       if (!canvasRef.current) return;
+
+      const ok = !!design && design.naturalWidth > 0;
+      setDesignFailed(!ok);
+
       // Use the base image's natural dimensions as canvas size
       canvasRef.current.width = base.naturalWidth;
       canvasRef.current.height = base.naturalHeight;
@@ -186,7 +204,7 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
     }
   }, [shouldMockup, designImage, color, mockup]);
 
-  useEffect(() => { setState('loading'); render(); }, [render]);
+  useEffect(() => { setState('loading'); setDesignFailed(false); render(); }, [render]);
 
   // No mockup data or not a design artwork → show product photo directly
   if (!shouldMockup || state === 'fallback') {
@@ -201,6 +219,10 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
         height={1054}
         className="mockup-canvas"
       />
+      {/* If design failed to composite on canvas, overlay it as a positioned <img> */}
+      {designFailed && paStyle && (
+        <img src={designImage} alt="Design" style={paStyle} loading="lazy" />
+      )}
       {state === 'loading' && <div className="mockup-loading" />}
     </div>
   );
