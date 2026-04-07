@@ -159,20 +159,27 @@ function designOrderCard(d: DesignOrderEmailData) {
   const linePrice = formatCurrency(d.total);
   const colorStr = d.colorName || hexToColorName(d.colorHex || '');
   const variantParts = [d.printSize ? d.printSize : '', colorStr ? colorStr : '', d.sides?.length ? d.sides.join('+') : ''].filter(Boolean).join(' / ');
-  const productLabel = d.productType ? d.productType.charAt(0).toUpperCase() + d.productType.slice(1) : 'Custom Product';
 
   const firstDesignImg = d.designImages
     ? Object.values(d.designImages).find(v => v && !v.startsWith('data:'))
     : '';
+  // Priority: rendered design file → DB mockup front image → static fallback
+  const dbMockupUrl = d.mockupFrontImageUrl ? absoluteImageUrl(d.mockupFrontImageUrl) : '';
   const productTypeLower = (d.productType || '').toLowerCase();
-  const mockupUrl = (productTypeLower.includes('tshirt') || productTypeLower.includes('t-shirt') || productTypeLower.includes('t_shirt'))
+  const staticFallback = (productTypeLower.includes('tshirt') || productTypeLower.includes('t-shirt') || productTypeLower.includes('t_shirt'))
     ? `${BASE_URL}/mockups/tshirt-front.png`
     : '';
-  const imgSrc = firstDesignImg ? absoluteImageUrl(firstDesignImg) : mockupUrl;
+  const imgSrc = firstDesignImg ? absoluteImageUrl(firstDesignImg) : (dbMockupUrl || staticFallback);
   const designImgCell = imgSrc
     ? `<img src="${imgSrc}" width="64" height="64" alt="Product Preview"
          style="display:block;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb;" />`
-    : `<div style="width:64px;height:64px;border-radius:8px;background:#f5f3ff;border:1px solid #ddd6fe;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9ca3af;font-weight:600;">CUSTOM</div>`;
+    : `<div style="width:64px;height:64px;border-radius:8px;background:#f5f3ff;border:1px solid #ddd6fe;display:flex;align-items:center;justify-content:center;font-size:24px;">🎨</div>`;
+
+  // Clean product label: use provided name, strip db_<uuid> keys, or capitalise productType
+  const rawLabel = d.productName || (/^db_[0-9a-f-]/i.test(d.productType) ? '' : d.productType);
+  const productLabel = rawLabel
+    ? rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1)
+    : 'Custom Product';
 
   return `
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
@@ -394,6 +401,8 @@ interface DesignOrderEmailData {
   customerName: string;
   customerEmail: string;
   productType: string;
+  productName?: string;         // human-readable name (e.g. the mockup's name)
+  mockupFrontImageUrl?: string; // hosted URL of the mockup's front image (fallback for email)
   colorHex?: string;
   colorName: string;
   printSize: string;

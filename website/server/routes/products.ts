@@ -235,6 +235,26 @@ if (!fs.existsSync(MOCKUP_UPLOADS_DIR)) fs.mkdirSync(MOCKUP_UPLOADS_DIR, { recur
 const PRODUCT_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'products');
 if (!fs.existsSync(PRODUCT_UPLOADS_DIR)) fs.mkdirSync(PRODUCT_UPLOADS_DIR, { recursive: true });
 
+const DESIGN_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'designs');
+if (!fs.existsSync(DESIGN_UPLOADS_DIR)) fs.mkdirSync(DESIGN_UPLOADS_DIR, { recursive: true });
+
+/** Converts a base64 data URI to a hosted file on disk. Returns `/uploads/designs/filename.ext` URL.
+ *  Returns the original string unchanged if it is already a hosted URL. */
+function persistDataUri(dataUri: string, filename: string): string {
+  if (!dataUri || !dataUri.startsWith('data:')) return dataUri;
+  const m = dataUri.match(/^data:image\/(png|jpeg|jpg|webp);base64,([\s\S]+)$/);
+  if (!m) return '';
+  const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+  const fname = `${filename}.${ext}`;
+  try {
+    fs.writeFileSync(path.join(DESIGN_UPLOADS_DIR, fname), Buffer.from(m[2], 'base64'));
+    return `/uploads/designs/${fname}`;
+  } catch (e: any) {
+    console.error(`[DesignImage] Failed to save ${fname}:`, e.message);
+    return '';
+  }
+}
+
 const mockupStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, MOCKUP_UPLOADS_DIR),
   filename: (_req, file, cb) => {
@@ -501,10 +521,30 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
       resolvedName = user.name;
       resolvedEmail = user.email;
     }
+
+    // Generate ID first so design image filenames reference this order
+    const orderId = uuid();
+
+    // Persist design images: convert data URIs to hosted files
+    const persistedDesignImages: Record<string, string> = {};
+    for (const [side, uri] of Object.entries((designImages as Record<string, string>) || {})) {
+      if (uri) persistedDesignImages[side] = persistDataUri(uri, `${orderId}-${side.toLowerCase().replace(/\s+/g, '-')}`);
+    }
+
+    // Look up mockup metadata for the email (productType is 'db_<mockupId>' for DB mockups)
+    let mockupName = '';
+    let mockupFrontImageUrl = '';
+    if (typeof productType === 'string' && productType.startsWith('db_')) {
+      const mockupId = productType.slice(3);
+      const allMockups = await db.getAllMockups().catch(() => [] as any[]);
+      const mockup = allMockups.find((m: any) => m.id === mockupId);
+      if (mockup) { mockupName = mockup.name || ''; mockupFrontImageUrl = mockup.frontImage || ''; }
+    }
+
     const order = await db.addDesignOrder({
-      id: uuid(), userId, productType, colorHex: colorHex || '#ffffff',
+      id: orderId, userId, productType, colorHex: colorHex || '#ffffff',
       colorName: colorName || 'White', printSize: printSize || 'full',
-      sides: sides || [], designImages: designImages || {},
+      sides: sides || [], designImages: persistedDesignImages,
       uploadedImages: uploadedImages || {},
       quantity: quantity || 1, unitPrice: unitPrice || 0,
       total: total || 0, shippingAddress: shippingAddress || '',
@@ -519,6 +559,7 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
         customerName: resolvedName,
         customerEmail: resolvedEmail,
         productType: order.productType,
+        productName: mockupName || undefined,
         colorHex: order.colorHex,
         colorName: order.colorName,
         printSize: order.printSize,
@@ -530,6 +571,7 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
         shippingAddress: order.shippingAddress,
         createdAt: order.createdAt,
         designImages: order.designImages || {},
+        mockupFrontImageUrl: mockupFrontImageUrl || undefined,
       };
 
       if (groupOrderId) {
