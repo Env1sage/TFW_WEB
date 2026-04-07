@@ -4214,32 +4214,14 @@ a.order-item-name:hover { color: var(--primary); }
 }
 
 
-/* ── Navbar mobile — full-page drawer on open ── */
+/* ── Navbar mobile — nav-link styling when menu is open ── */
 @media (max-width: 768px) {
-  .navbar-links.open {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--surface);
-    padding: 5rem 1.5rem 2rem;
-    z-index: 98;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    overflow-y: auto;
-  }
   .navbar-links.open .nav-link {
     font-size: 1.05rem;
     padding: 0.875rem 1rem;
     width: 100%;
     border-radius: var(--radius);
   }
-  .navbar-inner { position: relative; z-index: 99; }
-
-  /* Cart button and actions stay visible above the overlay */
-  .navbar-actions { z-index: 99; position: relative; }
 }
 
 
