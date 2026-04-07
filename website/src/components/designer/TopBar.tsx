@@ -68,7 +68,7 @@ export default function TopBar({
                 <button
                   key={layout.id}
                   className={`pill layout-pill ${isEditing ? 'active' : isSelected ? 'enabled' : ''}`}
-                  style={isEditing ? { borderColor: color, color } : isSelected ? { borderColor: color + '88', color } : undefined}
+                  style={isEditing ? { borderColor: color } : isSelected ? { borderColor: color + '88' } : undefined}
                   onClick={() => onToggleLayout?.(layout.id)}
                   title={allowMultipleLayouts ? 'Click to select · multiple zones allowed' : 'Click to edit this print zone'}
                 >

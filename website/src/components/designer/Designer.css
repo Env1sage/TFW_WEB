@@ -69,13 +69,13 @@
 .pill:hover { color: var(--text); background: rgba(255,255,255,.7); }
 .pill.active {
   background: var(--primary);
-  color: #fff !important;  /* override inline style={{ color }} on layout pills */
+  color: #fff;
   box-shadow: var(--clay-shadow-sm);
   font-weight: 700;
 }
 .pill.enabled {
   background: rgba(255,255,255,.7);
-  color: var(--text) !important;  /* override inline style color for readability */
+  color: var(--text);
   font-weight: 600;
   border: 1px solid var(--border);
 }
