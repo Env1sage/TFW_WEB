@@ -122,7 +122,7 @@ export default function Navbar() {
       <nav className="navbar">
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand">
-          <div className="brand-icon">T</div>
+          <img src="/logo.svg" alt="TheFramedWall" className="brand-logo" />
           <span>TheFramedWall</span>
         </Link>
 
