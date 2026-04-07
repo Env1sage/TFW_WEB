@@ -69,24 +69,30 @@
 .pill:hover { color: var(--text); background: rgba(255,255,255,.7); }
 .pill.active {
   background: var(--primary);
-  color: #fff;
+  color: #fff !important;  /* override inline style={{ color }} on layout pills */
   box-shadow: var(--clay-shadow-sm);
   font-weight: 700;
 }
 .pill.enabled {
   background: rgba(255,255,255,.7);
-  color: var(--success);
+  color: var(--text) !important;  /* override inline style color for readability */
   font-weight: 600;
-  border: 1px solid rgba(22,163,74,.3);
+  border: 1px solid var(--border);
 }
 .pill .check { font-size: 10px; }
 
 /* layout pill color dot */
 .layout-pill-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.4);
+}
+/* dot turns white when pill has green active background */
+.pill.active .layout-pill-dot {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: rgba(255,255,255,0.3);
 }
 .pill-hint {
   font-size: 9px;
@@ -204,7 +210,7 @@
   font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--text-2);
   letter-spacing: .8px;
   padding: 14px 16px 6px;
   font-family: var(--font-heading);
@@ -237,7 +243,7 @@
   background: var(--bg);
   cursor: pointer;
   font-size: 10px;
-  color: var(--text-2);
+  color: var(--text);  /* strong contrast against bg */
   font-weight: 600;
   transition: all .15s;
   font-family: var(--font-body);
@@ -273,7 +279,7 @@
   background: var(--bg);
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-2);
+  color: var(--text);  /* strong contrast: #1A1A1A on #F5F5F5 */
   cursor: pointer;
   transition: all .15s;
   font-family: var(--font-body);
@@ -330,7 +336,7 @@
   font-weight: 500;
   cursor: pointer;
   gap: 8px;
-  color: var(--text-2);
+  color: var(--text);  /* match tool-btn contrast */
   transition: all .15s;
   margin-bottom: 2px;
   box-shadow: var(--clay-shadow-sm);
@@ -408,7 +414,7 @@
   font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--text-2);
   letter-spacing: .8px;
   margin-bottom: 8px;
   font-family: var(--font-heading);
@@ -417,7 +423,7 @@
 .prop-row { display: flex; align-items: center; gap: 6px; }
 .prop-label {
   font-size: 10px;
-  color: var(--text-3);
+  color: var(--text-2);
   min-width: 34px;
   font-weight: 600;
 }
@@ -1028,4 +1034,4 @@
   .preview-product-meta { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 16px; }
   .preview-product-frame { border-right: none; border-bottom: 1px solid var(--border); }
   .preview-product-img { max-height: 40vh; }
-}
+}
