@@ -147,48 +147,36 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
                 const isCombined = !!productOrder && dOrders.length > 0;
                 const displayDate = new Date(entry.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
                 const overallTotal = (productOrder?.total ?? 0) + dOrders.reduce((s, d) => s + d.total, 0);
+                // Single display ID: use product order ID if present, else design order ID
+                const displayId = (productOrder?.id ?? dOrders[0]?.id ?? '').slice(0, 8).toUpperCase();
+                const primaryStatus = productOrder?.status ?? dOrders[0]?.status;
 
                 return (
                   <motion.div key={entry.key} className="order-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                     {/* ── Header ── */}
                     <div className="order-header">
                       <div>
-                        {isCombined ? (
-                          <span className="order-id" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <Package size={13} style={{ color: 'var(--primary)' }} />
-                            <Palette size={13} style={{ color: 'var(--primary)' }} />
-                            Combined Order — #{(productOrder!.id).slice(0, 8).toUpperCase()}
-                          </span>
-                        ) : productOrder ? (
-                          <span className="order-id">Order #{productOrder.id.slice(0, 8).toUpperCase()}</span>
-                        ) : (
-                          <span className="order-id" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <Palette size={13} style={{ color: 'var(--primary)' }} />
-                            Order #{dOrders[0].id.slice(0, 8).toUpperCase()}
-                          </span>
-                        )}
+                        <span className="order-id" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {isCombined && <><Package size={13} style={{ color: 'var(--primary)' }} /><Palette size={13} style={{ color: 'var(--primary)' }} /></>}
+                          {!isCombined && productOrder && <Package size={13} style={{ color: 'var(--primary)' }} />}
+                          {!isCombined && !productOrder && <Palette size={13} style={{ color: 'var(--primary)' }} />}
+                          Order #{displayId}
+                        </span>
                         <span className="order-date">{displayDate}</span>
                       </div>
-                      {/* Show primary status (product order if present, else design) */}
-                      {(() => {
-                        const primaryStatus = productOrder?.status ?? dOrders[0]?.status;
-                        return primaryStatus ? (
-                          <span className={`status-badge status-${primaryStatus}`}>
-                            {statusIcons[primaryStatus]} {statusLabel[primaryStatus] ?? primaryStatus}
-                          </span>
-                        ) : null;
-                      })()}
+                      {primaryStatus && (
+                        <span className={`status-badge status-${primaryStatus}`}>
+                          {statusIcons[primaryStatus]} {statusLabel[primaryStatus] ?? primaryStatus}
+                        </span>
+                      )}
                     </div>
 
                     {/* ── Product Order Items ── */}
                     {productOrder && (
-                      <div className={isCombined ? 'order-section' : ''}>
+                      <div className={isCombined ? 'order-section-block' : ''}>
                         {isCombined && (
-                          <div className="order-section-label">
+                          <div className="order-section-divider">
                             <Package size={13} /> Products
-                            <span className={`status-badge status-${productOrder.status}`} style={{ marginLeft: 8, fontSize: '0.7rem', padding: '2px 7px' }}>
-                              {statusLabel[productOrder.status] ?? productOrder.status}
-                            </span>
                           </div>
                         )}
                         <div className="order-items-grid">
@@ -247,13 +235,10 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
                     {dOrders.map((dOrder) => {
                       const firstImage = Object.entries(dOrder.designImages || {}).find(([, v]) => v)?.[1];
                       return (
-                        <div key={dOrder.id} className={isCombined ? 'order-section' : ''}>
+                        <div key={dOrder.id} className={isCombined ? 'order-section-block' : ''}>
                           {isCombined && (
-                            <div className="order-section-label">
+                            <div className="order-section-divider">
                               <Palette size={13} /> Custom Design
-                              <span className={`status-badge status-${dOrder.status}`} style={{ marginLeft: 8, fontSize: '0.7rem', padding: '2px 7px' }}>
-                                {statusLabel[dOrder.status] ?? dOrder.status}
-                              </span>
                             </div>
                           )}
                           <div className="order-design-row">

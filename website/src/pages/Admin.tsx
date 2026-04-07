@@ -1035,14 +1035,14 @@ export default function Admin() {
                         <div className="order-card-col">
                           <Hash size={14} />
                           <code style={{ fontSize: '0.85rem' }}>
-                            {po ? po.id.slice(0, 8) : dOrders[0]?.id.slice(0, 8)}
+                            {(po?.id ?? dOrders[0]?.id ?? '').slice(0, 8)}
                           </code>
                         </div>
                         <div className="order-card-col">
                           {isCombined ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               <Package size={13} /><Palette size={13} />
-                              <span style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>Combined</span>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>Product + Design</span>
                             </span>
                           ) : po ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem' }}>
@@ -1095,7 +1095,7 @@ export default function Admin() {
                                 <div className="order-info-block">
                                   <h4><Clock size={15} /> Order Info</h4>
                                   <p>Placed: {new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                                  {isCombined && <p style={{ fontSize: '0.78rem', color: 'var(--primary)', marginTop: 4 }}>Combined order (product + custom design)</p>}
+                                  {isCombined && <p style={{ fontSize: '0.78rem', color: 'var(--primary)', marginTop: 4 }}>Single order — product + custom design</p>}
                                 </div>
                               </div>
 
@@ -1104,8 +1104,7 @@ export default function Admin() {
                                 <div className="order-section-block">
                                   <div className="order-section-divider">
                                     <Package size={14} />
-                                    <span>Normal Order</span>
-                                    <code style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginLeft: 4 }}>#{po.id.slice(0, 8)}</code>
+                                    <span>Products</span>
                                   </div>
                                   <div className="order-items-list">
                                     {po.items.map((item, idx) => {
@@ -1151,8 +1150,7 @@ export default function Admin() {
                                   <div key={o.id} className="order-section-block">
                                     <div className="order-section-divider">
                                       <Palette size={14} />
-                                      <span>Customised Order</span>
-                                      <code style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginLeft: 4 }}>#{o.id.slice(0, 8)}</code>
+                                      <span>Custom Design</span>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, padding: '10px 0' }}>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Product</strong><p style={{ textTransform: 'capitalize', margin: '4px 0 0' }}>{o.productType}</p></div>

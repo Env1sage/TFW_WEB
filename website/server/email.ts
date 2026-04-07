@@ -284,7 +284,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
         <td style="font-size:13px;color:#6b7280;">Order</td>
-        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.orderId.slice(-8).toUpperCase()}</td>
+        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.orderId.slice(0,8).toUpperCase()}</td>
       </tr>
       <tr>
         <td style="font-size:13px;color:#6b7280;padding-top:4px;">Date</td>
@@ -332,7 +332,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
       </td></tr>
     </table>`;
 
-  await sendMail(data.customerEmail, `Order confirmed — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
+  await sendMail(data.customerEmail, `Order confirmed — #${data.orderId.slice(0,8).toUpperCase()}`, baseLayout('Order Confirmation', body));
 }
 
 // ─── Admin New Order Notification ──────────────────────
@@ -346,7 +346,7 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
       <tr><td style="padding:14px 16px;">
-        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(-8).toUpperCase()}</p>
+        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(0,8).toUpperCase()}</p>
         <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
         <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
       </td></tr>
@@ -371,7 +371,7 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🛒 New Order — #${data.orderId.slice(-8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
+  await sendMail(ADMIN_EMAIL, `🛒 New Order — #${data.orderId.slice(0,8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
 }
 
 // ─── Design Order Emails ──────────────────────────────
@@ -405,7 +405,7 @@ export async function sendDesignOrderConfirmation(data: DesignOrderEmailData) {
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
         <td style="font-size:13px;color:#6b7280;">Order</td>
-        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.orderId.slice(-8).toUpperCase()}</td>
+        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.orderId.slice(0,8).toUpperCase()}</td>
       </tr>
       <tr>
         <td style="font-size:13px;color:#6b7280;padding-top:4px;">Date</td>
@@ -453,7 +453,7 @@ export async function sendDesignOrderConfirmation(data: DesignOrderEmailData) {
       </td></tr>
     </table>`;
 
-  await sendMail(data.customerEmail, `Order confirmed — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
+  await sendMail(data.customerEmail, `Order confirmed — #${data.orderId.slice(0,8).toUpperCase()}`, baseLayout('Order Confirmation', body));
 }
 
 export async function sendAdminDesignOrderNotification(data: DesignOrderEmailData) {
@@ -467,7 +467,7 @@ export async function sendAdminDesignOrderNotification(data: DesignOrderEmailDat
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
       <tr><td style="padding:14px 16px;">
-        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(-8).toUpperCase()}</p>
+        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(0,8).toUpperCase()}</p>
         <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
         <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(grandTotal)}</span></p>
       </td></tr>
@@ -492,7 +492,7 @@ export async function sendAdminDesignOrderNotification(data: DesignOrderEmailDat
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🎨 New Design Order — #${data.orderId.slice(-8).toUpperCase()} — ${formatCurrency(grandTotal)}`, baseLayout('New Design Order', body));
+  await sendMail(ADMIN_EMAIL, `🎨 New Design Order — #${data.orderId.slice(0,8).toUpperCase()} — ${formatCurrency(grandTotal)}`, baseLayout('New Design Order', body));
 }
 
 // ─── Combined Order (product + custom design in same checkout) ──────────────
@@ -527,7 +527,7 @@ export async function sendCombinedOrderConfirmation(data: CombinedOrderEmailData
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
         <td style="font-size:13px;color:#6b7280;">Order</td>
-        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.productOrderId.slice(-8).toUpperCase()}</td>
+        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.productOrderId.slice(0,8).toUpperCase()}</td>
       </tr>
       <tr>
         <td style="font-size:13px;color:#6b7280;padding-top:4px;">Date</td>
@@ -575,7 +575,7 @@ export async function sendCombinedOrderConfirmation(data: CombinedOrderEmailData
       </td></tr>
     </table>`;
 
-  await sendMail(data.customerEmail, `Order confirmed — #${data.productOrderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
+  await sendMail(data.customerEmail, `Order confirmed — #${data.productOrderId.slice(0,8).toUpperCase()}`, baseLayout('Order Confirmation', body));
 }
 
 export async function sendAdminCombinedOrderNotification(data: CombinedOrderEmailData) {
@@ -587,12 +587,12 @@ export async function sendAdminCombinedOrderNotification(data: CombinedOrderEmai
   ].join('');
 
   const body = `
-    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Combined Order 🛒🎨</h2>
-    <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A customer ordered both products and a custom design together.</p>
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order 🛒🎨</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A customer ordered products + a custom design in one checkout.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
       <tr><td style="padding:14px 16px;">
-        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.productOrderId.slice(-8).toUpperCase()}</p>
+        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.productOrderId.slice(0,8).toUpperCase()}</p>
         <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
         <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
       </td></tr>
@@ -617,7 +617,7 @@ export async function sendAdminCombinedOrderNotification(data: CombinedOrderEmai
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🛒🎨 Combined Order — #${data.productOrderId.slice(-8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('Combined Order', body));
+  await sendMail(ADMIN_EMAIL, `🛒🎨 New Order — #${data.productOrderId.slice(0,8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
 }
 
 // ─── Delivery Status Update ───────────────────────────
@@ -681,15 +681,15 @@ export async function sendOrderStatusUpdate(data: OrderStatusEmailData) {
     </table>`;
 
   const subjects: Record<string, string> = {
-    confirmed:        `Order Confirmed ✓ — #${data.orderId.slice(-8).toUpperCase()}`,
-    processing:       `Your Order is Being Prepared — #${data.orderId.slice(-8).toUpperCase()}`,
-    shipped:          `📦 Your Order is Shipped — #${data.orderId.slice(-8).toUpperCase()}`,
-    out_for_delivery: `🚚 Out for Delivery Today — #${data.orderId.slice(-8).toUpperCase()}`,
-    delivered:        `🎉 Delivered! — #${data.orderId.slice(-8).toUpperCase()}`,
-    cancelled:        `Order Cancelled — #${data.orderId.slice(-8).toUpperCase()}`,
+    confirmed:        `Order Confirmed ✓ — #${data.orderId.slice(0,8).toUpperCase()}`,
+    processing:       `Your Order is Being Prepared — #${data.orderId.slice(0,8).toUpperCase()}`,
+    shipped:          `📦 Your Order is Shipped — #${data.orderId.slice(0,8).toUpperCase()}`,
+    out_for_delivery: `🚚 Out for Delivery Today — #${data.orderId.slice(0,8).toUpperCase()}`,
+    delivered:        `🎉 Delivered! — #${data.orderId.slice(0,8).toUpperCase()}`,
+    cancelled:        `Order Cancelled — #${data.orderId.slice(0,8).toUpperCase()}`,
   };
 
-  await sendMail(data.customerEmail, subjects[data.status] || `Order Update — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Order Update', body));
+  await sendMail(data.customerEmail, subjects[data.status] || `Order Update — #${data.orderId.slice(0,8).toUpperCase()}`, baseLayout('Order Update', body));
 }
 
 export async function sendNewsletterWelcome(email: string) {
