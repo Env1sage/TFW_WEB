@@ -141,6 +141,77 @@ async function syncShiprocketStatus(shipment: db.DBShipment): Promise<db.DBShipm
   return shipment;
 }
 
+// ── Auto-push order to Shiprocket when placed (non-blocking) ──
+async function autoShiprocketPush(
+  orderId: string,
+  isDesign: boolean,
+  order: any,
+  customerName?: string,
+  customerEmail?: string,
+): Promise<void> {
+  try {
+    // Skip if already pushed
+    const existing = await db.getShipmentByOrderId(orderId);
+    if (existing?.shiprocketOrderId) return;
+
+    const addressFields = parseShippingAddress(order.shippingAddress, customerName, customerEmail);
+
+    let pickupLocation = 'Primary';
+    try {
+      const pickups = await shiprocketRequest('GET', '/settings/company/pickup');
+      const active = pickups?.data?.shipping_address?.find((a: any) => a.status === 1);
+      pickupLocation = active?.pickup_location || pickups?.data?.shipping_address?.[0]?.pickup_location || 'Primary';
+    } catch { /* keep default */ }
+
+    const srPayload = isDesign
+      ? {
+          order_id: `TFW-D-${orderId.slice(0, 10)}`,
+          order_date: new Date(order.createdAt).toISOString().split('T')[0],
+          pickup_location: pickupLocation,
+          ...addressFields,
+          order_items: [{
+            name: `Custom ${order.productType}`,
+            sku: `CUSTOM-${order.productType.toUpperCase().replace(/\s+/g, '-')}`,
+            units: order.quantity || 1,
+            selling_price: order.unitPrice || 0,
+          }],
+          payment_method: 'Prepaid',
+          sub_total: order.total,
+          length: 30, breadth: 20, height: 5, weight: 0.5,
+        }
+      : {
+          order_id: `TFW-${orderId.slice(0, 12)}`,
+          order_date: new Date(order.createdAt).toISOString().split('T')[0],
+          pickup_location: pickupLocation,
+          ...addressFields,
+          order_items: (order.items || []).map((item: any) => ({
+            name: item.productName || 'Custom Item',
+            sku: item.productId || 'CUSTOM',
+            units: item.quantity || 1,
+            selling_price: item.price || 0,
+          })),
+          payment_method: 'Prepaid',
+          sub_total: order.total,
+          length: 30, breadth: 20, height: 5, weight: 0.5,
+        };
+
+    const srResponse = await shiprocketRequest('POST', '/orders/create/adhoc', srPayload);
+    console.log(`[Shiprocket] Auto-pushed ${isDesign ? 'design ' : ''}order ${orderId}:`, JSON.stringify(srResponse).substring(0, 200));
+
+    await db.addShipment({
+      id: uuid(), orderId,
+      shiprocketOrderId: String(srResponse.order_id || ''),
+      shiprocketShipmentId: String(srResponse.shipment_id || ''),
+      awbCode: srResponse.awb_code || undefined,
+      courierName: srResponse.courier_name || undefined,
+      courierId: srResponse.courier_id || undefined,
+      status: 'processing',
+    });
+  } catch (e: any) {
+    console.error(`[Shiprocket] Auto-push failed for order ${orderId}:`, e.message);
+  }
+}
+
 // In production __dirname is /app/dist/server/routes/, so we need 3 levels up to reach /app/uploads/
 const MOCKUP_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'mockups');
 if (!fs.existsSync(MOCKUP_UPLOADS_DIR)) fs.mkdirSync(MOCKUP_UPLOADS_DIR, { recursive: true });
@@ -442,6 +513,8 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
       sendDesignOrderConfirmation(emailData).catch(e => console.error('[Email] design order confirmation failed:', e));
       sendAdminDesignOrderNotification(emailData).catch(e => console.error('[Email] admin design notification failed:', e));
     }
+    // Auto-push to Shiprocket (non-blocking)
+    autoShiprocketPush(order.id, true, order, resolvedName, resolvedEmail || undefined).catch(() => {});
 
     res.status(201).json(order);
   } catch (e: any) {
@@ -638,6 +711,10 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       };
       sendOrderConfirmation(emailData).catch(e => console.error('[Email] order confirmation failed:', e));
       sendAdminOrderNotification(emailData).catch(e => console.error('[Email] admin notification failed:', e));
+      // Auto-push to Shiprocket (non-blocking)
+      autoShiprocketPush(order.id, false, order, user.name, user.email).catch(() => {});
+    } else {
+      autoShiprocketPush(order.id, false, order).catch(() => {});
     }
 
     res.status(201).json(order);
