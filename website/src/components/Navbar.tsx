@@ -188,7 +188,9 @@ export default function Navbar() {
               </AnimatePresence>
             </div>
           ) : (
-            <Link to="/login" className="btn btn-primary btn-sm">Sign In</Link>
+            <Link to="/login" className="icon-btn" aria-label="Sign In">
+              <User size={20} />
+            </Link>
           )}
 
           <button className="icon-btn mobile-toggle" onClick={() => setMobileOpen(!mobileOpen)}>
