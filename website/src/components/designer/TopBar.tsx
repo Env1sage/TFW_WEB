@@ -28,7 +28,7 @@ interface TopBarProps {
   onToggleLayout?: (id: string) => void;
 }
 
-const LAYOUT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#e879f9', '#ef4444', '#06b6d4', '#84cc16', '#f97316'];
+const LAYOUT_COLORS = ['#0E7C61', '#C6A75E', '#0A9B7A', '#E07B30', '#16A34A', '#0891B2', '#9A7C3A', '#2D8A6E'];
 
 export default function TopBar({
   activeSide, selectedSides, sides, colors, activeColorHex,

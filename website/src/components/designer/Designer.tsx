@@ -465,6 +465,39 @@ export default function Designer() {
       fc.zoomToPoint(new fabric.Point(opt.e.offsetX, opt.e.offsetY), z);
       opt.e.preventDefault(); opt.e.stopPropagation();
     });
+
+    // ── Pinch-to-zoom (touch) ──
+    let lastDist = 0;
+    const canvasEl = fc.upperCanvasEl || fc.lowerCanvasEl;
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastDist = Math.hypot(dx, dy);
+        e.preventDefault();
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        if (lastDist === 0) { lastDist = dist; return; }
+        const delta = dist / lastDist;
+        lastDist = dist;
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const rect = canvasEl.getBoundingClientRect();
+        const z = Math.min(3, Math.max(0.3, fc.getZoom() * delta));
+        fc.zoomToPoint(new fabric.Point(midX - rect.left, midY - rect.top), z);
+        fc.requestRenderAll();
+        e.preventDefault();
+      }
+    };
+    const onTouchEnd = () => { lastDist = 0; };
+    canvasEl.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvasEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvasEl.addEventListener('touchend', onTouchEnd);
     let panning = false, lx = 0, ly = 0;
     fc.on('mouse:down', (o: any) => {
       if (o.e.button === 1) { panning = true; lx = o.e.clientX; ly = o.e.clientY; o.e.preventDefault(); }
@@ -480,7 +513,13 @@ export default function Designer() {
 
     autoScale();
     window.addEventListener('resize', autoScale);
-    return () => { window.removeEventListener('resize', autoScale); fc.dispose(); fcRef.current = null; };
+    return () => {
+      window.removeEventListener('resize', autoScale);
+      canvasEl.removeEventListener('touchstart', onTouchStart);
+      canvasEl.removeEventListener('touchmove', onTouchMove);
+      canvasEl.removeEventListener('touchend', onTouchEnd);
+      fc.dispose(); fcRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -367,6 +367,10 @@
   overflow: hidden;
   position: relative;
   box-shadow: var(--clay-shadow-lg), 0 20px 60px rgba(0,0,0,.10);
+  /* prevent browser from intercepting pinch/pan on touch */
+  touch-action: none;
+  /* GPU layer hint — reduces repaint lag on mobile */
+  will-change: transform;
 }
 
 /* Upload overlay button centered on print area */
@@ -733,6 +737,8 @@
   /* Canvas fills space */
   .canvas-area { padding: 10px; }
   .main-area { overflow: hidden; }
+  /* Ensure browser passes touch events through to Fabric.js for pinch zoom */
+  .canvas-wrap canvas { touch-action: none; }
 
   /* Left panel becomes a bottom drawer */
   .left-panel {
