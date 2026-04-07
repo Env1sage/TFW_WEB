@@ -44,6 +44,10 @@ export interface MockupTemplate {
   shadowUrls?: Partial<Record<PrintSide, string>>;
   /** Base cost of the physical product (added to design/printing fee in cart) */
   basePrice?: number;
+  /** Printing fee for front-side print job */
+  frontPrintPrice?: number;
+  /** Printing fee for back-side print job */
+  backPrintPrice?: number;
 }
 
 /** Convert legacy {front:{full,medium,...}, back:{...}} format → PrintLayout[] */
@@ -128,6 +132,8 @@ export interface DBMockupShape {
   backShadow?: string;
   printArea?: any;
   basePrice?: number;
+  frontPrintPrice?: number;
+  backPrintPrice?: number;
   active: boolean;
 }
 
@@ -141,17 +147,24 @@ export function buildTemplateFromDBMockup(m: DBMockupShape): MockupTemplate {
       const rr = ((num >> 16) & 0xff) / 255;
       const gg = ((num >> 8) & 0xff) / 255;
       const bb = (num & 0xff) / 255;
+      // Grayscale-then-colorize: removes original color cast, then applies selected color.
+      // Works correctly for both white-base T-shirts and photo-based mockups (tote bags, etc.)
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
 <defs>
-  <filter id="tint" color-interpolation-filters="sRGB">
-    <feColorMatrix type="matrix"
+  <filter id="colorize" color-interpolation-filters="sRGB">
+    <feColorMatrix type="matrix" result="gray"
+      values="0.33 0.33 0.33 0 0
+              0.33 0.33 0.33 0 0
+              0.33 0.33 0.33 0 0
+              0    0    0    1 0"/>
+    <feColorMatrix type="matrix" in="gray"
       values="${rr} 0 0 0 0
               0 ${gg} 0 0 0
               0 0 ${bb} 0 0
-              0 0 0 1 0"/>
+              0 0  0   1 0"/>
   </filter>
 </defs>
-<image href="${cached}" x="0" y="0" width="${CW}" height="${CH}" filter="url(#tint)"/>
+<image href="${cached}" x="0" y="0" width="${CW}" height="${CH}" filter="url(#colorize)"/>
 </svg>`;
     }
     // Fallback: plain coloured rect with label while image loads
@@ -204,6 +217,8 @@ export function buildTemplateFromDBMockup(m: DBMockupShape): MockupTemplate {
       ...(m.backShadow ? { BACK: m.backShadow } : {}),
     },
     basePrice: m.basePrice || 0,
+    frontPrintPrice: m.frontPrintPrice || 0,
+    backPrintPrice: m.backPrintPrice || 0,
   };
 }
 

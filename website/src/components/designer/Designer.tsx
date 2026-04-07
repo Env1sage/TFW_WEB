@@ -568,7 +568,12 @@ export default function Designer() {
     const tmpl = allTemplates[activeProductType];
     let originalPrice: number;
 
-    if (tmpl?.layouts?.length && selectedLayoutIds.length > 0) {
+    if ((tmpl?.frontPrintPrice || 0) > 0 || (tmpl?.backPrintPrice || 0) > 0) {
+      // New per-side pricing model: explicit front/back print prices set on the mockup
+      const frontFee = selectedSides.includes('FRONT') ? (tmpl!.frontPrintPrice || 0) : 0;
+      const backFee = selectedSides.includes('BACK') ? (tmpl!.backPrintPrice || 0) : 0;
+      originalPrice = (frontFee + backFee) * quantity;
+    } else if (tmpl?.layouts?.length && selectedLayoutIds.length > 0) {
       // Layout mode: sum selected layout prices
       const layoutTotal = selectedLayoutIds.reduce((sum, id) => {
         const layout = tmpl.layouts!.find((l: PrintLayout) => l.id === id);
