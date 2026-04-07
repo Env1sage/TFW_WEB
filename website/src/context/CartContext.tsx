@@ -21,8 +21,8 @@ interface CartState {
   items: CartItem[];
   designItems: DesignCartItem[];
   addItem: (product: Product, opts?: { color?: string; size?: string; customText?: string }) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, qty: number) => void;
+  removeItem: (productId: string, color?: string, size?: string) => void;
+  updateQuantity: (productId: string, qty: number, color?: string, size?: string) => void;
   addDesignItem: (item: Omit<DesignCartItem, 'id'>) => void;
   removeDesignItem: (id: string) => void;
   updateDesignQuantity: (id: string, qty: number) => void;
@@ -78,14 +78,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const removeItem = useCallback((productId: string) => {
-    setItems(prev => prev.filter(i => i.product.id !== productId));
+  const removeItem = useCallback((productId: string, color?: string, size?: string) => {
+    setItems(prev => prev.filter(i =>
+      !(i.product.id === productId && i.color === color && i.size === size)
+    ));
     toast.success('Removed from cart');
   }, []);
 
-  const updateQuantity = useCallback((productId: string, qty: number) => {
+  const updateQuantity = useCallback((productId: string, qty: number, color?: string, size?: string) => {
     if (qty < 1) return;
-    setItems(prev => prev.map(i => i.product.id === productId ? { ...i, quantity: qty } : i));
+    setItems(prev => prev.map(i =>
+      i.product.id === productId && i.color === color && i.size === size
+        ? { ...i, quantity: qty } : i
+    ));
   }, []);
 
   const addDesignItem = useCallback((item: Omit<DesignCartItem, 'id'>) => {

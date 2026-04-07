@@ -513,7 +513,7 @@
   gap: 5px;
   transition: all .15s;
 }
-.preview-btn:hover { background: var(--primary-50); }
+.preview-btn:hover { background: #e8f5f1; border-color: var(--primary); }
 .cart-btn {
   padding: 8px 22px;
   background: var(--primary);

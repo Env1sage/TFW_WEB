@@ -23,7 +23,7 @@ export default function Contact() {
 
   const contactInfo = [
     { icon: <Mail size={22} />, title: 'Email Us', detail: 'support@theframedwall.com', sub: 'We reply within 24 hours' },
-    { icon: <Phone size={22} />, title: 'WhatsApp / Call', detail: '+91 98765 43210', sub: 'Mon–Sat, 10am–7pm IST' },
+    { icon: <Phone size={22} />, title: 'WhatsApp / Call', detail: '+91 89833 01235', sub: 'Mon–Sat, 10am–7pm IST' },
     { icon: <MapPin size={22} />, title: 'Our Studio', detail: 'Sector 18, Gurugram', sub: 'Haryana, India — 122015' },
     { icon: <Clock size={22} />, title: 'Business Hours', detail: 'Mon – Sat: 10am – 7pm', sub: 'Sunday: Closed (IST)' },
   ];

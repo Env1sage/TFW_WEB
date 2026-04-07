@@ -49,7 +49,7 @@ export default function Footer() {
             <Link to="/faq">Returns & Refunds</Link>
             <Link to="/faq">Size Guide</Link>
             <Link to="/orders">Track Order</Link>
-            <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer">WhatsApp Support</a>
+            <a href="https://wa.me/918983301235" target="_blank" rel="noopener noreferrer">WhatsApp Support</a>
           </div>
         </div>
 

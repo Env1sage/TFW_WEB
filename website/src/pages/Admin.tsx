@@ -13,7 +13,7 @@ interface Mockup {
   id: string; name: string; category: string;
   frontImage: string; backImage?: string;
   frontShadow?: string; backShadow?: string;
-  printArea: any; active: boolean; createdAt: string;
+  printArea: any; basePrice?: number; active: boolean; createdAt: string;
 }
 
 interface Analytics {
@@ -41,7 +41,7 @@ const defaultProduct: Partial<Product> = {
 
 const defaultMockup: Partial<Mockup> = {
   name: '', category: '', frontImage: '', backImage: '', frontShadow: '', backShadow: '',
-  printArea: { layouts: [], allowMultipleLayouts: false, allowBackPrint: true }, active: true,
+  printArea: { layouts: [], allowMultipleLayouts: false, allowBackPrint: true }, basePrice: 0, active: true,
 };
 
 // ── Print Area Editor constants ─────────────────────────────
@@ -1730,11 +1730,30 @@ export default function Admin() {
                     <div className="form-group"><label>Rating (0-5)</label><input type="number" step="0.1" min="0" max="5" value={productForm.rating ?? 4.5} onChange={e => setProductForm({ ...productForm, rating: +e.target.value })} /></div>
                   </div>
                   <div className="form-row">
-                    <div className="form-group"><label>Sizes (comma-separated)</label>
-                      <input type="text" value={(productForm.sizes || []).join(', ')} onChange={e => setProductForm({ ...productForm, sizes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                    <div className="form-group">
+                      <label>Sizes <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— separate with commas</span></label>
+                      <input type="text" value={(productForm.sizes || []).join(', ')} onChange={e => setProductForm({ ...productForm, sizes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="e.g. XS, S, M, L, XL, XXL" />
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                        {['XS','S','M','L','XL','XXL'].map(sz => (
+                          <button key={sz} type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: '.74rem', minHeight: 'unset', background: (productForm.sizes||[]).includes(sz) ? 'var(--primary)' : undefined, color: (productForm.sizes||[]).includes(sz) ? '#fff' : undefined }}
+                            onClick={() => setProductForm(f => ({ ...f, sizes: (f.sizes||[]).includes(sz) ? (f.sizes||[]).filter(s=>s!==sz) : [...(f.sizes||[]), sz] }))}>
+                            {sz}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="form-group"><label>Colors (comma-separated hex)</label>
-                      <input type="text" value={(productForm.colors || []).join(', ')} onChange={e => setProductForm({ ...productForm, colors: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                    <div className="form-group">
+                      <label>Colors <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— hex codes, comma-separated</span></label>
+                      <input type="text" value={(productForm.colors || []).join(', ')} onChange={e => setProductForm({ ...productForm, colors: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="e.g. #ffffff, #1a1a1a, #c0392b" />
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
+                        {(productForm.colors || []).map((hex, i) => (
+                          <span key={i} title={hex} style={{ width: 22, height: 22, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.15)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
+                            onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter((_,idx)=>idx!==i) }))} />
+                        ))}
+                        <input type="color" style={{ width: 26, height: 26, padding: 2, border: '1.5px solid var(--border)', borderRadius: '50%', cursor: 'pointer', background: 'transparent' }}
+                          title="Pick a color to add"
+                          onChange={e => { const hex = e.target.value; if (hex && !(productForm.colors||[]).includes(hex)) setProductForm(f => ({ ...f, colors: [...(f.colors||[]), hex] })); }} />
+                      </div>
                     </div>
                   </div>
                   <div className="form-row checkboxes">
@@ -1772,6 +1791,10 @@ export default function Admin() {
                         {mockupCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                       </select>
                     </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Base Product Price (₹) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— cost of the physical item, added to design fee in cart</span></label>
+                    <input type="number" min="0" step="1" value={mockupForm.basePrice ?? 0} onChange={e => setMockupForm({ ...mockupForm, basePrice: parseFloat(e.target.value) || 0 })} placeholder="e.g. 499" />
                   </div>
                   <div className="form-group">
                     <label>Front Image * (PNG/JPG/WebP, max 10MB)</label>

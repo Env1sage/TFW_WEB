@@ -70,6 +70,7 @@ export async function initDB() {
         front_shadow TEXT,
         back_shadow TEXT,
         print_area JSONB NOT NULL DEFAULT '{}',
+        base_price NUMERIC(10,2) NOT NULL DEFAULT 0,
         active BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -150,7 +151,7 @@ export async function initDB() {
 
       CREATE TABLE IF NOT EXISTS website_shipments (
         id TEXT PRIMARY KEY,
-        order_id TEXT NOT NULL REFERENCES website_orders(id),
+        order_id TEXT NOT NULL,
         shiprocket_order_id TEXT,
         shiprocket_shipment_id TEXT,
         awb_code TEXT,
@@ -194,6 +195,19 @@ export async function initDB() {
       ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
     `);
 
+    // Drop FK on website_shipments.order_id if it exists (design orders are in a different table)
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE website_shipments DROP CONSTRAINT IF EXISTS website_shipments_order_id_fkey;
+      EXCEPTION WHEN undefined_table THEN NULL;
+      END $$;
+    `);
+
+    // Add base_price to website_mockups if missing
+    await client.query(`
+      ALTER TABLE website_mockups ADD COLUMN IF NOT EXISTS base_price NUMERIC(10,2) NOT NULL DEFAULT 0;
+    `);
+
     // Ensure unique constraints exist on categories (safe to run repeatedly)
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug ON website_categories(slug);
@@ -224,6 +238,9 @@ export async function initDB() {
     if (parseInt(catCheck.rows[0].cnt) === 0) {
       await seedCategories(client);
     }
+
+    // Always seed mockup categories (ON CONFLICT DO NOTHING is safe)
+    await seedMockupCategories(client);
 
     // Seed products if empty
     const prodCheck = await client.query(`SELECT COUNT(*) as cnt FROM website_products`);
@@ -261,6 +278,26 @@ async function seedCategories(client: pg.PoolClient) {
     );
   }
   console.log('Seeded default categories');
+}
+
+async function seedMockupCategories(client: pg.PoolClient) {
+  const defaults = [
+    { name: 'T-Shirts',     slug: 't-shirts'     },
+    { name: 'Hoodies',      slug: 'hoodies'      },
+    { name: 'Mugs',         slug: 'mugs'         },
+    { name: 'Phone Cases',  slug: 'phone-cases'  },
+    { name: 'Posters',      slug: 'posters'      },
+    { name: 'Canvas',       slug: 'canvas'       },
+    { name: 'Tote Bags',    slug: 'tote-bags'    },
+    { name: 'Stickers',     slug: 'stickers'     },
+  ];
+  for (const cat of defaults) {
+    await client.query(
+      `INSERT INTO website_mockup_categories (id, name, slug, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (slug) DO NOTHING`,
+      [uuidv4(), cat.name, cat.slug]
+    );
+  }
+  console.log('Seeded default mockup categories');
 }
 
 async function seedProducts(client: pg.PoolClient) {
@@ -800,7 +837,7 @@ export interface DBMockup {
   id: string; name: string; category: string;
   frontImage: string; backImage?: string;
   frontShadow?: string; backShadow?: string;
-  printArea: any; active: boolean; createdAt: string;
+  printArea: any; basePrice: number; active: boolean; createdAt: string;
 }
 
 function rowToMockup(row: any): DBMockup {
@@ -808,7 +845,8 @@ function rowToMockup(row: any): DBMockup {
     id: row.id, name: row.name, category: row.category,
     frontImage: row.front_image, backImage: row.back_image || undefined,
     frontShadow: row.front_shadow || undefined, backShadow: row.back_shadow || undefined,
-    printArea: row.print_area || {}, active: row.active, createdAt: row.created_at,
+    printArea: row.print_area || {}, basePrice: parseFloat(row.base_price || '0'),
+    active: row.active, createdAt: row.created_at,
   };
 }
 
@@ -817,11 +855,11 @@ export async function getAllMockups(): Promise<DBMockup[]> {
   return rows.map(rowToMockup);
 }
 
-export async function addMockup(m: { id: string; name: string; category: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea?: any }): Promise<DBMockup> {
+export async function addMockup(m: { id: string; name: string; category: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea?: any; basePrice?: number }): Promise<DBMockup> {
   const { rows } = await pool.query(
-    `INSERT INTO website_mockups (id, name, category, front_image, back_image, front_shadow, back_shadow, print_area, active, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,NOW()) RETURNING *`,
-    [m.id, m.name, m.category, m.frontImage, m.backImage || null, m.frontShadow || null, m.backShadow || null, JSON.stringify(m.printArea || {})]
+    `INSERT INTO website_mockups (id, name, category, front_image, back_image, front_shadow, back_shadow, print_area, base_price, active, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,NOW()) RETURNING *`,
+    [m.id, m.name, m.category, m.frontImage, m.backImage || null, m.frontShadow || null, m.backShadow || null, JSON.stringify(m.printArea || {}), m.basePrice || 0]
   );
   return rowToMockup(rows[0]);
 }
@@ -829,7 +867,8 @@ export async function addMockup(m: { id: string; name: string; category: string;
 export async function updateMockup(id: string, patch: Record<string, any>): Promise<DBMockup | null> {
   const fieldMap: Record<string, string> = {
     name: 'name', category: 'category', frontImage: 'front_image',
-    backImage: 'back_image', frontShadow: 'front_shadow', backShadow: 'back_shadow', active: 'active',
+    backImage: 'back_image', frontShadow: 'front_shadow', backShadow: 'back_shadow',
+    basePrice: 'base_price', active: 'active',
   };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {
@@ -1110,6 +1149,9 @@ export async function getOrderForInvoice(orderId: string): Promise<any> {
     orderId: order.id,
     date: order.created_at,
     status: order.status,
+    subtotal: parseFloat(order.total) + parseFloat(order.discount_amount || '0'),
+    discountAmount: parseFloat(order.discount_amount || '0'),
+    couponCode: order.coupon_code || null,
     total: parseFloat(order.total),
     shippingAddress: order.shipping_address,
     items: orderItems.map((i: any) => ({

@@ -719,9 +719,9 @@ router.post('/mockups/upload', authMiddleware, requireRole('admin', 'product_man
 // Mockup CRUD
 router.post('/mockups', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
-    const { name, category, frontImage, backImage, frontShadow, backShadow, printArea } = req.body;
+    const { name, category, frontImage, backImage, frontShadow, backShadow, printArea, basePrice } = req.body;
     if (!name || !frontImage) return res.status(400).json({ error: 'Name and front image are required' });
-    const mockup = await db.addMockup({ id: uuid(), name, category: category || 'T-Shirts', frontImage, backImage, frontShadow, backShadow, printArea });
+    const mockup = await db.addMockup({ id: uuid(), name, category: category || 'T-Shirts', frontImage, backImage, frontShadow, backShadow, printArea, basePrice: parseFloat(basePrice) || 0 });
     res.status(201).json(mockup);
   } catch (e: any) {
     res.status(500).json({ error: e.message });

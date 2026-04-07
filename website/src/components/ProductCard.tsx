@@ -24,14 +24,16 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         />
         {product.customizable && <span className="badge badge-custom">Customizable</span>}
         {product.featured && <span className="badge badge-featured">Featured</span>}
+        {product.stock === 0 && <span className="badge badge-oos">Out of Stock</span>}
         {/* Hover quick-action overlay */}
         <div className="product-card-overlay">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
             <button
               className="btn btn-primary"
-              onClick={(e) => { e.preventDefault(); addItem(product, { color: product.colors[0], size: product.sizes[0] }); }}
+              disabled={product.stock === 0}
+              onClick={(e) => { e.preventDefault(); if (product.stock > 0) addItem(product, { color: product.colors[0], size: product.sizes[0] }); }}
             >
-              <ShoppingCart size={15} /> Quick Add
+              <ShoppingCart size={15} /> {product.stock === 0 ? 'Out of Stock' : 'Quick Add'}
             </button>
             <Link to={`/products/${product.id}`} className="btn btn-outline-dark" style={{ textAlign: 'center' }}>
               <Eye size={15} /> View Details

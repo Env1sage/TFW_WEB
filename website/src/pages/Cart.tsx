@@ -4,7 +4,9 @@ import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, CreditCard, Palette, Tag, 
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import ProductCard from '../components/ProductCard';
+import type { Product } from '../types';
 import toast from 'react-hot-toast';
 
 const INDIAN_STATES = [
@@ -28,10 +30,21 @@ export default function Cart() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [form, setForm] = useState({ fullName: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '' });
 
-  // Coupon state
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number; description: string } | null>(null);
+  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    api.getProducts().then((all: Product[]) => {
+      const cartIds = new Set(items.map(i => i.product.id));
+      const eligible = all.filter((p: Product) => !cartIds.has(p.id) && p.stock > 0);
+      // pick up to 4 at random
+      const shuffled = eligible.sort(() => Math.random() - 0.5).slice(0, 4);
+      setSuggestedProducts(shuffled);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -114,7 +127,7 @@ export default function Cart() {
             {/* Regular product items */}
             <AnimatePresence>
               {items.map(item => (
-                <motion.div key={item.product.id} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
+                <motion.div key={`${item.product.id}|${item.color ?? ''}|${item.size ?? ''}`} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
                   <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
                   <div className="cart-item-info">
                     <Link to={`/products/${item.product.id}`}><h3>{item.product.name}</h3></Link>
@@ -126,12 +139,12 @@ export default function Cart() {
                   </div>
                   <div className="cart-item-controls">
                     <div className="quantity-selector">
-                      <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} disabled={item.quantity <= 1}><Minus size={14} /></button>
+                      <button onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.color, item.size)} disabled={item.quantity <= 1}><Minus size={14} /></button>
                       <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}><Plus size={14} /></button>
+                      <button onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.color, item.size)}><Plus size={14} /></button>
                     </div>
                     <span className="cart-item-total">₹{(item.product.price * item.quantity).toFixed(0)}</span>
-                    <button className="icon-btn danger" onClick={() => removeItem(item.product.id)}><Trash2 size={16} /></button>
+                    <button className="icon-btn danger" onClick={() => removeItem(item.product.id, item.color, item.size)}><Trash2 size={16} /></button>
                   </div>
                 </motion.div>
               ))}
@@ -271,6 +284,15 @@ export default function Cart() {
             {total < 999 && <p className="free-ship-note">Add ₹{(999 - total).toFixed(0)} more for free shipping!</p>}
           </motion.div>
         </div>
+
+        {suggestedProducts.length > 0 && (
+          <motion.div className="cart-suggestions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <h3>You might also like</h3>
+            <div className="products-grid">
+              {suggestedProducts.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

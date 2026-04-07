@@ -22,6 +22,7 @@ interface SideState {
   json: object | null;
   history: string[];
   redo: string[];
+  thumbnail?: string;
 }
 
 function isGuide(obj: fabric.FabricObject): boolean {
@@ -571,8 +572,9 @@ export default function Designer() {
     }
 
     const discount = quantity >= 10 ? 15 : quantity >= 5 ? 10 : quantity >= 3 ? 5 : 0;
-    const finalPrice = Math.round(originalPrice * (1 - discount / 100));
-    setPrice({ originalPrice, finalPrice, discountPercent: discount });
+    const productBase = (tmpl?.basePrice || 0) * quantity;
+    const finalPrice = Math.round((originalPrice + productBase) * (1 - discount / 100));
+    setPrice({ originalPrice: originalPrice + productBase, finalPrice, discountPercent: discount });
   }, [selectedSides, quantity, activePrintSize, pocketPrintEnabled, activeProductType, allTemplates, selectedLayoutIds]);
 
   /* ── Actions ── */
@@ -715,6 +717,8 @@ export default function Designer() {
     const fc = fcRef.current; if (!fc || newSide === activeSide) return;
     isLoadingRef.current = true;
     sideStateRef.current[activeSide].json = fc.toObject(['name', 'customId', 'layerName', 'printZone']);
+    // Save a thumbnail of the current side so handleAddToCart can use it later
+    sideStateRef.current[activeSide].thumbnail = fc.toDataURL({ format: 'png', multiplier: 1 });
     const ns = sideStateRef.current[newSide];
     if (ns.json) {
       fc.loadFromJSON(ns.json).then(() => {
@@ -771,10 +775,10 @@ export default function Designer() {
     const designImages: Record<string, string> = {};
     // Current side
     designImages[activeSide] = fc.toDataURL({ format: 'png', multiplier: 2 });
-    // Other selected sides from saved state
+    // Other selected sides — use thumbnail saved when the user last switched away from that side
     for (const side of selectedSides) {
       if (side !== activeSide && sideStateRef.current[side].json) {
-        designImages[side] = ''; // will use saved thumbnail
+        designImages[side] = sideStateRef.current[side].thumbnail || '';
       }
     }
 

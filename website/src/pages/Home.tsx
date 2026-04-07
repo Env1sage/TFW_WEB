@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Palette, Truck, Shield, Star, Sparkles, CheckCircle, Package, Zap, MessageSquare, Phone, Shirt, Coffee, Smartphone, Image, Frame, Sticker, ShoppingBag, Flag } from 'lucide-react';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 import ProductCard from '../components/ProductCard';
 import type { Product } from '../types';
 
@@ -29,6 +30,7 @@ const testimonials = [
 ];
 
 export default function Home() {
+  const { user } = useAuth();
   const [featured, setFeatured] = useState<Product[]>([]);
   const [newsletter, setNewsletter] = useState('');
   const [newsletterSent, setNewsletterSent] = useState(false);
@@ -271,7 +273,7 @@ export default function Home() {
           <motion.div className="cta-banner" initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
             <h2>Ready to Create Something Amazing?</h2>
             <p>Join 10,000+ creators across India and start designing your custom products today.</p>
-            <Link to="/register" className="btn btn-white btn-lg">Start Designing Free <ArrowRight size={18} /></Link>
+            <Link to={user ? '/design-studio' : '/register'} className="btn btn-white btn-lg">Start Designing Free <ArrowRight size={18} /></Link>
           </motion.div>
         </div>
       </section>

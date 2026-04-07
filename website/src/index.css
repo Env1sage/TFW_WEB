@@ -185,6 +185,7 @@ html.dark .theme-toggle { color: var(--accent); }
 .badge-success { background: #e6f9f1; color: var(--success); }
 .badge-custom { background: var(--primary-50); color: var(--primary); }
 .badge-featured { background: #fef9e7; color: #d68910; }
+.badge-oos { background: #fee2e2; color: #dc2626; }
 
 /* ---------- Spinner ---------- */
 .spinner {
@@ -736,8 +737,29 @@ html.dark .footer { background: #0A0C10; }
 .cta-banner h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 800; margin-bottom: 0.75rem; font-family: var(--font-heading); position: relative; }
 .cta-banner p { opacity: 0.9; margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto; font-size: 1.05rem; position: relative; }
 .cta-banner .btn-white { background: #fff; color: var(--primary); font-weight: 700; position: relative; border-radius: var(--radius); box-shadow: var(--clay-shadow); }
-.cta-banner .btn-white:hover { background: var(--primary-50); transform: translateY(-2px); box-shadow: var(--clay-shadow-lg); }
+.cta-banner .btn-white:hover { background: #f0faf7; color: var(--primary-dark); transform: translateY(-2px); box-shadow: var(--clay-shadow-lg); }
 
+
+/* ================================================
+   WHATSAPP FLOATER
+   ================================================ */
+.whatsapp-floater {
+  position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+  background: #25d366; color: #fff;
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(37,211,102,0.45);
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.whatsapp-floater:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37,211,102,0.55);
+  color: #fff;
+}
+@media (max-width: 480px) {
+  .whatsapp-floater { bottom: 16px; right: 16px; width: 50px; height: 50px; }
+}
 
 /* ================================================
    TRUST BAR
@@ -1462,6 +1484,12 @@ html.dark .footer { background: #0A0C10; }
 .free-ship-note {
   font-size: 0.8rem; color: var(--primary); text-align: center;
   margin-top: 0.75rem; font-weight: 500;
+}
+.cart-suggestions {
+  margin-top: 3rem;
+}
+.cart-suggestions h3 {
+  font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--text-1);
 }
 .checkout-form { margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .checkout-form label { font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.2rem; }

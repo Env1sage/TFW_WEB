@@ -67,7 +67,10 @@ th,td{padding:10px 12px;border:1px solid #e5e7eb;text-align:left}th{background:#
 <table><thead><tr><th>Item</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th></tr></thead><tbody>
 ${invoice.items.map((i: any) => `<tr><td>${i.name}</td><td>${i.size || '-'}</td><td>${i.color || '-'}</td><td>${i.quantity}</td><td>₹${(i.price * i.quantity).toFixed(0)}</td></tr>`).join('')}
 </tbody></table>
-<p class="total-row" style="text-align:right">Total: ₹${invoice.total.toFixed(0)}</p>
+<div style="text-align:right;margin-top:12px;font-size:0.95em">
+${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invoice.subtotal ?? invoice.total).toFixed(0)}</p>${invoice.couponCode ? `<p style="color:#16a34a">Coupon <strong>${invoice.couponCode}</strong>: -\u20b9${invoice.discountAmount.toFixed(0)}</p>` : `<p style="color:#16a34a">Discount: -\u20b9${invoice.discountAmount.toFixed(0)}</p>`}` : ''}
+<p class="total-row">Total Paid: \u20b9${invoice.total.toFixed(0)}</p>
+</div>
 <hr><p class="meta"><strong>Shipping Address:</strong><br>${invoice.shippingAddress.replace(/\n/g, '<br>')}</p>
 <p class="meta" style="margin-top:40px">Thank you for shopping with TheFramedWall!</p></body></html>`;
       const blob = new Blob([html], { type: 'text/html' });
