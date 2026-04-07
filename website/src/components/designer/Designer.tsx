@@ -165,7 +165,7 @@ export default function Designer() {
     // For templates that have real PNG image URLs (DB mockups + tshirt),
     // load the PNG directly — avoids the SVG blob restriction where
     // object-URL SVGs cannot load external image hrefs.
-    const directUrl = tmpl.imageUrls?.[activeSide] ?? tmpl.imageUrls?.FRONT;
+    const directUrl = tmpl.imageUrls?.[activeSideRef.current] ?? tmpl.imageUrls?.FRONT;
     if (directUrl) {
       const applyFabricImage = (el: HTMLImageElement) => {
         try {
@@ -209,16 +209,16 @@ export default function Designer() {
         }
       };
       imgEl.src = directUrl;
-      loadShadowOverlay(fc, tmpl, activeSide);
+      loadShadowOverlay(fc, tmpl, activeSideRef.current);
       return;
     }
 
     // Procedural SVG path for templates without image assets (hoodie, jacket, cap, pant)
     fallbackSVG(fc, tmpl);
-    loadShadowOverlay(fc, tmpl, activeSide);
+    loadShadowOverlay(fc, tmpl, activeSideRef.current);
 
     function fallbackSVG(fc: fabric.Canvas, tmpl: MockupTemplate) {
-      const svgStr = tmpl.renderSVG(activeSide, activeColorHex);
+      const svgStr = tmpl.renderSVG(activeSideRef.current, activeColorHex);
       const blob = new Blob([svgStr], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
       const imgEl = new Image();
@@ -240,7 +240,7 @@ export default function Designer() {
       imgEl.onerror = () => { URL.revokeObjectURL(url); };
       imgEl.src = url;
     }
-  }, [getTemplate, activeSide, activeColorHex, activeProductType, imgReady, loadShadowOverlay]);
+  }, [getTemplate, activeColorHex, activeProductType, imgReady, loadShadowOverlay]);
 
   /* ── Guides ── */
   const addGuides = useCallback(() => {
@@ -253,9 +253,12 @@ export default function Designer() {
 
     // ── Layout mode ──
     if (tmpl?.layouts?.length) {
-      const sideLayouts = tmpl.layouts.filter((l: PrintLayout) => l.side === activeSide);
-      const activeLayout = tmpl.layouts.find((l: PrintLayout) => l.id === activeEditingLayoutId);
-      const pa = activeLayout || (sideLayouts[0] ?? { x: 290, y: 200, w: 220, h: 320 });
+      const sideLayouts = tmpl.layouts.filter((l: PrintLayout) => l.side === activeSideRef.current);
+      // Only match active layout if it belongs to current side (avoids stale cross-side reference)
+      const activeLayout = sideLayouts.find((l: PrintLayout) => l.id === activeEditingLayoutId);
+      // Fallback: if active layout is from another side, treat first side layout as active
+      const effectiveActiveId = activeLayout?.id ?? sideLayouts[0]?.id ?? null;
+      const pa = activeLayout ?? (sideLayouts[0] ?? { x: 290, y: 200, w: 220, h: 320 });
       const oc = 'rgba(0,0,0,0.04)';
       [
         { l: 0, t: 0, w: CW, h: pa.y, n: '__oT' },
@@ -269,7 +272,7 @@ export default function Designer() {
       });
       // Draw each layout in the current side
       sideLayouts.forEach((layout: PrintLayout, idx: number) => {
-        const isActive = layout.id === activeEditingLayoutId;
+        const isActive = layout.id === effectiveActiveId;
         const isSelected = selectedLayoutIds.includes(layout.id);
         const color = LAYOUT_GUIDE_COLORS[tmpl.layouts!.findIndex((l: PrintLayout) => l.id === layout.id) % LAYOUT_GUIDE_COLORS.length];
         const border = new fabric.Rect({
@@ -333,7 +336,7 @@ export default function Designer() {
       (v as any).name = '__c' + i + 'b';
       fc.add(h); fc.add(v);
     });
-    if (pocketPrintEnabled && activeSide === 'FRONT') {
+    if (pocketPrintEnabled && activeSideRef.current === 'FRONT') {
       const otherArea = editingPocket ? getPrintArea() : getPocketArea();
       const otherBorder = new fabric.Rect({ left: otherArea.x, top: otherArea.y, width: otherArea.w, height: otherArea.h, fill: 'transparent', stroke: 'rgba(160,160,160,0.4)', strokeWidth: 1, strokeDashArray: [4, 4], selectable: false, evented: false, originX: 'left', originY: 'top', excludeFromExport: true });
       (otherBorder as any).name = '__otherBorder';
@@ -346,7 +349,7 @@ export default function Designer() {
       fc.add(otherLabel);
     }
     fc.renderAll();
-  }, [getTemplate, getPrintArea, getPocketArea, activePrintSize, editingPocket, pocketPrintEnabled, activeSide, activeEditingLayoutId, selectedLayoutIds]);
+  }, [getTemplate, getPrintArea, getPocketArea, activePrintSize, editingPocket, pocketPrintEnabled, activeEditingLayoutId, selectedLayoutIds]);
 
   /* ── History ── */
   const saveHistory = useCallback(() => {
@@ -762,6 +765,8 @@ export default function Designer() {
 
   const handleSwitchSide = useCallback((newSide: PrintSide) => {
     const fc = fcRef.current; if (!fc || newSide === activeSide) return;
+    // Update ref FIRST so loadMockup/addGuides immediately use the correct new side
+    activeSideRef.current = newSide;
     isLoadingRef.current = true;
     sideStateRef.current[activeSide].json = fc.toObject(['name', 'customId', 'layerName', 'printZone']);
     // Save a thumbnail of the current side (reset viewport to capture full design)
@@ -783,7 +788,6 @@ export default function Designer() {
       isLoadingRef.current = false; refreshLayers();
     }
     setActiveSide(newSide);
-    activeSideRef.current = newSide;
   }, [activeSide, loadMockup, reapplyClipPaths, addGuides, refreshLayers]);
 
   const handleToggleSide = useCallback((side: PrintSide) => {
