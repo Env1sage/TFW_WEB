@@ -46,7 +46,8 @@ export default function Designer() {
   const isLoadingRef = useRef(false);
 
   const [activeSide, setActiveSide] = useState<PrintSide>('FRONT');
-  const [selectedSides, setSelectedSides] = useState<PrintSide[]>(['FRONT']);
+  const activeSideRef = useRef<PrintSide>('FRONT');
+  const [selectedSides, setSelectedSides] = useState<PrintSide[]>([]);
   const [activePrintSize, setActivePrintSize] = useState<PrintSize>('full');
   const [pocketPrintEnabled, setPocketPrintEnabled] = useState(false);
   const [editingPocket, setEditingPocket] = useState(false);
@@ -429,11 +430,13 @@ export default function Designer() {
     });
     fc.on('object:removed', () => {
       refreshLayers();
+      const remaining = fc.getObjects().filter(o => !isGuide(o));
       // Remove layout from selectedLayoutIds if all its objects were deleted
-      setSelectedLayoutIds(prev => {
-        const remaining = fc.getObjects().filter(o => !isGuide(o));
-        return prev.filter(id => remaining.some(o => (o as any).printZone === id));
-      });
+      setSelectedLayoutIds(prev => prev.filter(id => remaining.some(o => (o as any).printZone === id)));
+      // Remove this side from selectedSides if no user designs remain on it
+      if (remaining.length === 0) {
+        setSelectedSides(prev => prev.filter(s => s !== activeSideRef.current));
+      }
     });
     fc.on('selection:created', (e: any) => setSelectedObj(e.selected?.[0] || null));
     fc.on('selection:updated', (e: any) => setSelectedObj(e.selected?.[0] || null));
@@ -635,6 +638,8 @@ export default function Designer() {
     if (isLayoutMode && activeEditingLayoutId) {
       setSelectedLayoutIds(prev => prev.includes(activeEditingLayoutId) ? prev : [...prev, activeEditingLayoutId]);
     }
+    // Auto-add this side to selectedSides so it's included in the order
+    setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
   }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
 
   const handleAddImage = useCallback(async (file: File) => {
@@ -668,6 +673,8 @@ export default function Designer() {
         if (isLayoutMode && activeEditingLayoutId) {
           setSelectedLayoutIds(prev => prev.includes(activeEditingLayoutId) ? prev : [...prev, activeEditingLayoutId]);
         }
+        // Auto-add this side to selectedSides so it's included in the order
+        setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
       };
       imgEl.src = reader.result as string;
     };
@@ -776,12 +783,10 @@ export default function Designer() {
       isLoadingRef.current = false; refreshLayers();
     }
     setActiveSide(newSide);
+    activeSideRef.current = newSide;
   }, [activeSide, loadMockup, reapplyClipPaths, addGuides, refreshLayers]);
 
   const handleToggleSide = useCallback((side: PrintSide) => {
-    setSelectedSides(prev =>
-      prev.includes(side) ? (prev.length > 1 ? prev.filter(s => s !== side) : prev) : [...prev, side]
-    );
     handleSwitchSide(side);
   }, [handleSwitchSide]);
 
