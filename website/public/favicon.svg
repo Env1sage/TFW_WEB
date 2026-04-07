@@ -1,4 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="#6366f1"/>
-  <text x="16" y="22" font-family="Arial" font-weight="bold" font-size="18" fill="white" text-anchor="middle">T</text>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#382e8c"/>
+      <stop offset="0.52" stop-color="#e01e26"/>
+      <stop offset="1" stop-color="#faa31b"/>
+    </linearGradient>
+  </defs>
+  <!-- Top horizontal bar of T -->
+  <rect x="2" y="3" width="28" height="8" rx="4" fill="url(#g)"/>
+  <!-- Vertical stem of T -->
+  <rect x="12" y="3" width="8" height="26" rx="4" fill="url(#g)"/>
 </svg>
