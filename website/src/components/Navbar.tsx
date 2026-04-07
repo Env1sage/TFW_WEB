@@ -123,7 +123,7 @@ export default function Navbar() {
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand">
           <img src="/logo.svg" alt="TheFramedWall" className="brand-logo" />
-          <span>TheFramedWall</span>
+          <span className="brand-name">TheFramedWall</span>
         </Link>
 
         <div className={`navbar-links ${mobileOpen ? 'open' : ''}`}>
