@@ -841,7 +841,7 @@ export interface DBMockup {
   id: string; name: string; category: string;
   frontImage: string; backImage?: string;
   frontShadow?: string; backShadow?: string;
-  printArea: any; basePrice: number; frontPrintPrice: number; backPrintPrice: number; active: boolean; createdAt: string;
+  printArea: any; basePrice: number; active: boolean; createdAt: string;
 }
 
 function rowToMockup(row: any): DBMockup {
@@ -850,8 +850,6 @@ function rowToMockup(row: any): DBMockup {
     frontImage: row.front_image, backImage: row.back_image || undefined,
     frontShadow: row.front_shadow || undefined, backShadow: row.back_shadow || undefined,
     printArea: row.print_area || {}, basePrice: parseFloat(row.base_price || '0'),
-    frontPrintPrice: parseFloat(row.front_print_price || '0'),
-    backPrintPrice: parseFloat(row.back_print_price || '0'),
     active: row.active, createdAt: row.created_at,
   };
 }
@@ -861,11 +859,11 @@ export async function getAllMockups(): Promise<DBMockup[]> {
   return rows.map(rowToMockup);
 }
 
-export async function addMockup(m: { id: string; name: string; category: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea?: any; basePrice?: number; frontPrintPrice?: number; backPrintPrice?: number }): Promise<DBMockup> {
+export async function addMockup(m: { id: string; name: string; category: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea?: any; basePrice?: number }): Promise<DBMockup> {
   const { rows } = await pool.query(
-    `INSERT INTO website_mockups (id, name, category, front_image, back_image, front_shadow, back_shadow, print_area, base_price, front_print_price, back_print_price, active, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,NOW()) RETURNING *`,
-    [m.id, m.name, m.category, m.frontImage, m.backImage || null, m.frontShadow || null, m.backShadow || null, JSON.stringify(m.printArea || {}), m.basePrice || 0, m.frontPrintPrice || 0, m.backPrintPrice || 0]
+    `INSERT INTO website_mockups (id, name, category, front_image, back_image, front_shadow, back_shadow, print_area, base_price, active, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,NOW()) RETURNING *`,
+    [m.id, m.name, m.category, m.frontImage, m.backImage || null, m.frontShadow || null, m.backShadow || null, JSON.stringify(m.printArea || {}), m.basePrice || 0]
   );
   return rowToMockup(rows[0]);
 }
@@ -874,7 +872,7 @@ export async function updateMockup(id: string, patch: Record<string, any>): Prom
   const fieldMap: Record<string, string> = {
     name: 'name', category: 'category', frontImage: 'front_image',
     backImage: 'back_image', frontShadow: 'front_shadow', backShadow: 'back_shadow',
-    basePrice: 'base_price', frontPrintPrice: 'front_print_price', backPrintPrice: 'back_print_price', active: 'active',
+    basePrice: 'base_price', active: 'active',
   };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {

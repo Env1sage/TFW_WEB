@@ -13,7 +13,7 @@ interface Mockup {
   id: string; name: string; category: string;
   frontImage: string; backImage?: string;
   frontShadow?: string; backShadow?: string;
-  printArea: any; basePrice?: number; frontPrintPrice?: number; backPrintPrice?: number; active: boolean; createdAt: string;
+  printArea: any; basePrice?: number; active: boolean; createdAt: string;
 }
 
 interface Analytics {
@@ -41,7 +41,7 @@ const defaultProduct: Partial<Product> = {
 
 const defaultMockup: Partial<Mockup> = {
   name: '', category: '', frontImage: '', backImage: '', frontShadow: '', backShadow: '',
-  printArea: { layouts: [], allowMultipleLayouts: false, allowBackPrint: true }, basePrice: 0, frontPrintPrice: 0, backPrintPrice: 0, active: true,
+  printArea: { layouts: [], allowMultipleLayouts: false, allowBackPrint: true }, basePrice: 0, active: true,
 };
 
 // ── Print Area Editor constants ─────────────────────────────
@@ -1795,16 +1795,6 @@ export default function Admin() {
                   <div className="form-group">
                     <label>Base Product Price (₹) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— cost of the physical item, added to design fee in cart</span></label>
                     <input type="number" min="0" step="1" value={mockupForm.basePrice ?? 0} onChange={e => setMockupForm({ ...mockupForm, basePrice: parseFloat(e.target.value) || 0 })} placeholder="e.g. 499" />
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Front Print Price (₹) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— printing fee when front is selected</span></label>
-                      <input type="number" min="0" step="1" value={mockupForm.frontPrintPrice ?? 0} onChange={e => setMockupForm({ ...mockupForm, frontPrintPrice: parseFloat(e.target.value) || 0 })} placeholder="e.g. 299" />
-                    </div>
-                    <div className="form-group">
-                      <label>Back Print Price (₹) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— printing fee added when back is also selected</span></label>
-                      <input type="number" min="0" step="1" value={mockupForm.backPrintPrice ?? 0} onChange={e => setMockupForm({ ...mockupForm, backPrintPrice: parseFloat(e.target.value) || 0 })} placeholder="e.g. 199" />
-                    </div>
                   </div>
                   <div className="form-group">
                     <label>Front Image * (PNG/JPG/WebP, max 10MB)</label>

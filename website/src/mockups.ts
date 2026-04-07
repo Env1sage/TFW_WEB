@@ -44,10 +44,6 @@ export interface MockupTemplate {
   shadowUrls?: Partial<Record<PrintSide, string>>;
   /** Base cost of the physical product (added to design/printing fee in cart) */
   basePrice?: number;
-  /** Printing fee for front-side print job */
-  frontPrintPrice?: number;
-  /** Printing fee for back-side print job */
-  backPrintPrice?: number;
 }
 
 /** Convert legacy {front:{full,medium,...}, back:{...}} format → PrintLayout[] */
@@ -132,8 +128,6 @@ export interface DBMockupShape {
   backShadow?: string;
   printArea?: any;
   basePrice?: number;
-  frontPrintPrice?: number;
-  backPrintPrice?: number;
   active: boolean;
 }
 
@@ -217,8 +211,6 @@ export function buildTemplateFromDBMockup(m: DBMockupShape): MockupTemplate {
       ...(m.backShadow ? { BACK: m.backShadow } : {}),
     },
     basePrice: m.basePrice || 0,
-    frontPrintPrice: m.frontPrintPrice || 0,
-    backPrintPrice: m.backPrintPrice || 0,
   };
 }
 
