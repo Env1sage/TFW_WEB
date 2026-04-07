@@ -990,7 +990,13 @@ html.dark .footer { background: #0A0C10; }
    .product-price, .product-colors, .color-dot, .color-more
    ================================================ */
 .products-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.5rem;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem;
+}
+@media (max-width: 600px) {
+  .products-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+}
+@media (max-width: 360px) {
+  .products-grid { grid-template-columns: 1fr; }
 }
 .products-grid.list-view {
   grid-template-columns: 1fr;

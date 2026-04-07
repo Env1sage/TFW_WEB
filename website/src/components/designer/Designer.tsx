@@ -731,8 +731,12 @@ export default function Designer() {
     const fc = fcRef.current; if (!fc || newSide === activeSide) return;
     isLoadingRef.current = true;
     sideStateRef.current[activeSide].json = fc.toObject(['name', 'customId', 'layerName', 'printZone']);
-    // Save a thumbnail of the current side so handleAddToCart can use it later
+    // Save a thumbnail of the current side (reset viewport to capture full design)
+    const savedVT = fc.viewportTransform ? [...fc.viewportTransform] : [1, 0, 0, 1, 0, 0];
+    fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    fc.renderAll();
     sideStateRef.current[activeSide].thumbnail = fc.toDataURL({ format: 'png', multiplier: 1 });
+    fc.setViewportTransform(savedVT as [number, number, number, number, number, number]);
     const ns = sideStateRef.current[newSide];
     if (ns.json) {
       fc.loadFromJSON(ns.json).then(() => {
