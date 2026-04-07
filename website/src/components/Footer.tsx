@@ -55,7 +55,6 @@ export default function Footer() {
 
         <div className="footer-bottom">
           <p>&copy; {new Date().getFullYear()} TheFramedWall. Made with <Heart size={14} className="heart" /> in India. All rights reserved.</p>
-          <p className="footer-bottom-info">GST Registration: 06AABCT3518Q1ZX &nbsp;|&nbsp; Haryana, India</p>
         </div>
       </div>
     </footer>
