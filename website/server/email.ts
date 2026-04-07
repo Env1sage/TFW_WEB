@@ -243,3 +243,25 @@ export async function sendAdminDesignOrderNotification(data: DesignOrderEmailDat
 
   await sendMail(ADMIN_EMAIL, `🎨 New Design Order — ${data.orderId} — ${formatCurrency(data.total)}`, baseLayout('New Design Order', body));
 }
+
+export async function sendNewsletterWelcome(email: string) {
+  const body = `
+    <h2 style="color:#1a1a1a;margin:0 0 8px;">You're subscribed! 🎉</h2>
+    <p style="color:#666;margin:0 0 24px;">Thank you for subscribing to TheFramedWall updates. You'll be the first to hear about new products, exclusive deals, and design inspiration.</p>
+
+    <div style="background:#f0faf7;border-radius:8px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="font-size:18px;font-weight:700;color:#0E7C61;margin:0 0 8px;">Get 10% off your first order!</p>
+      <p style="color:#666;margin:0 0 16px;font-size:14px;">Use code <strong>WELCOME10</strong> at checkout.</p>
+      <a href="${process.env.CLIENT_URL || 'https://theframedwall.com'}/design-studio" style="display:inline-block;background:#0E7C61;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Start Designing</a>
+    </div>`;
+
+  await sendMail(email, '🎨 Welcome to TheFramedWall — You\'re subscribed!', baseLayout('Welcome!', body));
+}
+
+export async function sendAdminNewsletterNotification(email: string) {
+  if (!ADMIN_EMAIL) return;
+  const body = `
+    <h2 style="color:#1a1a1a;margin:0 0 8px;">New Newsletter Subscriber</h2>
+    <p style="color:#444;font-size:15px;margin:0;"><strong>${email}</strong> has subscribed to the newsletter.</p>`;
+  await sendMail(ADMIN_EMAIL, `📧 New Subscriber: ${email}`, baseLayout('New Subscriber', body));
+}

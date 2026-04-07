@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import * as fabric from 'fabric';
 import { compressImage } from '../../utils/imageCompression';
 import {
@@ -37,6 +37,7 @@ interface PriceResult {
 
 export default function Designer() {
   const navigate = useNavigate();
+  const { id: productRouteId } = useParams<{ id?: string }>();
   const { addDesignItem } = useCart();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fcRef = useRef<fabric.Canvas | null>(null);
@@ -482,7 +483,20 @@ export default function Designer() {
       const newTemplates: Record<string, MockupTemplate> = {};
       dbMockups.forEach((m: any) => { newTemplates[`db_${m.id}`] = buildTemplateFromDBMockup(m); });
       setAllTemplates(newTemplates);
-      setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
+      // Auto-select the template linked to the product (from /design-studio/:id)
+      if (productRouteId) {
+        api.getProduct(productRouteId).then((product: any) => {
+          if (product?.mockupId && newTemplates[`db_${product.mockupId}`]) {
+            setActiveProductType(`db_${product.mockupId}`);
+          } else {
+            setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
+          }
+        }).catch(() => {
+          setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
+        });
+      } else {
+        setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
+      }
       setImgReady(r => !r ? true : r); // trigger re-render
     }).catch(() => {/* design studio works fine without DB mockups */});
   }, []);

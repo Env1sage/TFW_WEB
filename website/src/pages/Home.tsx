@@ -10,14 +10,14 @@ import type { Product } from '../types';
 const fadeUp = { hidden: { opacity: 0, y: 40 }, visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.6 } }) };
 
 const categories = [
-  { name: 'T-Shirts', icon: <Shirt size={28} />, color: '#0E7C61' },
-  { name: 'Hoodies', icon: <Shirt size={28} />, color: '#0A5C49' },
-  { name: 'Mugs', icon: <Coffee size={28} />, color: '#C6A75E' },
-  { name: 'Phone Cases', icon: <Smartphone size={28} />, color: '#12A07D' },
-  { name: 'Posters', icon: <Image size={28} />, color: '#0E7C61' },
-  { name: 'Canvas', icon: <Frame size={28} />, color: '#A8893D' },
-  { name: 'Stickers', icon: <Sticker size={28} />, color: '#16A34A' },
-  { name: 'Tote Bags', icon: <ShoppingBag size={28} />, color: '#0A5C49' },
+  { name: 'T-Shirts',     icon: <Shirt size={28} />,       color: '#0E7C61', bgImage: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Hoodies',      icon: <Shirt size={28} />,       color: '#0A5C49', bgImage: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Mugs',         icon: <Coffee size={28} />,      color: '#C6A75E', bgImage: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Phone Cases',  icon: <Smartphone size={28} />,  color: '#12A07D', bgImage: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Posters',      icon: <Image size={28} />,       color: '#0E7C61', bgImage: 'https://images.unsplash.com/photo-1579762715118-a6f1d4b934f1?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Canvas',       icon: <Frame size={28} />,       color: '#A8893D', bgImage: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Stickers',     icon: <Sticker size={28} />,     color: '#16A34A', bgImage: 'https://images.unsplash.com/photo-1626784215021-2e39ccf971cd?w=400&h=400&fit=crop&auto=format' },
+  { name: 'Tote Bags',    icon: <ShoppingBag size={28} />, color: '#0A5C49', bgImage: 'https://images.unsplash.com/photo-1597633125097-35e0a92d67e4?w=400&h=400&fit=crop&auto=format' },
 ];
 
 const testimonials = [
@@ -39,9 +39,13 @@ export default function Home() {
     api.getProducts({ featured: 'true' }).then(setFeatured).catch(console.error);
   }, []);
 
-  const handleNewsletter = (e: React.FormEvent) => {
+  const handleNewsletter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newsletter.trim()) { setNewsletterSent(true); }
+    if (!newsletter.trim()) return;
+    try {
+      await api.subscribeNewsletter(newsletter.trim());
+    } catch (_) { /* non-critical */ }
+    setNewsletterSent(true);
   };
 
   return (
@@ -118,8 +122,8 @@ export default function Home() {
             {categories.map((cat, i) => (
               <motion.div key={cat.name} custom={i} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
                 <Link to={`/products?category=${encodeURIComponent(cat.name)}`} className="category-card">
-                  <div className="category-card-bg" style={{ background: `linear-gradient(135deg, ${cat.color}28 0%, ${cat.color}50 100%)` }} />
-                  <div className="category-card-overlay" />
+                  <div className="category-card-bg" style={{ backgroundImage: `url(${cat.bgImage})` }} />
+                  <div className="category-card-overlay" style={{ background: `linear-gradient(135deg, ${cat.color}cc 0%, ${cat.color}99 100%)` }} />
                   <div className="category-card-content">
                     <span className="category-icon">{cat.icon}</span>
                     <span className="category-name">{cat.name}</span>

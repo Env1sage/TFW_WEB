@@ -17,6 +17,19 @@ const categoryIcons: Record<string, React.ReactNode> = {
   'Tote Bags': <ShoppingBag size={16} />,
 };
 
+function getCategoryIcon(name: string): React.ReactNode {
+  if (categoryIcons[name]) return categoryIcons[name];
+  const lower = name.toLowerCase();
+  if (lower.includes('shirt') || lower.includes('tee') || lower.includes('polo') || lower.includes('hoodie') || lower.includes('jacket') || lower.includes('apparel')) return <Shirt size={16} />;
+  if (lower.includes('mug') || lower.includes('cup')) return <Coffee size={16} />;
+  if (lower.includes('phone') || lower.includes('case')) return <Smartphone size={16} />;
+  if (lower.includes('poster') || lower.includes('print')) return <Image size={16} />;
+  if (lower.includes('canvas') || lower.includes('frame')) return <Frame size={16} />;
+  if (lower.includes('sticker')) return <Sticker size={16} />;
+  if (lower.includes('bag') || lower.includes('tote')) return <ShoppingBag size={16} />;
+  return <SlidersHorizontal size={16} />;
+}
+
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
@@ -125,7 +138,7 @@ export default function Products() {
                 className={`category-pill ${category === c ? 'active' : ''}`}
                 onClick={() => setParam('category', c)}
               >
-                {categoryIcons[c] || <Filter size={16} />}
+                {categoryIcons[c] || getCategoryIcon(c)}
                 {c}
               </button>
             ))}

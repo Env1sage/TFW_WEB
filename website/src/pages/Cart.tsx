@@ -134,6 +134,9 @@ export default function Cart() {
                     <p className="cart-item-meta">
                       {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' ? '1px solid var(--border)' : 'none' }} />}
                       {item.size && <span>{item.size}</span>}
+                      {item.product.customizable && (
+                        <Link to="/design-studio" className="cart-customize-btn"><Palette size={12} /> Customise</Link>
+                      )}
                     </p>
                     <span className="cart-item-price">₹{item.product.price.toFixed(0)}</span>
                   </div>

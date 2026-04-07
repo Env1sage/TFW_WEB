@@ -213,4 +213,8 @@ export const api = {
   // Corporate Inquiries
   submitCorporateInquiry: (data: { companyName: string; contactName: string; email: string; phone?: string; productInterest?: string; quantity?: number; message?: string }) =>
     request<any>('/products/corporate-inquiry', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Newsletter
+  subscribeNewsletter: (email: string) =>
+    request<{ success: boolean }>('/products/newsletter/subscribe', { method: 'POST', body: JSON.stringify({ email }) }),
 };

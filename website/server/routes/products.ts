@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
-import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification } from '../email.js';
+import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification } from '../email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1216,6 +1216,21 @@ router.delete('/:id', authMiddleware, requireRole('admin', 'product_manager'), a
     const existing = await db.getProductById(String(req.params.id));
     if (!existing) return res.status(404).json({ error: 'Product not found' });
     await db.deleteProduct(String(req.params.id));
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Newsletter Subscription ──────────────────────────
+router.post('/newsletter/subscribe', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Valid email required' });
+  }
+  try {
+    sendNewsletterWelcome(email).catch(e => console.error('[Email] newsletter welcome failed:', e));
+    sendAdminNewsletterNotification(email).catch(e => console.error('[Email] newsletter admin notif failed:', e));
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
