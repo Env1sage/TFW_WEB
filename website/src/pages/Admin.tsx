@@ -81,7 +81,7 @@ function normalizePrintArea(pa: any): { layouts: PrintLayout[]; allowMultipleLay
   return { layouts, allowMultipleLayouts: false, allowBackPrint: layouts.some(l => l.side === 'BACK') };
 }
 
-type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database' | 'shiprocket';
+type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database' | 'shiprocket' | 'email';
 
 const defaultCoupon: Partial<Coupon> = {
   code: '', description: '', discountType: 'percentage', discountValue: 0,
@@ -160,6 +160,9 @@ export default function Admin() {
   const [srTesting, setSrTesting] = useState(false);
   const [srTestResult, setSrTestResult] = useState<{ ok: boolean; error?: string; email?: string; tokenPreview?: string; pickupLocations?: any[]; envVars?: any } | null>(null);
   const [srPushingFor, setSrPushingFor] = useState<string | null>(null);
+  // Email test
+  const [emailTesting, setEmailTesting] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; smtpConfigured: boolean; error?: string } | null>(null);
 
   type AdminOrderEntry = { key: string; productOrder?: Order; designOrders: DesignOrder[]; createdAt: string; };
   const adminOrderEntries = useMemo((): AdminOrderEntry[] => {
@@ -568,6 +571,17 @@ export default function Admin() {
     } finally { setSrTesting(false); }
   };
 
+  const handleTestEmail = async () => {
+    setEmailTesting(true); setEmailTestResult(null);
+    try {
+      const res = await fetch('/api/products/test-email', { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('tfw_token')}`, 'Content-Type': 'application/json' } });
+      const data = await res.json();
+      setEmailTestResult(data);
+    } catch (e: any) {
+      setEmailTestResult({ ok: false, smtpConfigured: false, error: e.message });
+    } finally { setEmailTesting(false); }
+  };
+
   const handlePushToShiprocket = async (orderId: string, isDesign: boolean) => {
     setSrPushingFor(orderId);
     try {
@@ -693,6 +707,7 @@ export default function Admin() {
           <button className={`tab ${tab === 'coupons' ? 'active' : ''}`} onClick={() => setTab('coupons')}><Percent size={16} /> Coupons ({coupons.length})</button>
           <button className={`tab ${tab === 'database' ? 'active' : ''}`} onClick={() => { setTab('database'); if (!dbData) loadDb(); }}><Database size={16} /> Database</button>
           <button className={`tab ${tab === 'shiprocket' ? 'active' : ''}`} onClick={() => setTab('shiprocket')}><Truck size={16} /> Shiprocket</button>
+          <button className={`tab ${tab === 'email' ? 'active' : ''}`} onClick={() => setTab('email')}><Mail size={16} /> Email</button>
         </div>
 
         {/* Analytics Tab */}
@@ -1715,6 +1730,45 @@ export default function Admin() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Email Tab */}
+        {tab === 'email' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 720 }}>
+            <h2 style={{ marginBottom: 6 }}>Email / SMTP Diagnostics</h2>
+            <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', marginBottom: 24 }}>
+              Test your SMTP configuration. A test email will be sent to your admin address.
+            </p>
+
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, marginBottom: 28 }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}><Mail size={16} /> Test SMTP Connection</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
+                Checks that <code>SMTP_HOST</code>, <code>SMTP_USER</code>, and <code>SMTP_PASS</code> are set and that sending succeeds.
+                A real test email will be sent to your admin address.
+              </p>
+              <button className="btn btn-primary" onClick={handleTestEmail} disabled={emailTesting} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Mail size={15} /> {emailTesting ? 'Sending…' : 'Send Test Email'}
+              </button>
+              {emailTestResult && (
+                <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 8, background: emailTestResult.ok ? '#f0fdf4' : '#fef2f2', border: `1px solid ${emailTestResult.ok ? '#86efac' : '#fca5a5'}` }}>
+                  {emailTestResult.ok ? (
+                    <p style={{ margin: 0, color: '#15803d', fontWeight: 700 }}>✅ Email sent successfully — check your inbox!</p>
+                  ) : (
+                    <>
+                      <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>
+                        {emailTestResult.smtpConfigured ? '❌ SMTP configured but send failed' : '❌ SMTP not configured'}
+                      </p>
+                      <p style={{ margin: '6px 0 0', fontSize: '0.83rem', color: '#991b1b' }}>{emailTestResult.error}</p>
+                      <p style={{ margin: '8px 0 0', fontSize: '0.83rem', color: '#7f1d1d' }}>
+                        Fix: add <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>SMTP_FROM</code>, and <code>ADMIN_EMAIL</code> to{' '}
+                        <code>/opt/tfw/.env.production</code>, then rebuild.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>

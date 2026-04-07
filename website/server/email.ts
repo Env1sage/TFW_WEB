@@ -727,3 +727,20 @@ export async function sendAdminNewsletterNotification(email: string) {
     <p style="color:#444;font-size:15px;margin:0;"><strong>${email}</strong> has subscribed to the newsletter.</p>`;
   await sendMail(ADMIN_EMAIL, `New Subscriber: ${email}`, baseLayout('New Subscriber', body));
 }
+
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: string; smtpConfigured: boolean }> {
+  const smtpConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+  if (!smtpConfigured) {
+    return { ok: false, smtpConfigured, error: 'SMTP_HOST / SMTP_USER / SMTP_PASS not set in environment' };
+  }
+  try {
+    const body = `
+      <h2 style="color:#1a1a1a;margin:0 0 8px;">Test Email</h2>
+      <p style="color:#444;">This is a test email from TheFramedWall server. If you received this, SMTP is working correctly.</p>
+      <p style="color:#888;font-size:12px;">Sent at: ${new Date().toISOString()}</p>`;
+    await sendMail(to, 'TheFramedWall — SMTP Test', baseLayout('SMTP Test', body));
+    return { ok: true, smtpConfigured };
+  } catch (err: any) {
+    return { ok: false, smtpConfigured, error: err.message };
+  }
+}

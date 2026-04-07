@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
-import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendCombinedOrderConfirmation, sendAdminCombinedOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate } from '../email.js';
+import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendCombinedOrderConfirmation, sendAdminCombinedOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate, sendTestEmail } from '../email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1464,6 +1464,19 @@ router.post('/newsletter/subscribe', async (req, res) => {
     sendNewsletterWelcome(email).catch(e => console.error('[Email] newsletter welcome failed:', e));
     sendAdminNewsletterNotification(email).catch(e => console.error('[Email] newsletter admin notif failed:', e));
     res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Admin: Test Email ────────────────────────────────
+router.post('/test-email', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const adminUser = await db.findUserById((req as any).userId);
+    const to = req.body?.to || adminUser?.email;
+    if (!to) return res.status(400).json({ error: 'No recipient email' });
+    const result = await sendTestEmail(to);
+    res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
