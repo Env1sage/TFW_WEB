@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, Clock, CheckCircle, Truck, XCircle, FileText, Palette, Download, MapPin, CreditCard } from 'lucide-react';
@@ -32,15 +32,12 @@ export default function Orders() {
   const [designOrders, setDesignOrders] = useState<DesignOrder[]>([]);
   const [productMap, setProductMap] = useState<Record<string, Product>>({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'products' | 'designs'>('products');
 
   useEffect(() => {
     Promise.all([api.getMyOrders(), api.getMyDesignOrders(), api.getProducts({})])
       .then(([o, d, p]) => {
         setOrders(o);
         setDesignOrders(d);
-        // Auto-switch to designs tab if user has design orders but no regular orders
-        if (d.length > 0 && o.length === 0) setTab('designs');
         const map: Record<string, Product> = {};
         p.forEach((prod: Product) => { map[prod.id] = prod; });
         setProductMap(map);
@@ -48,6 +45,42 @@ export default function Orders() {
       .catch(() => toast.error('Failed to load orders'))
       .finally(() => setLoading(false));
   }, []);
+
+  // Build combined/grouped order entries
+  type OrderEntry = {
+    key: string;
+    productOrder?: Order;
+    designOrders: DesignOrder[];
+    createdAt: string;
+  };
+
+  const entries = useMemo((): OrderEntry[] => {
+    const grouped: Record<string, OrderEntry> = {};
+
+    // Group product orders
+    for (const o of orders) {
+      const gid = o.groupOrderId;
+      if (gid) {
+        if (!grouped[gid]) grouped[gid] = { key: gid, designOrders: [], createdAt: o.createdAt };
+        grouped[gid].productOrder = o;
+      } else {
+        grouped[`p_${o.id}`] = { key: `p_${o.id}`, productOrder: o, designOrders: [], createdAt: o.createdAt };
+      }
+    }
+
+    // Group design orders
+    for (const d of designOrders) {
+      const gid = d.groupOrderId;
+      if (gid) {
+        if (!grouped[gid]) grouped[gid] = { key: gid, designOrders: [], createdAt: d.createdAt };
+        grouped[gid].designOrders.push(d);
+      } else {
+        grouped[`d_${d.id}`] = { key: `d_${d.id}`, designOrders: [d], createdAt: d.createdAt };
+      }
+    }
+
+    return Object.values(grouped).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders, designOrders]);
 
   const handleDownloadInvoice = async (orderId: string) => {
     try {
@@ -89,8 +122,6 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
 
   if (loading) return <div className="page-loader"><div className="spinner" /></div>;
 
-  const totalCount = orders.length + designOrders.length;
-
   return (
     <div className="orders-page">
       <div className="container">
@@ -98,7 +129,7 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
           <h1>My Orders</h1>
         </motion.div>
 
-        {totalCount === 0 ? (
+        {entries.length === 0 ? (
           <motion.div className="empty-state" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
             <Package size={64} strokeWidth={1} />
             <h2>No orders yet</h2>
@@ -109,200 +140,181 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
             </div>
           </motion.div>
         ) : (
-          <>
-            {/* Tab switcher — only show if both types have orders */}
-            {orders.length > 0 && designOrders.length > 0 && (
-              <div className="orders-tabs">
-                <button className={`tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>
-                  <Package size={15} /> Products ({orders.length})
-                </button>
-                <button className={`tab ${tab === 'designs' ? 'active' : ''}`} onClick={() => setTab('designs')}>
-                  <Palette size={15} /> Design Studio ({designOrders.length})
-                </button>
-              </div>
-            )}
+          <AnimatePresence>
+            <div className="orders-list">
+              {entries.map((entry, i) => {
+                const { productOrder, designOrders: dOrders } = entry;
+                const isCombined = !!productOrder && dOrders.length > 0;
+                const displayDate = new Date(entry.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+                const overallTotal = (productOrder?.total ?? 0) + dOrders.reduce((s, d) => s + d.total, 0);
 
-            <AnimatePresence mode="wait">
-              {/* ── Regular product orders ── */}
-              {tab === 'products' && (
-                <motion.div key="products" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {orders.length === 0 ? (
-                    <div className="empty-state" style={{ padding: '40px 0' }}>
-                      <Package size={48} strokeWidth={1} />
-                      <p>No product orders yet. <Link to="/products">Browse Products</Link></p>
+                return (
+                  <motion.div key={entry.key} className="order-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                    {/* ── Header ── */}
+                    <div className="order-header">
+                      <div>
+                        {isCombined ? (
+                          <span className="order-id" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Package size={13} style={{ color: 'var(--primary)' }} />
+                            <Palette size={13} style={{ color: 'var(--primary)' }} />
+                            Combined Order — #{(productOrder!.id).slice(0, 8).toUpperCase()}
+                          </span>
+                        ) : productOrder ? (
+                          <span className="order-id">Order #{productOrder.id.slice(0, 8).toUpperCase()}</span>
+                        ) : (
+                          <span className="order-id" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Palette size={13} style={{ color: 'var(--primary)' }} />
+                            Order #{dOrders[0].id.slice(0, 8).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="order-date">{displayDate}</span>
+                      </div>
+                      {/* Show primary status (product order if present, else design) */}
+                      {(() => {
+                        const primaryStatus = productOrder?.status ?? dOrders[0]?.status;
+                        return primaryStatus ? (
+                          <span className={`status-badge status-${primaryStatus}`}>
+                            {statusIcons[primaryStatus]} {statusLabel[primaryStatus] ?? primaryStatus}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
-                  ) : (
-                    <div className="orders-list">
-                      {orders.map((order, i) => (
-                        <motion.div key={order.id} className="order-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                          <div className="order-header">
-                            <div>
-                              <span className="order-id">Order #{order.id.slice(0, 8).toUpperCase()}</span>
-                              <span className="order-date">{new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                            </div>
-                            <span className={`status-badge status-${order.status}`}>
-                              {statusIcons[order.status]} {statusLabel[order.status] ?? order.status}
+
+                    {/* ── Product Order Items ── */}
+                    {productOrder && (
+                      <div className={isCombined ? 'order-section' : ''}>
+                        {isCombined && (
+                          <div className="order-section-label">
+                            <Package size={13} /> Products
+                            <span className={`status-badge status-${productOrder.status}`} style={{ marginLeft: 8, fontSize: '0.7rem', padding: '2px 7px' }}>
+                              {statusLabel[productOrder.status] ?? productOrder.status}
                             </span>
                           </div>
-                          <div className="order-items-grid">
-                            {order.items.map((item, j) => {
-                              const product = productMap[item.productId];
-                              const imgSrc = item.productImage || product?.image || product?.images?.[0];
-                              return (
-                                <div key={j} className="order-item-card">
-                                  <div className="order-item-thumb">
-                                    {imgSrc ? (
-                                      <img src={imgSrc} alt={item.productName || product?.name || 'Product'} />
-                                    ) : (
-                                      <Package size={24} />
-                                    )}
-                                  </div>
-                                  <div className="order-item-details">
-                                    {product ? (
-                                      <Link to={`/products/${item.productId}`} className="order-item-name">{product.name}</Link>
-                                    ) : (
-                                      <span className="order-item-name">{item.productName || 'Custom Item'}</span>
-                                    )}
-                                    <div className="order-item-meta">
-                                      {item.size && <span className="item-size">{item.size}</span>}
-                                      {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' || item.color === '#fff' ? '1px solid #ddd' : 'none' }} />}
-                                      <span className="item-qty">×{item.quantity}</span>
-                                    </div>
-                                  </div>
-                                  <span className="order-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
+                        )}
+                        <div className="order-items-grid">
+                          {productOrder.items.map((item, j) => {
+                            const product = productMap[item.productId];
+                            const imgSrc = item.productImage || product?.image || product?.images?.[0];
+                            return (
+                              <div key={j} className="order-item-card">
+                                <div className="order-item-thumb">
+                                  {imgSrc ? <img src={imgSrc} alt={item.productName || product?.name || 'Product'} /> : <Package size={24} />}
                                 </div>
-                              );
-                            })}
-                          </div>
-                          {/* Shipment / Tracking Info */}
-                          {order.shipment && order.status !== 'cancelled' && (
-                            <div className="order-tracking">
-                              <Truck size={14} />
-                              <span>
-                                {order.shipment.courierName && <strong>{order.shipment.courierName} </strong>}
-                                {order.shipment.awbCode ? (
-                                  <>AWB: <strong>{order.shipment.awbCode}</strong></>
-                                ) : 'Shipment created'}
-                              </span>
-                              {order.shipment.trackingData?.tracking_data?.shipment_track?.[0]?.current_status && (
-                                <span className="track-status">
-                                  <MapPin size={12} /> {order.shipment.trackingData.tracking_data.shipment_track[0].current_status}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {order.status === 'cancelled' && (
-                            <div className="order-tracking order-tracking-cancelled">
-                              <XCircle size={14} />
-                              <span>This order has been cancelled</span>
-                            </div>
-                          )}
-                          {/* Payment & Coupon Info */}
-                          {(order.couponCode || (order.discountAmount && order.discountAmount > 0)) ? (
-                            <div className="order-coupon-info">
-                              <CreditCard size={13} />
-                              {order.couponCode && <span>Coupon: <strong>{order.couponCode}</strong></span>}
-                              {order.discountAmount != null && order.discountAmount > 0 && <span style={{ color: 'var(--success, #16a34a)' }}>Saved ₹{order.discountAmount.toFixed(0)}</span>}
-                            </div>
-                          ) : null}
-                          <div className="order-footer">
-                            <span className="order-address">{order.shippingAddress.replace(/\n/g, ', ')}</span>
-                            <div className="order-total-col">
-                              <button className="invoice-btn" onClick={() => handleDownloadInvoice(order.id)} title="Download Invoice">
-                                <FileText size={16} /> Invoice
-                              </button>
-                              {['pending', 'processing', 'shipped', 'delivered'].includes(order.status) && (
-                                <Link to={`/orders/${order.id}/track`} state={{ order }} className="invoice-btn" title="Track Order">
-                                  <MapPin size={16} /> Track
-                                </Link>
-                              )}
-                              <span className="order-total-label">Order Total</span>
-                              <span className="order-total">₹{order.total.toFixed(0)}</span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {/* ── Design studio orders ── */}
-              {tab === 'designs' && (
-                <motion.div key="designs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {designOrders.length === 0 ? (
-                    <div className="empty-state" style={{ padding: '40px 0' }}>
-                      <Palette size={48} strokeWidth={1} />
-                      <p>No custom design orders yet. <Link to="/design-studio">Open Design Studio</Link></p>
-                    </div>
-                  ) : (
-                    <div className="orders-list">
-                      {designOrders.map((order, i) => {
-                        const firstImage = Object.entries(order.designImages || {}).find(([, v]) => v)?.[1];
-                        return (
-                          <motion.div key={order.id} className="order-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                            <div className="order-header">
-                              <div>
-                                <span className="order-id">
-                                  <Palette size={13} style={{ display: 'inline', marginRight: 5, verticalAlign: 'middle', color: 'var(--primary)' }} />
-                                  Order #{order.id.slice(0, 8).toUpperCase()}
-                                </span>
-                                <span className="order-date">{new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                <div className="order-item-details">
+                                  {product ? (
+                                    <Link to={`/products/${item.productId}`} className="order-item-name">{product.name}</Link>
+                                  ) : (
+                                    <span className="order-item-name">{item.productName || 'Custom Item'}</span>
+                                  )}
+                                  <div className="order-item-meta">
+                                    {item.size && <span className="item-size">{item.size}</span>}
+                                    {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' || item.color === '#fff' ? '1px solid #ddd' : 'none' }} />}
+                                    <span className="item-qty">×{item.quantity}</span>
+                                  </div>
+                                </div>
+                                <span className="order-item-price">₹{(item.price * item.quantity).toFixed(0)}</span>
                               </div>
-                              <span className={`status-badge status-${order.status}`}>
-                                {statusIcons[order.status]} {statusLabel[order.status] ?? order.status}
+                            );
+                          })}
+                        </div>
+                        {/* Product tracking */}
+                        {productOrder.shipment && productOrder.status !== 'cancelled' && (
+                          <div className="order-tracking">
+                            <Truck size={14} />
+                            <span>
+                              {productOrder.shipment.courierName && <strong>{productOrder.shipment.courierName} </strong>}
+                              {productOrder.shipment.awbCode ? <>AWB: <strong>{productOrder.shipment.awbCode}</strong></> : 'Shipment created'}
+                            </span>
+                            {productOrder.shipment.trackingData?.tracking_data?.shipment_track?.[0]?.current_status && (
+                              <span className="track-status"><MapPin size={12} /> {productOrder.shipment.trackingData.tracking_data.shipment_track[0].current_status}</span>
+                            )}
+                          </div>
+                        )}
+                        {productOrder.status === 'cancelled' && (
+                          <div className="order-tracking order-tracking-cancelled"><XCircle size={14} /><span>Products order cancelled</span></div>
+                        )}
+                        {(productOrder.couponCode || (productOrder.discountAmount && productOrder.discountAmount > 0)) && (
+                          <div className="order-coupon-info">
+                            <CreditCard size={13} />
+                            {productOrder.couponCode && <span>Coupon: <strong>{productOrder.couponCode}</strong></span>}
+                            {productOrder.discountAmount != null && productOrder.discountAmount > 0 && <span style={{ color: 'var(--success, #16a34a)' }}>Saved ₹{productOrder.discountAmount.toFixed(0)}</span>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Design Orders ── */}
+                    {dOrders.map((dOrder) => {
+                      const firstImage = Object.entries(dOrder.designImages || {}).find(([, v]) => v)?.[1];
+                      return (
+                        <div key={dOrder.id} className={isCombined ? 'order-section' : ''}>
+                          {isCombined && (
+                            <div className="order-section-label">
+                              <Palette size={13} /> Custom Design
+                              <span className={`status-badge status-${dOrder.status}`} style={{ marginLeft: 8, fontSize: '0.7rem', padding: '2px 7px' }}>
+                                {statusLabel[dOrder.status] ?? dOrder.status}
                               </span>
                             </div>
-
-                            <div className="order-design-row">
-                              {firstImage && (
-                                <img src={firstImage} alt="Design preview" className="order-design-thumb" />
-                              )}
-                              <div className="order-design-details">
-                                <div className="order-item">
-                                  <span className="item-name" style={{ textTransform: 'capitalize' }}>
-                                    {PRODUCT_LABELS[order.productType] || order.productType}
-                                  </span>
-                                  <span className="item-qty">×{order.quantity}</span>
-                                </div>
-                                <div className="order-design-meta">
-                                  <span className="color-dot" style={{ background: order.colorHex, border: order.colorHex === '#ffffff' ? '1px solid #ddd' : 'none', display: 'inline-block', width: 12, height: 12, borderRadius: '50%', verticalAlign: 'middle', marginRight: 4 }} />
-                                  <span>{order.colorName}</span>
-                                  <span style={{ color: 'var(--text-3)' }}>·</span>
-                                  <span style={{ textTransform: 'capitalize' }}>{order.printSize} print</span>
-                                  <span style={{ color: 'var(--text-3)' }}>·</span>
-                                  <span>{(order.sides || []).join(' + ')}</span>
-                                </div>
-                                {/* Download design images */}
-                                <div className="order-design-downloads">
-                                  {Object.entries(order.designImages || {}).map(([side, dataUrl]) => {
-                                    if (!dataUrl) return null;
-                                    return (
-                                      <button key={side} className="invoice-btn" onClick={() => handleDownloadDesign(dataUrl, order.id, side)}>
-                                        <Download size={13} /> {side}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
+                          )}
+                          <div className="order-design-row">
+                            {firstImage && <img src={firstImage} alt="Design preview" className="order-design-thumb" />}
+                            <div className="order-design-details">
+                              <div className="order-item">
+                                <span className="item-name" style={{ textTransform: 'capitalize' }}>
+                                  {PRODUCT_LABELS[dOrder.productType] || dOrder.productType}
+                                </span>
+                                <span className="item-qty">×{dOrder.quantity}</span>
+                              </div>
+                              <div className="order-design-meta">
+                                <span className="color-dot" style={{ background: dOrder.colorHex, border: dOrder.colorHex === '#ffffff' ? '1px solid #ddd' : 'none', display: 'inline-block', width: 12, height: 12, borderRadius: '50%', verticalAlign: 'middle', marginRight: 4 }} />
+                                <span>{dOrder.colorName}</span>
+                                <span style={{ color: 'var(--text-3)' }}>·</span>
+                                <span style={{ textTransform: 'capitalize' }}>{dOrder.printSize} print</span>
+                                <span style={{ color: 'var(--text-3)' }}>·</span>
+                                <span>{(dOrder.sides || []).join(' + ')}</span>
+                              </div>
+                              <div className="order-design-downloads">
+                                {Object.entries(dOrder.designImages || {}).map(([side, dataUrl]) => {
+                                  if (!dataUrl) return null;
+                                  return (
+                                    <button key={side} className="invoice-btn" onClick={() => handleDownloadDesign(dataUrl, dOrder.id, side)}>
+                                      <Download size={13} /> {side}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
+                          </div>
+                          {!isCombined && dOrder.status === 'cancelled' && (
+                            <div className="order-tracking order-tracking-cancelled"><XCircle size={14} /><span>This order has been cancelled</span></div>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                            <div className="order-footer">
-                              <span className="order-address">{order.shippingAddress.replace(/\n/g, ', ')}</span>
-                              <div className="order-total-col">
-                                <span className="order-total-label">Order Total</span>
-                                <span className="order-total">₹{order.total.toLocaleString('en-IN')}</span>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
+                    {/* ── Footer ── */}
+                    <div className="order-footer">
+                      <span className="order-address">{(productOrder?.shippingAddress ?? dOrders[0]?.shippingAddress ?? '').replace(/\n/g, ', ')}</span>
+                      <div className="order-total-col">
+                        {productOrder && (
+                          <button className="invoice-btn" onClick={() => handleDownloadInvoice(productOrder.id)} title="Download Invoice">
+                            <FileText size={16} /> Invoice
+                          </button>
+                        )}
+                        {productOrder && ['pending', 'processing', 'shipped', 'delivered'].includes(productOrder.status) && (
+                          <Link to={`/orders/${productOrder.id}/track`} state={{ order: productOrder }} className="invoice-btn" title="Track Order">
+                            <MapPin size={16} /> Track
+                          </Link>
+                        )}
+                        <span className="order-total-label">Order Total</span>
+                        <span className="order-total">₹{overallTotal.toFixed(0)}</span>
+                      </div>
                     </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </AnimatePresence>
         )}
       </div>
     </div>

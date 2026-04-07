@@ -88,7 +88,7 @@ export const api = {
     request<any>(`/products/${id}`, { method: 'DELETE' }),
 
   // Orders
-  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; couponCode?: string; discountAmount?: number }) =>
+  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; couponCode?: string; discountAmount?: number; groupOrderId?: string }) =>
     request<any>('/products/orders', { method: 'POST', body: JSON.stringify({ items, shippingAddress, ...extra }) }),
 
   // Razorpay

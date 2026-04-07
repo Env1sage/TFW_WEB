@@ -1734,6 +1734,50 @@ a.order-item-name:hover { color: var(--primary); }
 .orders-tabs .tab:hover { color: var(--primary); }
 .orders-tabs .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
+/* Admin order section blocks (Normal / Custom Design) */
+.order-section-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.order-section-block:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+.order-section-divider {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-2);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+/* Actions footer at the bottom of expanded order card */
+.order-actions-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px dashed var(--border);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.order-action-group {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.order-action-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--primary); margin: 0 0 2px;
+}
+
+/* Design order row (customer-facing Orders page) */
+.order-section {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+.order-section:first-of-type { border-top: none; }
+.order-section-label {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-2);
+  margin-bottom: 0.6rem;
+}
+
 /* Design order row */
 .order-design-row {
   display: flex; gap: 1rem; align-items: flex-start;

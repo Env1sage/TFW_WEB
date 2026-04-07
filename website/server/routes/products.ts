@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
-import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate } from '../email.js';
+import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendCombinedOrderConfirmation, sendAdminCombinedOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate } from '../email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -489,7 +489,7 @@ router.get('/analytics', authMiddleware, adminMiddleware, async (_req: Request, 
 // --- Design Orders (must be before /:id) ---
 router.post('/design-orders', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { productType, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName } = req.body;
+    const { productType, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName, groupOrderId } = req.body;
     if (!productType || !designImages || !quantity) return res.status(400).json({ error: 'Product type, design images, and quantity are required' });
     const userId: string = (req as any).userId;
     let resolvedName = customerName || 'Customer';
@@ -506,26 +506,67 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
       uploadedImages: uploadedImages || {},
       quantity: quantity || 1, unitPrice: unitPrice || 0,
       total: total || 0, shippingAddress: shippingAddress || '',
+      groupOrderId: groupOrderId || undefined,
     });
 
     // Send emails (non-blocking)
     if (resolvedEmail) {
-      const emailData = {
+      const shippingCost = order.total >= 999 ? 0 : 49;
+      const baseEmailData = {
         orderId: order.id,
         customerName: resolvedName,
         customerEmail: resolvedEmail,
         productType: order.productType,
+        colorHex: order.colorHex,
         colorName: order.colorName,
         printSize: order.printSize,
         sides: order.sides,
         quantity: order.quantity,
         unitPrice: order.unitPrice,
         total: order.total,
+        shippingCost,
         shippingAddress: order.shippingAddress,
         createdAt: order.createdAt,
       };
-      sendDesignOrderConfirmation(emailData).catch(e => console.error('[Email] design order confirmation failed:', e));
-      sendAdminDesignOrderNotification(emailData).catch(e => console.error('[Email] admin design notification failed:', e));
+
+      if (groupOrderId) {
+        // Combined checkout: find the paired normal order(s) and send one combined email
+        const pairedOrders = await db.getOrdersByGroupId(groupOrderId).catch(() => [] as any[]);
+        if (pairedOrders.length > 0) {
+          const paired = pairedOrders[0];
+          const pairedItems: any[] = paired.items || [];
+          const pairedSubtotal = pairedItems.reduce((s: number, i: any) => s + (i.price || 0), 0);
+          const pairedDiscount = paired.discountAmount || 0;
+          const combinedSubtotal = pairedSubtotal + order.unitPrice * order.quantity;
+          const combinedShipping = (combinedSubtotal - pairedDiscount) >= 999 ? 0 : 49;
+          const combinedTotal = combinedSubtotal - pairedDiscount + combinedShipping;
+          const combinedData = {
+            groupOrderId,
+            customerName: resolvedName,
+            customerEmail: resolvedEmail,
+            productOrderId: paired.id,
+            designOrderIds: [order.id],
+            items: pairedItems,
+            designOrders: [baseEmailData],
+            subtotal: combinedSubtotal,
+            shippingCost: combinedShipping,
+            discountAmount: pairedDiscount,
+            total: combinedTotal,
+            shippingAddress: order.shippingAddress,
+            paymentMethod: 'Razorpay',
+            createdAt: order.createdAt,
+          };
+          sendCombinedOrderConfirmation(combinedData).catch(e => console.error('[Email] combined confirmation failed:', e));
+          sendAdminCombinedOrderNotification(combinedData).catch(e => console.error('[Email] admin combined notification failed:', e));
+        } else {
+          // Paired normal order not found yet — send individual design confirmation
+          sendDesignOrderConfirmation(baseEmailData).catch(e => console.error('[Email] design order confirmation failed:', e));
+          sendAdminDesignOrderNotification(baseEmailData).catch(e => console.error('[Email] admin design notification failed:', e));
+        }
+      } else {
+        sendDesignOrderConfirmation(baseEmailData).catch(e => console.error('[Email] design order confirmation failed:', e));
+        sendAdminDesignOrderNotification(baseEmailData).catch(e => console.error('[Email] admin design notification failed:', e));
+      }
     }
     // Auto-push to Shiprocket (non-blocking)
     autoShiprocketPush(order.id, true, order, resolvedName, resolvedEmail || undefined).catch(() => {});
@@ -690,7 +731,7 @@ router.post('/razorpay/verify', authMiddleware, async (req: Request, res: Respon
 // Create order (auth required)
 router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { items, shippingAddress, razorpayOrderId, paymentId, couponCode, discountAmount } = req.body;
+    const { items, shippingAddress, razorpayOrderId, paymentId, couponCode, discountAmount, groupOrderId } = req.body;
     if (!items?.length || !shippingAddress) return res.status(400).json({ error: 'Items and address required' });
 
     let total = 0;
@@ -724,17 +765,28 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       paymentStatus: paymentId ? 'paid' : 'simulated',
       couponCode: couponCode || undefined,
       discountAmount: discount,
+      groupOrderId: groupOrderId || undefined,
     });
 
     // Send emails (non-blocking)
     const user = await db.findUserById((req as any).userId);
     if (user) {
+      // Calculate shipping the same way as the frontend
+      const rawSubtotal = total; // sum of item prices before discount
+      const shippingCost = (rawSubtotal - (discount)) >= 999 ? 0 : 49;
       const emailData = {
         orderId: order.id, customerName: user.name, customerEmail: user.email,
-        items: orderItems, total: order.total, shippingAddress, createdAt: order.createdAt,
+        items: orderItems, subtotal: rawSubtotal, shippingCost,
+        discountAmount: discount, total: order.total,
+        shippingAddress, createdAt: order.createdAt,
+        paymentMethod: paymentId ? 'Razorpay' : 'COD',
       };
-      sendOrderConfirmation(emailData).catch(e => console.error('[Email] order confirmation failed:', e));
-      sendAdminOrderNotification(emailData).catch(e => console.error('[Email] admin notification failed:', e));
+      // If this is part of a combined checkout, skip individual emails —
+      // the design order route will send one combined email after both are saved.
+      if (!groupOrderId) {
+        sendOrderConfirmation(emailData).catch(e => console.error('[Email] order confirmation failed:', e));
+        sendAdminOrderNotification(emailData).catch(e => console.error('[Email] admin notification failed:', e));
+      }
       // Auto-push to Shiprocket (non-blocking)
       autoShiprocketPush(order.id, false, order, user.name, user.email).catch(() => {});
     } else {

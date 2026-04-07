@@ -5,7 +5,7 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || 'TheFramedWall <no-reply@theframedwall.com>';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@theframedwall.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'theframedwall@gmail.com';
 const BASE_URL = (process.env.CLIENT_URL || 'https://theframedwall.com').replace(/\/$/, '');
 
 let transporter: nodemailer.Transporter | null = null;
@@ -112,45 +112,104 @@ function absoluteImageUrl(url: string): string {
   return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-/** Render order items as mobile-friendly product cards */
+/** Render order items as Shopify-style product rows */
 function orderItemCards(items: any[]) {
   const cards = items.map(item => {
     const name = item.productName || item.productId || 'Product';
     const colorName = hexToColorName(item.color || '');
     const size = item.size || '';
     const qty = item.quantity || 1;
-    const price = formatCurrency(item.price || 0);
+    const unitPrice = formatCurrency(item.price ? item.price / qty : 0);
+    const linePrice = formatCurrency(item.price || 0);
     const imgUrl = item.productImage ? absoluteImageUrl(item.productImage) : '';
 
     const imgCell = imgUrl
-      ? `<td width="72" style="padding:12px 0 12px 12px;vertical-align:middle;">
-           <img src="${imgUrl}" width="56" height="56" alt="${name}"
-             style="display:block;border-radius:8px;object-fit:cover;border:1px solid #eee;" />
+      ? `<td width="80" valign="top" style="padding:0 12px 0 0;">
+           <img src="${imgUrl}" width="64" height="64" alt="${name}"
+             style="display:block;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb;" />
          </td>`
-      : `<td width="72" style="padding:12px 0 12px 12px;vertical-align:middle;">
-           <div style="width:56px;height:56px;border-radius:8px;background:#f0fdf4;display:table-cell;text-align:center;vertical-align:middle;border:1px solid #eee;">
-             <span style="font-size:22px;">👕</span>
-           </div>
+      : `<td width="80" valign="top" style="padding:0 12px 0 0;">
+           <div style="width:64px;height:64px;border-radius:8px;background:#f0fdf4;border:1px solid #e5e7eb;text-align:center;line-height:64px;font-size:24px;">👕</div>
          </td>`;
 
-    const meta = [colorName !== '-' ? colorName : '', size, `Qty: ${qty}`].filter(Boolean).join(' · ');
+    const variantParts = [size ? `${size}` : '', colorName !== '-' ? colorName : ''].filter(Boolean).join(' / ');
 
     return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px;background:#f9fafb;border-radius:10px;border:1px solid #eee;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
       <tr>
         ${imgCell}
-        <td style="padding:12px 8px 12px 10px;vertical-align:middle;">
-          <div style="font-size:14px;font-weight:600;color:#1a1a1a;line-height:1.3;">${name}</div>
-          <div style="font-size:12px;color:#888;margin-top:3px;">${meta}</div>
+        <td valign="top" style="padding:0;">
+          <div style="font-size:14px;font-weight:600;color:#111;line-height:1.4;">${name}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:3px;">${unitPrice} &times; ${qty}</div>
+          ${variantParts ? `<div style="font-size:12px;color:#9ca3af;margin-top:2px;">${variantParts}</div>` : ''}
         </td>
-        <td style="padding:12px 14px 12px 8px;vertical-align:middle;text-align:right;white-space:nowrap;">
-          <div style="font-size:15px;font-weight:700;color:#0E7C61;">${price}</div>
+        <td valign="top" style="text-align:right;white-space:nowrap;padding-left:8px;">
+          <div style="font-size:14px;font-weight:700;color:#111;">${linePrice}</div>
         </td>
       </tr>
     </table>`;
   }).join('');
 
-  return `<div style="margin-bottom:4px;">${cards}</div>`;
+  return `<div>${cards}</div>`;
+}
+
+/** Render a single design order as a product row (for combined emails) */
+function designOrderCard(d: DesignOrderEmailData) {
+  const unitPrice = formatCurrency(d.unitPrice);
+  const linePrice = formatCurrency(d.total);
+  const colorStr = d.colorName || hexToColorName(d.colorHex || '');
+  const variantParts = [d.printSize ? d.printSize : '', colorStr ? colorStr : '', d.sides?.length ? d.sides.join('+') : ''].filter(Boolean).join(' / ');
+  const productLabel = d.productType ? d.productType.charAt(0).toUpperCase() + d.productType.slice(1) : 'Custom Product';
+
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+    <tr>
+      <td width="80" valign="top" style="padding:0 12px 0 0;">
+        <div style="width:64px;height:64px;border-radius:8px;background:#f5f3ff;border:1px solid #ddd6fe;text-align:center;line-height:64px;font-size:24px;">🎨</div>
+      </td>
+      <td valign="top" style="padding:0;">
+        <div style="font-size:14px;font-weight:600;color:#111;line-height:1.4;">Custom ${productLabel}</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:3px;">${unitPrice} &times; ${d.quantity}</div>
+        ${variantParts ? `<div style="font-size:12px;color:#9ca3af;margin-top:2px;">${variantParts}</div>` : ''}
+      </td>
+      <td valign="top" style="text-align:right;white-space:nowrap;padding-left:8px;">
+        <div style="font-size:14px;font-weight:700;color:#111;">${linePrice}</div>
+      </td>
+    </tr>
+  </table>`;
+}
+
+/** Render the Shopify-style order summary breakdown */
+function orderSummaryRows(subtotal: number, shipping: number, discount: number, total: number) {
+  const rows: string[] = [];
+
+  rows.push(`
+    <tr>
+      <td style="padding:8px 0;font-size:14px;color:#6b7280;border-top:1px solid #e5e7eb;">Subtotal</td>
+      <td style="padding:8px 0;font-size:14px;color:#111;text-align:right;border-top:1px solid #e5e7eb;">${formatCurrency(subtotal)}</td>
+    </tr>`);
+
+  if (discount > 0) {
+    rows.push(`
+    <tr>
+      <td style="padding:4px 0;font-size:14px;color:#6b7280;">Discount</td>
+      <td style="padding:4px 0;font-size:14px;color:#16a34a;text-align:right;">−${formatCurrency(discount)}</td>
+    </tr>`);
+  }
+
+  rows.push(`
+    <tr>
+      <td style="padding:4px 0;font-size:14px;color:#6b7280;">Shipping (Standard)</td>
+      <td style="padding:4px 0;font-size:14px;color:#111;text-align:right;">${shipping === 0 ? '<span style="color:#16a34a;">Free</span>' : formatCurrency(shipping)}</td>
+    </tr>`);
+
+  rows.push(`
+    <tr>
+      <td style="padding:12px 0 4px;font-size:16px;font-weight:700;color:#111;border-top:2px solid #111;">Total</td>
+      <td style="padding:12px 0 4px;font-size:16px;font-weight:700;color:#0E7C61;text-align:right;border-top:2px solid #111;">${formatCurrency(total)}</td>
+    </tr>`);
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">${rows.join('')}</table>`;
 }
 
 function baseLayout(title: string, body: string) {
@@ -208,49 +267,72 @@ interface OrderEmailData {
   customerName: string;
   customerEmail: string;
   items: any[];
+  subtotal: number;
+  shippingCost: number;
+  discountAmount: number;
   total: number;
   shippingAddress: string;
+  paymentMethod?: string;
   createdAt: string;
 }
 
 export async function sendOrderConfirmation(data: OrderEmailData) {
   const body = `
-    <h2 style="color:#1a1a1a;margin:0 0 6px;font-size:22px;">Order Confirmed! 🎉</h2>
-    <p style="color:#555;margin:0 0 24px;font-size:15px;">Hi <strong>${data.customerName}</strong>, thank you for your order. We're getting it ready!</p>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}! 🎉</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your order has been confirmed and we're getting it ready.</p>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:24px;">
-      <tr><td style="padding:16px 18px;">
-        <p style="margin:0;font-size:14px;"><strong>Order ID:</strong> <span style="color:#555;">${data.orderId}</span></p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Date:</strong> <span style="color:#555;">${new Date(data.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Status:</strong> <span style="color:#0E7C61;font-weight:700;">✓ Confirmed</span></p>
-      </td></tr>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Order</td>
+        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.orderId.slice(-8).toUpperCase()}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-top:4px;">Date</td>
+        <td style="font-size:13px;color:#111;text-align:right;padding-top:4px;">${new Date(data.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+      </tr>
     </table>
 
-    <h3 style="color:#1a1a1a;margin:0 0 12px;font-size:16px;">📦 Your Items</h3>
+    <h3 style="font-size:15px;font-weight:700;color:#111;margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Order summary</h3>
+
     ${orderItemCards(data.items)}
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:2px solid #0E7C61;">
+    ${orderSummaryRows(data.subtotal, data.shippingCost, data.discountAmount, data.total)}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
       <tr>
-        <td style="padding-top:14px;font-size:14px;color:#555;">Subtotal</td>
-        <td style="padding-top:14px;font-size:14px;color:#555;text-align:right;">${formatCurrency(data.total)}</td>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Payment processing method</td>
       </tr>
       <tr>
-        <td style="padding-top:4px;font-size:18px;font-weight:700;color:#0E7C61;">Total</td>
-        <td style="padding-top:4px;font-size:18px;font-weight:700;color:#0E7C61;text-align:right;">${formatCurrency(data.total)}</td>
+        <td style="padding-top:4px;font-size:13px;color:#6b7280;">1 ${data.paymentMethod || 'Razorpay'}</td>
       </tr>
     </table>
 
-    <h3 style="color:#1a1a1a;margin:24px 0 8px;font-size:16px;">📍 Shipping Address</h3>
-    <p style="color:#666;margin:0;font-size:14px;line-height:1.7;background:#f9fafb;padding:12px 14px;border-radius:8px;border:1px solid #eee;">${data.shippingAddress.replace(/\n/g, '<br>')}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Delivery method</td>
+      </tr>
+      <tr>
+        <td style="padding-top:4px;font-size:13px;color:#6b7280;">Standard</td>
+      </tr>
+    </table>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;border-top:1px solid #eee;">
-      <tr><td style="padding-top:20px;">
-        <p style="color:#777;margin:0;font-size:13px;">🚚 Estimated delivery: <strong>3–5 business days</strong> across India.</p>
-        <p style="color:#777;margin:8px 0 0;font-size:13px;">Questions? Write to us at <a href="mailto:support@theframedwall.com" style="color:#0E7C61;font-weight:600;">support@theframedwall.com</a></p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
+      </tr>
+      <tr>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
+      <tr><td style="padding-top:16px;">
+        <p style="color:#9ca3af;margin:0;font-size:12px;">🚚 Estimated delivery: <strong>3–5 business days</strong> across India.</p>
+        <p style="color:#9ca3af;margin:8px 0 0;font-size:12px;">Need help? <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a></p>
       </td></tr>
     </table>`;
 
-  await sendMail(data.customerEmail, `Order Confirmed ✓ — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
+  await sendMail(data.customerEmail, `Order confirmed — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
 }
 
 // ─── Admin New Order Notification ──────────────────────
@@ -259,31 +341,37 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
   if (!ADMIN_EMAIL) return;
 
   const body = `
-    <h2 style="color:#1a1a1a;margin:0 0 6px;font-size:22px;">New Order Received 🛒</h2>
-    <p style="color:#555;margin:0 0 24px;font-size:15px;">A new order has been placed and is awaiting fulfilment.</p>
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order Received 🛒</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A new order has been placed.</p>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:24px;">
-      <tr><td style="padding:16px 18px;">
-        <p style="margin:0;font-size:14px;"><strong>Order ID:</strong> ${data.orderId}</p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Customer:</strong> ${data.customerName} (${data.customerEmail})</p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Date:</strong> ${new Date(data.createdAt).toLocaleString('en-IN')}</p>
-        <p style="margin:6px 0 0;font-size:16px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
+      <tr><td style="padding:14px 16px;">
+        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(-8).toUpperCase()}</p>
+        <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
+        <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
       </td></tr>
     </table>
 
-    <h3 style="color:#1a1a1a;margin:0 0 12px;font-size:16px;">📦 Order Items</h3>
+    <h3 style="font-size:14px;font-weight:700;color:#111;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Order summary</h3>
     ${orderItemCards(data.items)}
+    ${orderSummaryRows(data.subtotal, data.shippingCost, data.discountAmount, data.total)}
 
-    <h3 style="color:#1a1a1a;margin:24px 0 8px;font-size:16px;">📍 Shipping Address</h3>
-    <p style="color:#666;margin:0;font-size:14px;line-height:1.7;background:#f9fafb;padding:12px 14px;border-radius:8px;border:1px solid #eee;">${data.shippingAddress.replace(/\n/g, '<br>')}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:14px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
+      </tr>
+      <tr>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+      </tr>
+    </table>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
       <tr><td align="center">
-        <a href="${BASE_URL}/admin" style="display:inline-block;background:#0E7C61;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">View in Admin Dashboard →</a>
+        <a href="${BASE_URL}/admin" style="display:inline-block;background:#0E7C61;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View in Admin Dashboard →</a>
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🛒 New Order — #${data.orderId.slice(-8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order Notification', body));
+  await sendMail(ADMIN_EMAIL, `🛒 New Order — #${data.orderId.slice(-8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
 }
 
 // ─── Design Order Emails ──────────────────────────────
@@ -293,88 +381,243 @@ interface DesignOrderEmailData {
   customerName: string;
   customerEmail: string;
   productType: string;
+  colorHex?: string;
   colorName: string;
   printSize: string;
   sides: string[];
   quantity: number;
   unitPrice: number;
   total: number;
+  shippingCost?: number;
   shippingAddress: string;
+  paymentMethod?: string;
   createdAt: string;
 }
 
 export async function sendDesignOrderConfirmation(data: DesignOrderEmailData) {
+  const shipping = data.shippingCost ?? (data.total >= 999 ? 0 : 49);
+  const grandTotal = data.unitPrice * data.quantity + shipping;
+
   const body = `
-    <h2 style="color:#1a1a1a;margin:0 0 6px;font-size:22px;">Design Order Confirmed! 🎨</h2>
-    <p style="color:#555;margin:0 0 24px;font-size:15px;">Hi <strong>${data.customerName}</strong>, your custom design order is being processed!</p>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}! 🎨</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your custom design order is confirmed and being prepared.</p>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:24px;">
-      <tr><td style="padding:16px 18px;">
-        <p style="margin:0;font-size:14px;"><strong>Order ID:</strong> <span style="color:#555;">${data.orderId}</span></p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Date:</strong> <span style="color:#555;">${new Date(data.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Status:</strong> <span style="color:#0E7C61;font-weight:700;">✓ Confirmed</span></p>
-      </td></tr>
-    </table>
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;margin-bottom:20px;background:#f9fafb;border-radius:10px;border:1px solid #eee;">
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;width:40%;">Product</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.productType}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Color</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.colorName}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Print Size</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.printSize}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Sides</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.sides.join(', ') || 'Front'}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Quantity</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.quantity}</td></tr>
-      <tr><td style="padding:10px 16px;color:#888;">Unit Price</td><td style="padding:10px 16px;font-weight:600;">${formatCurrency(data.unitPrice)}</td></tr>
-    </table>
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #0E7C61;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
-        <td style="padding-top:14px;font-size:18px;font-weight:700;color:#0E7C61;">Total</td>
-        <td style="padding-top:14px;font-size:18px;font-weight:700;color:#0E7C61;text-align:right;">${formatCurrency(data.total)}</td>
+        <td style="font-size:13px;color:#6b7280;">Order</td>
+        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.orderId.slice(-8).toUpperCase()}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-top:4px;">Date</td>
+        <td style="font-size:13px;color:#111;text-align:right;padding-top:4px;">${new Date(data.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
       </tr>
     </table>
 
-    <h3 style="color:#1a1a1a;margin:24px 0 8px;font-size:16px;">📍 Shipping Address</h3>
-    <p style="color:#666;margin:0;font-size:14px;line-height:1.7;background:#f9fafb;padding:12px 14px;border-radius:8px;border:1px solid #eee;">${data.shippingAddress.replace(/\n/g, '<br>')}</p>
+    <h3 style="font-size:15px;font-weight:700;color:#111;margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Order summary</h3>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;border-top:1px solid #eee;">
-      <tr><td style="padding-top:20px;">
-        <p style="color:#777;margin:0;font-size:13px;">🚚 Estimated delivery: <strong>5–7 business days</strong> for custom prints.</p>
-        <p style="color:#777;margin:8px 0 0;font-size:13px;">Questions? Write to us at <a href="mailto:support@theframedwall.com" style="color:#0E7C61;font-weight:600;">support@theframedwall.com</a></p>
+    ${designOrderCard(data)}
+
+    ${orderSummaryRows(data.unitPrice * data.quantity, shipping, 0, grandTotal)}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Payment processing method</td>
+      </tr>
+      <tr>
+        <td style="padding-top:4px;font-size:13px;color:#6b7280;">1 ${data.paymentMethod || 'Razorpay'}</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Delivery method</td>
+      </tr>
+      <tr>
+        <td style="padding-top:4px;font-size:13px;color:#6b7280;">Standard</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
+      </tr>
+      <tr>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
+      <tr><td style="padding-top:16px;">
+        <p style="color:#9ca3af;margin:0;font-size:12px;">🚚 Estimated delivery: <strong>5–7 business days</strong> for custom prints.</p>
+        <p style="color:#9ca3af;margin:8px 0 0;font-size:12px;">Need help? <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a></p>
       </td></tr>
     </table>`;
 
-  await sendMail(data.customerEmail, `Design Order Confirmed ✓ — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Design Order Confirmation', body));
+  await sendMail(data.customerEmail, `Order confirmed — #${data.orderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
 }
 
 export async function sendAdminDesignOrderNotification(data: DesignOrderEmailData) {
   if (!ADMIN_EMAIL) return;
+  const shipping = data.shippingCost ?? (data.total >= 999 ? 0 : 49);
+  const grandTotal = data.unitPrice * data.quantity + shipping;
 
   const body = `
-    <h2 style="color:#1a1a1a;margin:0 0 6px;font-size:22px;">New Design Order 🎨</h2>
-    <p style="color:#555;margin:0 0 24px;font-size:15px;">A custom design order needs your attention.</p>
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Design Order 🎨</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A custom design order needs your attention.</p>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:24px;">
-      <tr><td style="padding:16px 18px;">
-        <p style="margin:0;font-size:14px;"><strong>Order ID:</strong> ${data.orderId}</p>
-        <p style="margin:6px 0 0;font-size:14px;"><strong>Customer:</strong> ${data.customerName} (${data.customerEmail})</p>
-        <p style="margin:6px 0 0;font-size:16px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
+      <tr><td style="padding:14px 16px;">
+        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(-8).toUpperCase()}</p>
+        <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
+        <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(grandTotal)}</span></p>
       </td></tr>
     </table>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;margin-bottom:20px;background:#f9fafb;border-radius:10px;border:1px solid #eee;">
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;width:40%;">Product</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.productType}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Color</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.colorName}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Print Size</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.printSize}</td></tr>
-      <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#888;">Sides</td><td style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:600;">${data.sides.join(', ') || 'Front'}</td></tr>
-      <tr><td style="padding:10px 16px;color:#888;">Quantity</td><td style="padding:10px 16px;font-weight:600;">${data.quantity}</td></tr>
+    <h3 style="font-size:14px;font-weight:700;color:#111;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Order summary</h3>
+    ${designOrderCard(data)}
+    ${orderSummaryRows(data.unitPrice * data.quantity, shipping, 0, grandTotal)}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:14px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
+      </tr>
+      <tr>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+      </tr>
     </table>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
       <tr><td align="center">
-        <a href="${BASE_URL}/admin" style="display:inline-block;background:#0E7C61;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">View in Admin Dashboard →</a>
+        <a href="${BASE_URL}/admin" style="display:inline-block;background:#0E7C61;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View in Admin Dashboard →</a>
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🎨 New Design Order — #${data.orderId.slice(-8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Design Order', body));
+  await sendMail(ADMIN_EMAIL, `🎨 New Design Order — #${data.orderId.slice(-8).toUpperCase()} — ${formatCurrency(grandTotal)}`, baseLayout('New Design Order', body));
+}
+
+// ─── Combined Order (product + custom design in same checkout) ──────────────
+
+interface CombinedOrderEmailData {
+  groupOrderId: string;
+  customerName: string;
+  customerEmail: string;
+  productOrderId: string;
+  designOrderIds: string[];
+  items: any[];               // normal product items
+  designOrders: DesignOrderEmailData[];
+  subtotal: number;
+  shippingCost: number;
+  discountAmount: number;
+  total: number;
+  shippingAddress: string;
+  paymentMethod?: string;
+  createdAt: string;
+}
+
+export async function sendCombinedOrderConfirmation(data: CombinedOrderEmailData) {
+  const allItemsHtml = [
+    orderItemCards(data.items),
+    ...data.designOrders.map(d => designOrderCard(d)),
+  ].join('');
+
+  const body = `
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}! 🎉</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your order has been confirmed. We'll prepare everything together.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Order</td>
+        <td style="font-size:13px;color:#111;text-align:right;font-weight:600;">#${data.productOrderId.slice(-8).toUpperCase()}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-top:4px;">Date</td>
+        <td style="font-size:13px;color:#111;text-align:right;padding-top:4px;">${new Date(data.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+      </tr>
+    </table>
+
+    <h3 style="font-size:15px;font-weight:700;color:#111;margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Order summary</h3>
+
+    ${allItemsHtml}
+
+    ${orderSummaryRows(data.subtotal, data.shippingCost, data.discountAmount, data.total)}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Payment processing method</td>
+      </tr>
+      <tr>
+        <td style="padding-top:4px;font-size:13px;color:#6b7280;">1 ${data.paymentMethod || 'Razorpay'}</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Delivery method</td>
+      </tr>
+      <tr>
+        <td style="padding-top:4px;font-size:13px;color:#6b7280;">Standard</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
+      </tr>
+      <tr>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
+      <tr><td style="padding-top:16px;">
+        <p style="color:#9ca3af;margin:0;font-size:12px;">🚚 Estimated delivery: <strong>5–7 business days</strong> for custom items.</p>
+        <p style="color:#9ca3af;margin:8px 0 0;font-size:12px;">Need help? <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a></p>
+      </td></tr>
+    </table>`;
+
+  await sendMail(data.customerEmail, `Order confirmed — #${data.productOrderId.slice(-8).toUpperCase()}`, baseLayout('Order Confirmation', body));
+}
+
+export async function sendAdminCombinedOrderNotification(data: CombinedOrderEmailData) {
+  if (!ADMIN_EMAIL) return;
+
+  const allItemsHtml = [
+    orderItemCards(data.items),
+    ...data.designOrders.map(d => designOrderCard(d)),
+  ].join('');
+
+  const body = `
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Combined Order 🛒🎨</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A customer ordered both products and a custom design together.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
+      <tr><td style="padding:14px 16px;">
+        <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.productOrderId.slice(-8).toUpperCase()}</p>
+        <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
+        <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
+      </td></tr>
+    </table>
+
+    <h3 style="font-size:14px;font-weight:700;color:#111;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Order summary</h3>
+    ${allItemsHtml}
+    ${orderSummaryRows(data.subtotal, data.shippingCost, data.discountAmount, data.total)}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding-top:14px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
+      </tr>
+      <tr>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+      <tr><td align="center">
+        <a href="${BASE_URL}/admin" style="display:inline-block;background:#0E7C61;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View in Admin Dashboard →</a>
+      </td></tr>
+    </table>`;
+
+  await sendMail(ADMIN_EMAIL, `🛒🎨 Combined Order — #${data.productOrderId.slice(-8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('Combined Order', body));
 }
 
 // ─── Delivery Status Update ───────────────────────────

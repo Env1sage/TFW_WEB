@@ -197,6 +197,12 @@ export async function initDB() {
       ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
     `);
 
+    // Add group_order_id for linking product + design orders from same checkout
+    await client.query(`
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS group_order_id TEXT;
+      ALTER TABLE website_design_orders ADD COLUMN IF NOT EXISTS group_order_id TEXT;
+    `);
+
     // Drop FK on website_shipments.order_id if it exists (design orders are in a different table)
     await client.query(`
       DO $$ BEGIN
@@ -573,6 +579,7 @@ export interface DBOrder {
   shippingAddress: string; createdAt: string;
   razorpayOrderId?: string; paymentId?: string; paymentStatus: string;
   couponCode?: string; discountAmount: number;
+  groupOrderId?: string;
   customerName?: string; customerEmail?: string;
   shipment?: DBShipment;
 }
@@ -587,6 +594,7 @@ function rowToOrder(row: any): DBOrder {
     paymentStatus: row.payment_status || 'pending',
     couponCode: row.coupon_code || undefined,
     discountAmount: parseFloat(row.discount_amount || '0'),
+    groupOrderId: row.group_order_id || undefined,
     customerName: row.customer_name || undefined,
     customerEmail: row.customer_email || undefined,
     shipment: row.ship_id ? {
@@ -606,13 +614,14 @@ export async function addOrder(o: {
   id: string; userId: string; items: any[]; total: number; status: string;
   shippingAddress: string; razorpayOrderId?: string; paymentId?: string;
   paymentStatus?: string; couponCode?: string; discountAmount?: number;
+  groupOrderId?: string;
 }) {
   const { rows } = await pool.query(
-    `INSERT INTO website_orders (id, user_id, items, total, status, shipping_address, razorpay_order_id, payment_id, payment_status, coupon_code, discount_amount, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING *`,
+    `INSERT INTO website_orders (id, user_id, items, total, status, shipping_address, razorpay_order_id, payment_id, payment_status, coupon_code, discount_amount, group_order_id, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) RETURNING *`,
     [o.id, o.userId, JSON.stringify(o.items), o.total, o.status, o.shippingAddress,
      o.razorpayOrderId || null, o.paymentId || null, o.paymentStatus || 'paid',
-     o.couponCode || null, o.discountAmount || 0]
+     o.couponCode || null, o.discountAmount || 0, o.groupOrderId || null]
   );
   return rowToOrder(rows[0]);
 }
@@ -668,6 +677,17 @@ export async function updateOrder(id: string, patch: { status?: string }): Promi
   if (!patch.status) return null;
   const { rows } = await pool.query(`UPDATE website_orders SET status = $1 WHERE id = $2 RETURNING *`, [patch.status, id]);
   return rows.length ? rowToOrder(rows[0]) : null;
+}
+
+export async function getOrdersByGroupId(groupOrderId: string): Promise<DBOrder[]> {
+  const { rows } = await pool.query(
+    `SELECT o.*, u.name as customer_name, u.email as customer_email
+     FROM website_orders o
+     LEFT JOIN website_users u ON o.user_id = u.id
+     WHERE o.group_order_id = $1`,
+    [groupOrderId]
+  );
+  return rows.map(rowToOrder);
 }
 
 /* ── Coupon queries ── */
@@ -1010,6 +1030,7 @@ export interface DBDesignOrder {
   uploadedImages: Record<string, string[]>;
   quantity: number; unitPrice: number; total: number;
   status: string; shippingAddress: string; createdAt: string;
+  groupOrderId?: string;
   customerName?: string; customerEmail?: string;
   shipment?: DBShipment;
 }
@@ -1023,6 +1044,7 @@ function rowToDesignOrder(row: any): DBDesignOrder {
     quantity: row.quantity, unitPrice: parseFloat(row.unit_price),
     total: parseFloat(row.total), status: row.status,
     shippingAddress: row.shipping_address, createdAt: row.created_at,
+    groupOrderId: row.group_order_id || undefined,
     customerName: row.customer_name || undefined,
     customerEmail: row.customer_email || undefined,
     shipment: row.ship_id ? {
@@ -1044,15 +1066,15 @@ export async function addDesignOrder(o: {
   sides: string[]; designImages: Record<string, string>;
   uploadedImages?: Record<string, string[]>;
   quantity: number; unitPrice: number; total: number;
-  shippingAddress: string;
+  shippingAddress: string; groupOrderId?: string;
 }): Promise<DBDesignOrder> {
   const { rows } = await pool.query(
-    `INSERT INTO website_design_orders (id, user_id, product_type, color_hex, color_name, print_size, sides, design_images, uploaded_images, quantity, unit_price, total, status, shipping_address, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending',$13,NOW()) RETURNING *`,
+    `INSERT INTO website_design_orders (id, user_id, product_type, color_hex, color_name, print_size, sides, design_images, uploaded_images, quantity, unit_price, total, status, shipping_address, group_order_id, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending',$13,$14,NOW()) RETURNING *`,
     [o.id, o.userId, o.productType, o.colorHex, o.colorName, o.printSize,
      JSON.stringify(o.sides), JSON.stringify(o.designImages),
      JSON.stringify(o.uploadedImages || {}),
-     o.quantity, o.unitPrice, o.total, o.shippingAddress]
+     o.quantity, o.unitPrice, o.total, o.shippingAddress, o.groupOrderId || null]
   );
   return rowToDesignOrder(rows[0]);
 }

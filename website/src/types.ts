@@ -57,6 +57,7 @@ export interface Order {
   paymentStatus?: string;
   couponCode?: string;
   discountAmount?: number;
+  groupOrderId?: string;
   customerName?: string;
   customerEmail?: string;
   createdAt: string;
@@ -102,12 +103,5 @@ export interface DesignOrder {
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shippingAddress: string;
   createdAt: string;
+  groupOrderId?: string;
   customerName?: string;
-  customerEmail?: string;
-  shipment?: {
-    id: string; orderId: string;
-    shiprocketOrderId?: string; shiprocketShipmentId?: string;
-    awbCode?: string; courierName?: string;
-    status: string; trackingData?: any; createdAt: string;
-  };
-}

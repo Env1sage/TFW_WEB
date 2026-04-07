@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, Edit3, Trash2, X, Save, ShoppingCart,
@@ -98,7 +98,6 @@ export default function Admin() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [designOrders, setDesignOrders] = useState<DesignOrder[]>([]);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [orderSubTab, setOrderSubTab] = useState<'normal' | 'custom'>('normal');
   const [dbData, setDbData] = useState<Record<string, { count: number; columns: string[]; rows: any[] }> | null>(null);
   const [dbLoading, setDbLoading] = useState(false);
   const [dbTable, setDbTable] = useState('website_products');
@@ -157,6 +156,30 @@ export default function Admin() {
   const [trackingManualForm, setTrackingManualForm] = useState({ courierName: '', awbCode: '', estimatedDelivery: '' });
   const [trackingEventForm, setTrackingEventForm] = useState({ status: '', message: '', location: '' });
   const [savingTracking, setSavingTracking] = useState(false);
+
+  type AdminOrderEntry = { key: string; productOrder?: Order; designOrders: DesignOrder[]; createdAt: string; };
+  const adminOrderEntries = useMemo((): AdminOrderEntry[] => {
+    const grouped: Record<string, AdminOrderEntry> = {};
+    for (const o of orders) {
+      const gid = (o as any).groupOrderId;
+      if (gid) {
+        if (!grouped[gid]) grouped[gid] = { key: gid, designOrders: [], createdAt: o.createdAt };
+        grouped[gid].productOrder = o;
+      } else {
+        grouped[`p_${o.id}`] = { key: `p_${o.id}`, productOrder: o, designOrders: [], createdAt: o.createdAt };
+      }
+    }
+    for (const d of designOrders) {
+      const gid = (d as any).groupOrderId;
+      if (gid) {
+        if (!grouped[gid]) grouped[gid] = { key: gid, designOrders: [], createdAt: d.createdAt };
+        grouped[gid].designOrders.push(d);
+      } else {
+        grouped[`d_${d.id}`] = { key: `d_${d.id}`, designOrders: [d], createdAt: d.createdAt };
+      }
+    }
+    return Object.values(grouped).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders, designOrders]);
 
   const load = async () => {
     setLoading(true);
@@ -992,368 +1015,293 @@ export default function Admin() {
         {/* Orders Tab */}
         {tab === 'orders' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <h2>Orders ({orders.length + designOrders.length})</h2>
-            <div className="orders-sub-tabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              <button className={`btn ${orderSubTab === 'normal' ? 'btn-primary' : 'btn-outline'}`}
-                onClick={() => { setOrderSubTab('normal'); setExpandedOrder(null); }}>
-                <ShoppingCart size={16} /> Normal Orders ({orders.length})
-              </button>
-              <button className={`btn ${orderSubTab === 'custom' ? 'btn-primary' : 'btn-outline'}`}
-                onClick={() => { setOrderSubTab('custom'); setExpandedOrder(null); }}>
-                <Palette size={16} /> Customized Orders ({designOrders.length})
-              </button>
-            </div>
-
-            {/* Normal Orders */}
-            {orderSubTab === 'normal' && (
-              <>
-                {orders.length === 0 ? (
-                  <p className="empty-msg">No normal orders yet.</p>
-                ) : (
-                  <div className="order-cards">
-                    {orders.map(o => {
-                      const isExpanded = expandedOrder === o.id;
-                      return (
-                        <motion.div key={o.id} className={`order-card ${isExpanded ? 'expanded' : ''}`}
-                          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <div className="order-card-header" onClick={() => setExpandedOrder(isExpanded ? null : o.id)}>
-                            <div className="order-card-col">
-                              <Hash size={14} />
-                              <code style={{ fontSize: '0.85rem' }}>{o.id.slice(0, 8)}</code>
-                            </div>
-                            <div className="order-card-col">
-                              <Package size={14} />
-                              <span>{o.items.length} item{o.items.length !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="order-card-col">
-                              <IndianRupee size={14} />
-                              <strong>₹{o.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-                            </div>
-                            <div className="order-card-col">
-                              <span className={`status-badge status-${o.status}`}>{o.status}</span>
-                            </div>
-                            <div className="order-card-col">
-                              <Clock size={14} />
-                              <span>{new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                            </div>
-                            <div className="order-card-col" style={{ marginLeft: 'auto' }}>
-                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                            </div>
-                          </div>
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div className="order-card-detail"
-                                initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }}>
-                                <div className="order-detail-inner">
-                                  <div className="order-info-grid">
-                                    <div className="order-info-block">
-                                      <h4><User size={15} /> Customer</h4>
-                                      <p>{o.customerName || '—'}</p>
-                                      {o.customerEmail && <p className="order-meta"><Mail size={13} /> {o.customerEmail}</p>}
-                                      <p className="order-meta">User ID: {o.userId.slice(0, 12)}...</p>
-                                    </div>
-                                    <div className="order-info-block">
-                                      <h4><MapPin size={15} /> Shipping Address</h4>
-                                      <p style={{ whiteSpace: 'pre-wrap' }}>{o.shippingAddress || '—'}</p>
-                                    </div>
-                                    <div className="order-info-block">
-                                      <h4><Clock size={15} /> Order Info</h4>
-                                      <p>Order ID: <code>{o.id}</code></p>
-                                      <p>Placed: {new Date(o.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                                      <div style={{ marginTop: 8 }}>
-                                        <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Update Status</label>
-                                        <select value={o.status} onChange={e => handleStatusChange(o.id, e.target.value)} onClick={e => e.stopPropagation()}>
-                                          {['pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="order-items-section">
-                                    <h4><Package size={15} /> Items ({o.items.length})</h4>
-                                    <div className="order-items-list">
-                                      {o.items.map((item, idx) => {
-                                        const product = products.find(p => p.id === item.productId);
-                                        const imgSrc = item.productImage || product?.image || '';
-                                        const name = item.productName || product?.name || item.productId.slice(0, 8);
-                                        return (
-                                          <div key={idx} className="order-item-row">
-                                            <div className="order-item-img">
-                                              {imgSrc ? <img src={imgSrc} alt={name} /> : <div className="order-item-no-img"><Image size={24} /></div>}
-                                            </div>
-                                            <div className="order-item-info">
-                                              <p className="order-item-name">{name}</p>
-                                              <div className="order-item-meta">
-                                                {item.color && (
-                                                  <span className="order-item-tag">
-                                                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block', border: '1px solid var(--border)' }} />
-                                                    {item.color}
-                                                  </span>
-                                                )}
-                                                {item.size && <span className="order-item-tag">Size: {item.size}</span>}
-                                                <span className="order-item-tag">Qty: {item.quantity}</span>
-                                                {item.customText && <span className="order-item-tag">Custom: &quot;{item.customText}&quot;</span>}
-                                              </div>
-                                            </div>
-                                            <div className="order-item-price">₹{item.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                    <div className="order-total-row">
-                                      <span>Total</span>
-                                      <strong>₹{o.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-                                    </div>
-                                    {o.discountAmount != null && o.discountAmount > 0 && (
-                                      <div className="order-total-row" style={{ color: '#10b981', fontSize: '0.82rem' }}>
-                                        <span>Coupon {o.couponCode ? `(${o.couponCode})` : ''} Discount</span>
-                                        <span>−₹{Number(o.discountAmount).toFixed(2)}</span>
-                                      </div>
-                                    )}
-                                    {o.shipment ? (
-                                      <div className="order-tracking" style={{ marginTop: 8 }}>
-                                        <Truck size={14} /> {o.shipment.courierName || 'Shipment created'}
-                                        {o.shipment.awbCode && <span className="track-status"> AWB: {o.shipment.awbCode}</span>}
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                          onClick={e => { e.stopPropagation(); openTrackingModal(o); }}>
-                                          <MapPin size={12} /> Manage Tracking
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      o.status !== 'cancelled' && (
-                                        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                          <button
-                                            className="btn btn-sm btn-outline"
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                            onClick={e => { e.stopPropagation(); handleCreateShipment(o.id); }}
-                                            disabled={creatingShipmentFor === o.id}>
-                                            <Truck size={14} />
-                                            {creatingShipmentFor === o.id ? 'Creating...' : 'Create Shipment'}
-                                          </button>
-                                          <button
-                                            className="btn btn-sm btn-outline"
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                            onClick={e => { e.stopPropagation(); openTrackingModal(o); }}>
-                                            <MapPin size={14} /> Add Tracking
-                                          </button>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
+            <h2>Orders ({adminOrderEntries.length})</h2>
+            {adminOrderEntries.length === 0 ? (
+              <p className="empty-msg">No orders yet.</p>
+            ) : (
+              <div className="order-cards">
+                {adminOrderEntries.map(entry => {
+                  const { productOrder: po, designOrders: dOrders } = entry;
+                  const isCombined = !!po && dOrders.length > 0;
+                  const entryKey = entry.key;
+                  const isExpanded = expandedOrder === entryKey;
+                  const overallTotal = (po?.total ?? 0) + dOrders.reduce((s, d) => s + d.total, 0);
+                  const primaryStatus = po?.status ?? dOrders[0]?.status;
+                  const firstDesignImage = dOrders[0] ? Object.values(dOrders[0].designImages || {}).find(img => img) : undefined;
+                  return (
+                    <motion.div key={entryKey} className={`order-card ${isExpanded ? 'expanded' : ''}`}
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                      <div className="order-card-header" onClick={() => setExpandedOrder(isExpanded ? null : entryKey)}>
+                        <div className="order-card-col">
+                          <Hash size={14} />
+                          <code style={{ fontSize: '0.85rem' }}>
+                            {po ? po.id.slice(0, 8) : dOrders[0]?.id.slice(0, 8)}
+                          </code>
+                        </div>
+                        <div className="order-card-col">
+                          {isCombined ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Package size={13} /><Palette size={13} />
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>Combined</span>
+                            </span>
+                          ) : po ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem' }}>
+                              <Package size={13} />
+                              {po.items[0]?.productName || po.items[0]?.productId?.slice(0, 8) || '—'}
+                              {po.items.length > 1 && <span style={{ color: 'var(--text-3)' }}>+{po.items.length - 1}</span>}
+                            </span>
+                          ) : (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {firstDesignImage && <img src={firstDesignImage} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#1e293b' }} />}
+                              <span style={{ textTransform: 'capitalize', fontSize: '0.85rem' }}>{dOrders[0]?.productType}</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="order-card-col">
+                          <IndianRupee size={14} />
+                          <strong>₹{overallTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                        </div>
+                        <div className="order-card-col">
+                          <span className={`status-badge status-${primaryStatus}`}>{primaryStatus}</span>
+                        </div>
+                        <div className="order-card-col">
+                          <Clock size={14} />
+                          <span>{new Date(entry.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        <div className="order-card-col" style={{ marginLeft: 'auto' }}>
+                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </div>
+                      </div>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div className="order-card-detail"
+                            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }}>
+                            <div className="order-detail-inner">
+                              {/* Customer + Address info */}
+                              <div className="order-info-grid">
+                                <div className="order-info-block">
+                                  <h4><User size={15} /> Customer</h4>
+                                  <p>{po?.customerName ?? dOrders[0]?.customerName ?? '—'}</p>
+                                  {(po?.customerEmail ?? dOrders[0]?.customerEmail) && (
+                                    <p className="order-meta"><Mail size={13} /> {po?.customerEmail ?? dOrders[0]?.customerEmail}</p>
+                                  )}
+                                  <p className="order-meta">User ID: {(po?.userId ?? dOrders[0]?.userId ?? '').slice(0, 12)}...</p>
                                 </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
+                                <div className="order-info-block">
+                                  <h4><MapPin size={15} /> Shipping Address</h4>
+                                  <p style={{ whiteSpace: 'pre-wrap' }}>{po?.shippingAddress ?? dOrders[0]?.shippingAddress ?? '—'}</p>
+                                </div>
+                                <div className="order-info-block">
+                                  <h4><Clock size={15} /> Order Info</h4>
+                                  <p>Placed: {new Date(entry.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                  {isCombined && <p style={{ fontSize: '0.78rem', color: 'var(--primary)', marginTop: 4 }}>Combined order (product + custom design)</p>}
+                                </div>
+                              </div>
 
-            {/* Customized Orders */}
-            {orderSubTab === 'custom' && (
-              <>
-                {designOrders.length === 0 ? (
-                  <p className="empty-msg">No customized orders yet.</p>
-                ) : (
-                  <div className="order-cards">
-                    {designOrders.map(o => {
-                      const isExpanded = expandedOrder === o.id;
-                      const firstImage = Object.values(o.designImages || {}).find(img => img);
-                      return (
-                        <motion.div key={o.id} className={`order-card ${isExpanded ? 'expanded' : ''}`}
-                          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                          <div className="order-card-header" onClick={() => setExpandedOrder(isExpanded ? null : o.id)}>
-                            <div className="order-card-col">
-                              <Hash size={14} />
-                              <code style={{ fontSize: '0.85rem' }}>{o.id.slice(0, 8)}</code>
-                            </div>
-                            <div className="order-card-col" style={{ gap: 8 }}>
-                              {firstImage && <img src={firstImage} alt="Design" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#1e293b' }} />}
-                              <span style={{ textTransform: 'capitalize' }}>{o.productType}</span>
-                            </div>
-                            <div className="order-card-col">
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 12, height: 12, borderRadius: '50%', background: o.colorHex, border: o.colorHex === '#ffffff' ? '2px solid #555' : 'none', display: 'inline-block' }} />
-                                {o.colorName}
-                              </span>
-                            </div>
-                            <div className="order-card-col">
-                              <IndianRupee size={14} />
-                              <strong>₹{o.total.toLocaleString()}</strong>
-                            </div>
-                            <div className="order-card-col">
-                              <span className={`status-badge status-${o.status}`}>{o.status}</span>
-                            </div>
-                            <div className="order-card-col">
-                              <Clock size={14} />
-                              <span>{new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                            </div>
-                            <div className="order-card-col" style={{ marginLeft: 'auto' }}>
-                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                            </div>
-                          </div>
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div className="order-card-detail"
-                                initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }}>
-                                <div className="order-detail-inner">
-                                  {/* Customer + Shipping + Order Info */}
-                                  <div className="order-info-grid">
-                                    <div className="order-info-block">
-                                      <h4><User size={15} /> Customer</h4>
-                                      <p>{o.customerName || (o.userId ? `User ${o.userId.slice(0, 12)}...` : 'Guest')}</p>
-                                      {o.customerEmail && <p className="order-meta"><Mail size={13} /> {o.customerEmail}</p>}
-                                      {o.userId && <p className="order-meta">User ID: {o.userId.slice(0, 12)}...</p>}
-                                    </div>
-                                    <div className="order-info-block">
-                                      <h4><MapPin size={15} /> Shipping Address</h4>
-                                      <p style={{ whiteSpace: 'pre-wrap' }}>{o.shippingAddress || '—'}</p>
-                                    </div>
-                                    <div className="order-info-block">
-                                      <h4><Clock size={15} /> Order Info</h4>
-                                      <p>Order ID: <code>{o.id}</code></p>
-                                      <p>Placed: {new Date(o.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                                      <div style={{ marginTop: 8 }}>
-                                        <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Update Status</label>
-                                        <select value={o.status} onChange={e => handleDesignStatusChange(o.id, e.target.value)} onClick={e => e.stopPropagation()}>
-                                          {['pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                      </div>
-                                    </div>
+                              {/* ── Normal Product Items ── */}
+                              {po && (
+                                <div className="order-section-block">
+                                  <div className="order-section-divider">
+                                    <Package size={14} />
+                                    <span>Normal Order</span>
+                                    <code style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginLeft: 4 }}>#{po.id.slice(0, 8)}</code>
                                   </div>
+                                  <div className="order-items-list">
+                                    {po.items.map((item, idx) => {
+                                      const product = products.find(p => p.id === item.productId);
+                                      const imgSrc = item.productImage || product?.image || '';
+                                      const name = item.productName || product?.name || item.productId.slice(0, 8);
+                                      return (
+                                        <div key={idx} className="order-item-row">
+                                          <div className="order-item-img">
+                                            {imgSrc ? <img src={imgSrc} alt={name} /> : <div className="order-item-no-img"><Image size={24} /></div>}
+                                          </div>
+                                          <div className="order-item-info">
+                                            <p className="order-item-name">{name}</p>
+                                            <div className="order-item-meta">
+                                              {item.color && (<span className="order-item-tag"><span style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block', border: '1px solid var(--border)' }} />{item.color}</span>)}
+                                              {item.size && <span className="order-item-tag">Size: {item.size}</span>}
+                                              <span className="order-item-tag">Qty: {item.quantity}</span>
+                                              {item.customText && <span className="order-item-tag">Custom: &quot;{item.customText}&quot;</span>}
+                                            </div>
+                                          </div>
+                                          <div className="order-item-price">₹{item.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="order-total-row">
+                                    <span>Products Total</span>
+                                    <strong>₹{po.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                                  </div>
+                                  {po.discountAmount != null && po.discountAmount > 0 && (
+                                    <div className="order-total-row" style={{ color: '#10b981', fontSize: '0.82rem' }}>
+                                      <span>Coupon {po.couponCode ? `(${po.couponCode})` : ''} Discount</span>
+                                      <span>−₹{Number(po.discountAmount).toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
-                                  {/* Product Details */}
-                                  <div className="order-items-section">
-                                    <h4><Package size={15} /> Product Details</h4>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, padding: '12px 0' }}>
+                              {/* ── Custom Design Items ── */}
+                              {dOrders.map(o => {
+                                const hasSourceFiles = (ord: DesignOrder) => Object.values(ord.uploadedImages || {}).some(imgs => imgs.length > 0);
+                                return (
+                                  <div key={o.id} className="order-section-block">
+                                    <div className="order-section-divider">
+                                      <Palette size={14} />
+                                      <span>Customised Order</span>
+                                      <code style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginLeft: 4 }}>#{o.id.slice(0, 8)}</code>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, padding: '10px 0' }}>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Product</strong><p style={{ textTransform: 'capitalize', margin: '4px 0 0' }}>{o.productType}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Color</strong><p style={{ margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 14, borderRadius: '50%', background: o.colorHex, border: o.colorHex === '#ffffff' ? '2px solid #555' : 'none', display: 'inline-block' }} />{o.colorName}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Print Size</strong><p style={{ textTransform: 'capitalize', margin: '4px 0 0' }}>{o.printSize}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Sides</strong><p style={{ margin: '4px 0 0' }}>{(o.sides || []).join(', ')}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Quantity</strong><p style={{ margin: '4px 0 0' }}>{o.quantity}</p></div>
                                     </div>
-                                    <div className="order-total-row">
-                                      <span>Total</span>
-                                      <strong>₹{o.total.toLocaleString()}</strong>
-                                    </div>
-                                  </div>
+                                    <div className="order-total-row"><span>Design Total</span><strong>₹{o.total.toLocaleString()}</strong></div>
 
-                                  {/* Design Images — Mockup Previews */}
-                                  <div className="order-items-section" style={{ marginTop: 16 }}>
-                                    <h4><Image size={15} /> Design Mockups</h4>
-                                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', padding: '12px 0' }}>
-                                      {Object.entries(o.designImages || {}).map(([side, dataUrl]) => {
-                                        if (!dataUrl) return null;
-                                        return (
-                                          <div key={side} style={{ flex: '1 1 250px', background: 'var(--bg-2)', borderRadius: 10, padding: 12, border: '1px solid var(--border)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                              <strong style={{ textTransform: 'uppercase', fontSize: '0.8rem' }}>{side}</strong>
-                                              <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }}
-                                                onClick={(e) => { e.stopPropagation(); handleDownloadDesign(dataUrl, o.id, side); }}>
-                                                <Download size={13} /> Download
-                                              </button>
-                                            </div>
-                                            <img src={dataUrl} alt={`${side} design`}
-                                              style={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: 6, background: '#1e293b' }} />
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-
-                                  {/* Customer Uploaded Source Files */}
-                                  {hasSourceFiles(o) && (
-                                    <div className="order-items-section" style={{ marginTop: 16 }}>
-                                      <h4><Upload size={15} /> Customer Uploaded Files (High Quality)</h4>
-                                      <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '4px 0 12px' }}>Original images uploaded by the customer — use these for printing.</p>
-                                      {Object.entries(o.uploadedImages || {}).map(([side, imgs]) => (
-                                        <div key={side} style={{ marginBottom: 16 }}>
-                                          <strong style={{ textTransform: 'uppercase', fontSize: '0.75rem', color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>
-                                            {side} — {imgs.length} file{imgs.length !== 1 ? 's' : ''}
-                                          </strong>
-                                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                                            {imgs.map((src, idx) => (
-                                              <div key={idx} style={{ position: 'relative', width: 140 }}>
-                                                <img src={src} alt={`${side} source ${idx + 1}`}
-                                                  style={{ width: '100%', height: 140, objectFit: 'contain', borderRadius: 8, background: '#1e293b', border: '1px solid var(--border)' }} />
-                                                <a href={src} download={`source-${o.id.slice(0, 8)}-${side.toLowerCase()}-${idx + 1}.png`}
-                                                  className="btn btn-primary" onClick={e => e.stopPropagation()}
-                                                  style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', padding: '3px 8px', fontSize: 11, whiteSpace: 'nowrap' }}>
-                                                  <Download size={12} /> Download
-                                                </a>
+                                    {/* Design mockup images */}
+                                    {Object.values(o.designImages || {}).some(img => img) && (
+                                      <div style={{ marginTop: 14 }}>
+                                        <p style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Image size={14} /> Design Mockups</p>
+                                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                                          {Object.entries(o.designImages || {}).map(([side, dataUrl]) => {
+                                            if (!dataUrl) return null;
+                                            return (
+                                              <div key={side} style={{ flex: '1 1 220px', background: 'var(--bg-2)', borderRadius: 10, padding: 12, border: '1px solid var(--border)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                  <strong style={{ textTransform: 'uppercase', fontSize: '0.78rem' }}>{side}</strong>
+                                                  <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={(e) => { e.stopPropagation(); handleDownloadDesign(dataUrl, o.id, side); }}>
+                                                    <Download size={13} /> Download
+                                                  </button>
+                                                </div>
+                                                <img src={dataUrl} alt={`${side} design`} style={{ width: '100%', maxHeight: 280, objectFit: 'contain', borderRadius: 6, background: '#1e293b' }} />
                                               </div>
-                                            ))}
-                                          </div>
+                                            );
+                                          })}
                                         </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Bulk Download Actions */}
-                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '12px 0', borderTop: '1px solid var(--border)', marginTop: 8 }}>
-                                    <button className="btn btn-primary" onClick={e => { e.stopPropagation(); handleDownloadAllSides(o); }}>
-                                      <Download size={14} /> Download All Mockups
-                                    </button>
-                                    {hasSourceFiles(o) && (
-                                      <button className="btn btn-primary" style={{ background: '#0891b2' }} onClick={e => { e.stopPropagation(); handleDownloadSourceFiles(o); }}>
-                                        <Upload size={14} /> Download All Source Files
-                                      </button>
-                                    )}
-                                    {hasSourceFiles(o) && (
-                                      <button className="btn btn-outline" onClick={e => { e.stopPropagation(); handleDownloadEverything(o); }}>
-                                        <Download size={14} /> Download Everything
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {/* Shipment Actions */}
-                                  {o.shipment ? (
-                                    <div className="order-tracking" style={{ marginTop: 8 }}>
-                                      <Truck size={14} /> {o.shipment.courierName || 'Shipment created'}
-                                      {o.shipment.awbCode && <span className="track-status"> AWB: {o.shipment.awbCode}</span>}
-                                      <button
-                                        className="btn btn-sm btn-outline"
-                                        style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                        onClick={e => { e.stopPropagation(); openTrackingModal({ ...o, items: [{ productId: o.productType, productName: `Custom ${o.productType}`, quantity: o.quantity, price: o.unitPrice }] } as any); }}>
-                                        <MapPin size={12} /> Manage Tracking
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    o.status !== 'cancelled' && (
-                                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                          onClick={e => { e.stopPropagation(); handleCreateDesignShipment(o.id); }}
-                                          disabled={creatingShipmentFor === o.id}>
-                                          <Truck size={14} />
-                                          {creatingShipmentFor === o.id ? 'Creating...' : 'Create Shipment'}
-                                        </button>
-                                        <button
-                                          className="btn btn-sm btn-outline"
-                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                          onClick={e => { e.stopPropagation(); openTrackingModal({ ...o, items: [{ productId: o.productType, productName: `Custom ${o.productType}`, quantity: o.quantity, price: o.unitPrice }] } as any); }}>
-                                          <MapPin size={14} /> Add Tracking
-                                        </button>
                                       </div>
-                                    )
-                                  )}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
+                                    )}
+
+                                    {/* Source files */}
+                                    {hasSourceFiles(o) && (
+                                      <div style={{ marginTop: 14 }}>
+                                        <p style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Upload size={14} /> Customer Uploaded Files</p>
+                                        {Object.entries(o.uploadedImages || {}).map(([side, imgs]) => (
+                                          <div key={side} style={{ marginBottom: 12 }}>
+                                            <strong style={{ textTransform: 'uppercase', fontSize: '0.75rem', color: 'var(--text-2)', display: 'block', marginBottom: 8 }}>{side} — {imgs.length} file{imgs.length !== 1 ? 's' : ''}</strong>
+                                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                              {imgs.map((src, idx) => (
+                                                <div key={idx} style={{ position: 'relative', width: 130 }}>
+                                                  <img src={src} alt={`${side} source ${idx + 1}`} style={{ width: '100%', height: 130, objectFit: 'contain', borderRadius: 8, background: '#1e293b', border: '1px solid var(--border)' }} />
+                                                  <a href={src} download={`source-${o.id.slice(0, 8)}-${side.toLowerCase()}-${idx + 1}.png`} className="btn btn-primary" onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', padding: '3px 8px', fontSize: 11, whiteSpace: 'nowrap' }}>
+                                                    <Download size={12} /> Download
+                                                  </a>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Bulk download actions */}
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 10, marginTop: 6, borderTop: '1px solid var(--border)' }}>
+                                      <button className="btn btn-primary" onClick={e => { e.stopPropagation(); handleDownloadAllSides(o); }}>
+                                        <Download size={14} /> Download All Mockups
+                                      </button>
+                                      {hasSourceFiles(o) && (<>
+                                        <button className="btn btn-primary" style={{ background: '#0891b2' }} onClick={e => { e.stopPropagation(); handleDownloadSourceFiles(o); }}>
+                                          <Upload size={14} /> Download All Source Files
+                                        </button>
+                                        <button className="btn btn-outline" onClick={e => { e.stopPropagation(); handleDownloadEverything(o); }}>
+                                          <Download size={14} /> Download Everything
+                                        </button>
+                                      </>)}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {/* ── Actions (status + shipment) at the bottom ── */}
+                              <div className="order-actions-footer">
+                                {/* Product order actions */}
+                                {po && (
+                                  <div className="order-action-group">
+                                    {isCombined && <p className="order-action-label"><Package size={13} /> Normal Order Actions</p>}
+                                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                      <div>
+                                        <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Update Status</label>
+                                        <select value={po.status} onChange={e => handleStatusChange(po.id, e.target.value)} onClick={e => e.stopPropagation()}>
+                                          {['pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </div>
+                                      {po.shipment ? (
+                                        <div className="order-tracking">
+                                          <Truck size={14} /> {po.shipment.courierName || 'Shipment created'}
+                                          {po.shipment.awbCode && <span className="track-status"> AWB: {po.shipment.awbCode}</span>}
+                                          <button className="btn btn-sm btn-outline" style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); openTrackingModal(po); }}>
+                                            <MapPin size={12} /> Manage Tracking
+                                          </button>
+                                        </div>
+                                      ) : po.status !== 'cancelled' && (
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                          <button className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); handleCreateShipment(po.id); }} disabled={creatingShipmentFor === po.id}>
+                                            <Truck size={14} />{creatingShipmentFor === po.id ? 'Creating...' : 'Create Shipment'}
+                                          </button>
+                                          <button className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); openTrackingModal(po); }}>
+                                            <MapPin size={14} /> Add Tracking
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Design order actions */}
+                                {dOrders.map(o => (
+                                  <div key={o.id} className="order-action-group">
+                                    {isCombined && <p className="order-action-label"><Palette size={13} /> Custom Design Actions</p>}
+                                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                      <div>
+                                        <label style={{ fontWeight: 600, fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Update Status</label>
+                                        <select value={o.status} onChange={e => handleDesignStatusChange(o.id, e.target.value)} onClick={e => e.stopPropagation()}>
+                                          {['pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </div>
+                                      {o.shipment ? (
+                                        <div className="order-tracking">
+                                          <Truck size={14} /> {o.shipment.courierName || 'Shipment created'}
+                                          {o.shipment.awbCode && <span className="track-status"> AWB: {o.shipment.awbCode}</span>}
+                                          <button className="btn btn-sm btn-outline" style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); openTrackingModal({ ...o, items: [{ productId: o.productType, productName: `Custom ${o.productType}`, quantity: o.quantity, price: o.unitPrice }] } as any); }}>
+                                            <MapPin size={12} /> Manage Tracking
+                                          </button>
+                                        </div>
+                                      ) : o.status !== 'cancelled' && (
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                          <button className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); handleCreateDesignShipment(o.id); }} disabled={creatingShipmentFor === o.id}>
+                                            <Truck size={14} />{creatingShipmentFor === o.id ? 'Creating...' : 'Create Shipment'}
+                                          </button>
+                                          <button className="btn btn-sm btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); openTrackingModal({ ...o, items: [{ productId: o.productType, productName: `Custom ${o.productType}`, quantity: o.quantity, price: o.unitPrice }] } as any); }}>
+                                            <MapPin size={14} /> Add Tracking
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
             )}
           </motion.div>
         )}

@@ -82,24 +82,28 @@ export default function Cart() {
 
   const placeAfterPayment = async (paymentData: { razorpayOrderId?: string; paymentId?: string }) => {
     const shippingAddress = buildAddress();
+    // Generate a group ID to link product + design orders from the same checkout
+    const groupOrderId = (items.length > 0 && designItems.length > 0)
+      ? `grp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      : undefined;
     try {
-      const promises: Promise<any>[] = [];
+      // Place product order first (if any), then design orders, so the backend
+      // can find the paired normal order when sending the combined confirmation email.
       if (items.length > 0) {
-        promises.push(api.createOrder(
+        await api.createOrder(
           items.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText })),
           shippingAddress,
-          { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount }
-        ));
+          { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId }
+        );
       }
       for (const d of designItems) {
-        promises.push(api.createDesignOrder({
+        await api.createDesignOrder({
           productType: d.productType, colorHex: d.colorHex, colorName: d.colorName,
           printSize: d.printSize, sides: d.sides, designImages: d.designImages,
           uploadedImages: d.uploadedImages, quantity: d.quantity, unitPrice: d.unitPrice,
-          total: d.total, shippingAddress,
-        }));
+          total: d.total, shippingAddress, groupOrderId,
+        });
       }
-      await Promise.all(promises);
       clearCart();
       sessionStorage.removeItem('tfw_design_cart');
       navigate('/payment/success', { replace: true, state: { finalTotal, name: form.fullName, city: form.city } });
@@ -429,4 +433,4 @@ export default function Cart() {
       </div>
     </div>
   );
-}
+}
