@@ -35,6 +35,8 @@ export default function Payment() {
 
   useEffect(() => {
     if (!state || !user) { navigate('/cart'); return; }
+    // If total is 0 (100% coupon), skip Razorpay entirely
+    if (state.finalTotal <= 0) { setLoadingOrder(false); return; }
     api.createRazorpayOrder(state.finalTotal)
       .then(setRpOrder)
       .catch(e => { toast.error(e.message || 'Payment init failed'); navigate('/cart'); })
@@ -261,10 +263,17 @@ export default function Payment() {
             </div>
 
             <div className="payment-cta">
-              <button className="btn btn-primary btn-block btn-lg payment-pay-btn" onClick={handleRazorpayPayment}>
-                <Shield size={18} />
-                Pay ₹{state.finalTotal.toLocaleString('en-IN')} Securely
-              </button>
+              {state.finalTotal <= 0 ? (
+                <button className="btn btn-primary btn-block btn-lg payment-pay-btn" onClick={() => placeAfterPayment({})} disabled={processing}>
+                  <Shield size={18} />
+                  Place Free Order
+                </button>
+              ) : (
+                <button className="btn btn-primary btn-block btn-lg payment-pay-btn" onClick={handleRazorpayPayment}>
+                  <Shield size={18} />
+                  Pay ₹{state.finalTotal.toLocaleString('en-IN')} Securely
+                </button>
+              )}
               <p className="payment-tnc">
                 <Lock size={12} /> By paying you agree to our <a href="/faq" target="_blank">Terms &amp; Policy</a>.
                 Your payment info is never stored on our servers.
