@@ -9,6 +9,7 @@ interface RightPanelProps {
   onRemoveLayer: (obj: fabric.FabricObject) => void;
   onToggleVisibility: (obj: fabric.FabricObject) => void;
   canvas: fabric.Canvas | null;
+  extraClassName?: string;
 }
 
 const FONTS = [
@@ -18,11 +19,13 @@ const FONTS = [
 
 export default function RightPanel({
   selectedObj, layers, onUpdateProp, onSelectLayer, onRemoveLayer, onToggleVisibility, canvas,
+  extraClassName = '',
 }: RightPanelProps) {
   const isText = selectedObj instanceof fabric.IText;
 
   return (
-    <div className="right-panel">
+    <div className={`right-panel${extraClassName ? ' ' + extraClassName : ''}`}>
+      <div className="panel-drawer-handle" />
       {selectedObj ? (
         <>
           {/* Position & Size */}

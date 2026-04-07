@@ -68,6 +68,7 @@ export default function Designer() {
   const [imgReady, setImgReady] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Partial<Record<PrintSide, string>>>({});
   const [previewSide, setPreviewSide] = useState<PrintSide>('FRONT');
+  const [mobilePanel, setMobilePanel] = useState<'tools' | 'layers' | null>(null);
 
   const colors = COLORS.map(c => ({ name: c.name, hex: c.hex }));
 
@@ -994,21 +995,10 @@ export default function Designer() {
         }}
       />
       <div className="main-area">
-        {/* Mobile toolbar — visible only < 700px when left panel is hidden */}
-        <div className="mobile-toolbar">
-          <button onClick={handleAddText}>Text</button>
-          <label className="file-label-mobile">
-            Image
-            <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) handleAddImage(f); e.target.value = ''; }} />
-          </label>
-          <button onClick={handleDelete}>Del</button>
-          <button onClick={handleDuplicate}>Copy</button>
-          <button onClick={handleCenter}>Center</button>
-          <button onClick={handleFlipH}>Flip H</button>
-          <button onClick={handleFlipV}>Flip V</button>
-          <button onClick={handleToggleLock}>{selectedObj?.lockMovementX ? 'Locked' : 'Unlock'}</button>
-          <button onClick={handlePreview}>Preview</button>
-        </div>
+        {/* Mobile overlay — closes panels when tapped */}
+        {mobilePanel && (
+          <div className="mobile-panel-overlay visible" onClick={() => setMobilePanel(null)} />
+        )}
         <LeftPanel
           activeProductType={activeProductType}
           onSwitchType={setActiveProductType}
@@ -1026,6 +1016,7 @@ export default function Designer() {
           onZoomOut={handleZoomOut}
           onResetView={handleResetView}
           onPreview={handlePreview}
+          extraClassName={mobilePanel === 'tools' ? 'open' : ''}
         />
         <div className="canvas-area">
           <div className="canvas-wrap" style={{ position: 'relative' }}>
@@ -1064,6 +1055,7 @@ export default function Designer() {
           onRemoveLayer={handleRemoveLayer}
           onToggleVisibility={handleToggleVisibility}
           canvas={fcRef.current}
+          extraClassName={mobilePanel === 'layers' ? 'open' : ''}
         />
       </div>
       <BottomBar
@@ -1077,6 +1069,38 @@ export default function Designer() {
         activePrintSize={activePrintSize}
         pocketPrintEnabled={pocketPrintEnabled}
       />
+
+      {/* ── Mobile Bottom Navigation ── */}
+      <nav className="mobile-bottom-nav">
+        <button
+          className={`mobile-nav-btn${mobilePanel === 'tools' ? ' active' : ''}`}
+          onClick={() => setMobilePanel(p => p === 'tools' ? null : 'tools')}
+        >
+          <span className="nav-icon">🎨</span>
+          Tools
+        </button>
+        <button
+          className={`mobile-nav-btn${mobilePanel === 'layers' ? ' active' : ''}`}
+          onClick={() => setMobilePanel(p => p === 'layers' ? null : 'layers')}
+        >
+          <span className="nav-icon">📋</span>
+          Layers
+        </button>
+        <button
+          className="mobile-nav-btn"
+          onClick={handlePreview}
+        >
+          <span className="nav-icon">👁</span>
+          Preview
+        </button>
+        <button
+          className="mobile-nav-btn"
+          onClick={handleAddToCart}
+        >
+          <span className="nav-icon">🛒</span>
+          Cart
+        </button>
+      </nav>
 
       {/* ── Preview Modal ── */}
       {Object.keys(previewUrls).length > 0 && (

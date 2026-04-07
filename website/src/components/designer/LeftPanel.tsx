@@ -17,6 +17,7 @@ interface LeftPanelProps {
   onZoomOut: () => void;
   onResetView: () => void;
   onPreview: () => void;
+  extraClassName?: string;
 }
 
 export default function LeftPanel({
@@ -25,10 +26,12 @@ export default function LeftPanel({
   onAddText, onAddImage, onDelete, onDuplicate, onCenter,
   onFlipH, onFlipV, onToggleLock, isLocked,
   onZoomIn, onZoomOut, onResetView, onPreview,
+  extraClassName = '',
 }: LeftPanelProps) {
   const templateEntries = Object.entries(templates ?? {});
   return (
-    <div className="left-panel">
+    <div className={`left-panel${extraClassName ? ' ' + extraClassName : ''}`}>
+      <div className="panel-drawer-handle" />
       <div className="panel-header">Product Type</div>
       <div className="product-grid">
         {templateEntries.length === 0 ? (
