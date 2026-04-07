@@ -408,6 +408,9 @@ html.dark .theme-toggle { color: var(--accent); }
 .search-form svg { color: var(--text-3); flex-shrink: 0; }
 
 @media (max-width: 768px) {
+  .navbar-inner { padding: 0 0.875rem; gap: 0.5rem; }
+  .navbar-brand { font-size: 0.95rem; gap: 0.45rem; }
+  .brand-icon { width: 32px; height: 32px; font-size: 0.95rem; flex-shrink: 0; }
   .navbar-links { display: none; }
   .navbar-links.open {
     display: flex; flex-direction: column; position: absolute;
@@ -417,6 +420,7 @@ html.dark .theme-toggle { color: var(--accent); }
   }
   .nav-link { width: 100%; padding: 0.7rem 0.9rem; }
   .mobile-toggle { display: inline-flex; }
+  .navbar-actions { gap: 0.25rem; }
 }
 
 
