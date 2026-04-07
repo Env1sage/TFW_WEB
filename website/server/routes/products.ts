@@ -221,8 +221,10 @@ async function autoShiprocketPush(
       courierId: srResponse.courier_id || undefined,
       status: 'processing',
     });
+    console.log(`[Shiprocket] ✅ Auto-pushed ${isDesign ? 'design ' : ''}order ${orderId} → SR order_id=${srResponse.order_id}`);
   } catch (e: any) {
-    console.error(`[Shiprocket] Auto-push failed for order ${orderId}:`, e.message);
+    console.error(`[Shiprocket] ❌ Auto-push FAILED for order ${orderId}: ${e.message}`);
+    // Don't rethrow — this is a background operation, it must not fail the order creation
   }
 }
 
@@ -569,7 +571,8 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
       }
     }
     // Auto-push to Shiprocket (non-blocking)
-    autoShiprocketPush(order.id, true, order, resolvedName, resolvedEmail || undefined).catch(() => {});
+    autoShiprocketPush(order.id, true, order, resolvedName, resolvedEmail || undefined)
+      .catch(e => console.error('[Shiprocket] ❌ Unhandled error for design order', order.id, e.message));
 
     res.status(201).json(order);
   } catch (e: any) {
@@ -788,9 +791,11 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
         sendAdminOrderNotification(emailData).catch(e => console.error('[Email] admin notification failed:', e));
       }
       // Auto-push to Shiprocket (non-blocking)
-      autoShiprocketPush(order.id, false, order, user.name, user.email).catch(() => {});
+      autoShiprocketPush(order.id, false, order, user.name, user.email)
+        .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
     } else {
-      autoShiprocketPush(order.id, false, order).catch(() => {});
+      autoShiprocketPush(order.id, false, order)
+        .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
     }
 
     res.status(201).json(order);
@@ -1008,6 +1013,65 @@ router.delete('/coupons/:id', authMiddleware, adminMiddleware, async (req: Reque
 });
 
 // ── Shiprocket Integration ──
+
+// Admin: test Shiprocket credentials & connectivity
+router.get('/shiprocket/test', authMiddleware, requireRole('admin'), async (_req: Request, res: Response) => {
+  const email = process.env.SHIPROCKET_EMAIL;
+  const password = process.env.SHIPROCKET_PASSWORD;
+  if (!email || !password) {
+    return res.status(200).json({
+      ok: false,
+      error: 'SHIPROCKET_EMAIL and/or SHIPROCKET_PASSWORD environment variables are not set on the server.',
+      envVars: { SHIPROCKET_EMAIL: !!email, SHIPROCKET_PASSWORD: !!password },
+    });
+  }
+  try {
+    // Force a fresh token (bypass cache)
+    _srToken = null; _srTokenExpiry = 0;
+    const token = await getShiprocketToken();
+    // Also fetch pickup locations as a sanity check
+    const pickups = await shiprocketRequest('GET', '/settings/company/pickup');
+    const locations = pickups?.data?.shipping_address?.map((a: any) => ({ name: a.pickup_location, active: a.status === 1 })) || [];
+    res.json({ ok: true, email, tokenPreview: token.slice(0, 20) + '...', pickupLocations: locations });
+  } catch (e: any) {
+    res.status(200).json({ ok: false, error: e.message, email });
+  }
+});
+
+// Admin: manually re-push a product order to Shiprocket (retry failed auto-push)
+router.post('/orders/:id/push-shiprocket', authMiddleware, requireRole('admin', 'order_manager'), async (req: Request, res: Response) => {
+  try {
+    const orderId = String(req.params.id);
+    const orders = await db.getAllOrders();
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const existing = await db.getShipmentByOrderId(orderId);
+    if (existing) await db.deleteShipment(existing.id); // clear any broken record
+    await autoShiprocketPush(orderId, false, order, order.customerName, order.customerEmail);
+    const shipment = await db.getShipmentByOrderId(orderId);
+    if (!shipment?.shiprocketOrderId) return res.status(500).json({ error: 'Push failed — check server logs for details' });
+    res.json({ ok: true, shipment });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: manually re-push a design order to Shiprocket (retry failed auto-push)
+router.post('/design-orders/:id/push-shiprocket', authMiddleware, requireRole('admin', 'order_manager'), async (req: Request, res: Response) => {
+  try {
+    const orderId = String(req.params.id);
+    const order = await db.getDesignOrderById(orderId);
+    if (!order) return res.status(404).json({ error: 'Design order not found' });
+    const existing = await db.getShipmentByOrderId(orderId);
+    if (existing) await db.deleteShipment(existing.id);
+    await autoShiprocketPush(orderId, true, order, order.customerName, order.customerEmail);
+    const shipment = await db.getShipmentByOrderId(orderId);
+    if (!shipment?.shiprocketOrderId) return res.status(500).json({ error: 'Push failed — check server logs for details' });
+    res.json({ ok: true, shipment });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // Admin: create Shiprocket shipment for an order
 router.post('/orders/:id/create-shipment', authMiddleware, requireRole('admin', 'order_manager'), async (req: Request, res: Response) => {

@@ -81,7 +81,7 @@ function normalizePrintArea(pa: any): { layouts: PrintLayout[]; allowMultipleLay
   return { layouts, allowMultipleLayouts: false, allowBackPrint: layouts.some(l => l.side === 'BACK') };
 }
 
-type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database';
+type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database' | 'shiprocket';
 
 const defaultCoupon: Partial<Coupon> = {
   code: '', description: '', discountType: 'percentage', discountValue: 0,
@@ -156,6 +156,10 @@ export default function Admin() {
   const [trackingManualForm, setTrackingManualForm] = useState({ courierName: '', awbCode: '', estimatedDelivery: '' });
   const [trackingEventForm, setTrackingEventForm] = useState({ status: '', message: '', location: '' });
   const [savingTracking, setSavingTracking] = useState(false);
+  // Shiprocket debug
+  const [srTesting, setSrTesting] = useState(false);
+  const [srTestResult, setSrTestResult] = useState<{ ok: boolean; error?: string; email?: string; tokenPreview?: string; pickupLocations?: any[]; envVars?: any } | null>(null);
+  const [srPushingFor, setSrPushingFor] = useState<string | null>(null);
 
   type AdminOrderEntry = { key: string; productOrder?: Order; designOrders: DesignOrder[]; createdAt: string; };
   const adminOrderEntries = useMemo((): AdminOrderEntry[] => {
@@ -553,6 +557,30 @@ export default function Admin() {
     finally { setCreatingShipmentFor(null); }
   };
 
+  const handleTestShiprocket = async () => {
+    setSrTesting(true); setSrTestResult(null);
+    try {
+      const res = await fetch('/api/products/shiprocket/test', { headers: { Authorization: `Bearer ${localStorage.getItem('tfw_token')}` } });
+      const data = await res.json();
+      setSrTestResult(data);
+    } catch (e: any) {
+      setSrTestResult({ ok: false, error: e.message });
+    } finally { setSrTesting(false); }
+  };
+
+  const handlePushToShiprocket = async (orderId: string, isDesign: boolean) => {
+    setSrPushingFor(orderId);
+    try {
+      const endpoint = isDesign ? `/api/products/design-orders/${orderId}/push-shiprocket` : `/api/products/orders/${orderId}/push-shiprocket`;
+      const res = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('tfw_token')}` } });
+      const data = await res.json();
+      if (data.ok) { toast.success('Order pushed to Shiprocket!'); load(); }
+      else toast.error(data.error || 'Push failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Push failed');
+    } finally { setSrPushingFor(null); }
+  };
+
   const openTrackingModal = (order: Order) => {
     setTrackingManualForm({
       courierName: order.shipment?.courierName || '',
@@ -664,6 +692,7 @@ export default function Admin() {
           <button className={`tab ${tab === 'mockups' ? 'active' : ''}`} onClick={() => setTab('mockups')}><Image size={16} /> Mockups</button>
           <button className={`tab ${tab === 'coupons' ? 'active' : ''}`} onClick={() => setTab('coupons')}><Percent size={16} /> Coupons ({coupons.length})</button>
           <button className={`tab ${tab === 'database' ? 'active' : ''}`} onClick={() => { setTab('database'); if (!dbData) loadDb(); }}><Database size={16} /> Database</button>
+          <button className={`tab ${tab === 'shiprocket' ? 'active' : ''}`} onClick={() => setTab('shiprocket')}><Truck size={16} /> Shiprocket</button>
         </div>
 
         {/* Analytics Tab */}
@@ -1605,10 +1634,96 @@ export default function Admin() {
           </motion.div>
         )}
 
+        {/* Shiprocket Tab */}
+        {tab === 'shiprocket' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 720 }}>
+            <h2 style={{ marginBottom: 6 }}>Shiprocket Integration</h2>
+            <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', marginBottom: 24 }}>
+              Test your Shiprocket credentials and manually push orders that failed auto-synchronisation.
+            </p>
+
+            {/* Connection test card */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, marginBottom: 28 }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}><Truck size={16} /> Test Connection</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
+                Checks that <code>SHIPROCKET_EMAIL</code> and <code>SHIPROCKET_PASSWORD</code> are set on the server and that login succeeds.
+              </p>
+              <button className="btn btn-primary" onClick={handleTestShiprocket} disabled={srTesting} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Truck size={15} /> {srTesting ? 'Testing…' : 'Test Shiprocket Connection'}
+              </button>
+              {srTestResult && (
+                <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 8, background: srTestResult.ok ? '#f0fdf4' : '#fef2f2', border: `1px solid ${srTestResult.ok ? '#86efac' : '#fca5a5'}` }}>
+                  {srTestResult.ok ? (
+                    <>
+                      <p style={{ margin: 0, color: '#15803d', fontWeight: 700 }}>✅ Connected successfully</p>
+                      <p style={{ margin: '6px 0 0', fontSize: '0.83rem', color: '#166534' }}>Account: <strong>{srTestResult.email}</strong></p>
+                      {srTestResult.pickupLocations && srTestResult.pickupLocations.length > 0 && (
+                        <p style={{ margin: '4px 0 0', fontSize: '0.83rem', color: '#166534' }}>
+                          Pickup locations: {srTestResult.pickupLocations.map((l: any) => `${l.name}${l.active ? ' ✓' : ''}`).join(', ')}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ margin: 0, color: '#b91c1c', fontWeight: 700 }}>❌ Connection failed</p>
+                      <p style={{ margin: '6px 0 0', fontSize: '0.83rem', color: '#991b1b' }}>{srTestResult.error}</p>
+                      {srTestResult.envVars && (
+                        <p style={{ margin: '6px 0 0', fontSize: '0.83rem', color: '#991b1b' }}>
+                          Env vars: SHIPROCKET_EMAIL={String(srTestResult.envVars.SHIPROCKET_EMAIL)} · SHIPROCKET_PASSWORD={String(srTestResult.envVars.SHIPROCKET_PASSWORD)}
+                        </p>
+                      )}
+                      <p style={{ margin: '8px 0 0', fontSize: '0.83rem', color: '#7f1d1d' }}>
+                        Fix: add <code>SHIPROCKET_EMAIL</code> and <code>SHIPROCKET_PASSWORD</code> to <code>/opt/tfw/.env.production</code> on the server, then rebuild.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Orders without Shiprocket push */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: '1rem' }}>Orders missing Shiprocket push</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
+                Orders below have no Shiprocket order ID (auto-push failed or wasn't triggered). Click "Push" to retry.
+              </p>
+              {/* Product orders without shiprocket */}
+              {orders.filter(o => !o.shipment?.shiprocketOrderId && o.status !== 'cancelled').length === 0 &&
+               designOrders.filter(o => !(o as any).shipment?.shiprocketOrderId && o.status !== 'cancelled').length === 0 ? (
+                <p style={{ color: 'var(--success, #16a34a)', fontSize: '0.9rem' }}>✅ All active orders have been pushed to Shiprocket.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {orders.filter(o => !o.shipment?.shiprocketOrderId && o.status !== 'cancelled').map(o => (
+                    <div key={o.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem' }}><Package size={13} style={{ marginRight: 4 }} />#{o.id.slice(0, 8).toUpperCase()}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-2)', marginLeft: 10 }}>{o.customerName} · ₹{o.total}</span>
+                      </div>
+                      <button className="btn btn-sm btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handlePushToShiprocket(o.id, false)} disabled={srPushingFor === o.id}>
+                        <Truck size={13} /> {srPushingFor === o.id ? 'Pushing…' : 'Push'}
+                      </button>
+                    </div>
+                  ))}
+                  {designOrders.filter(o => !(o as any).shipment?.shiprocketOrderId && o.status !== 'cancelled').map(o => (
+                    <div key={o.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem' }}><Palette size={13} style={{ marginRight: 4 }} />#{o.id.slice(0, 8).toUpperCase()}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-2)', marginLeft: 10 }}>{o.customerName} · ₹{o.total}</span>
+                      </div>
+                      <button className="btn btn-sm btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handlePushToShiprocket(o.id, true)} disabled={srPushingFor === o.id}>
+                        <Truck size={13} /> {srPushingFor === o.id ? 'Pushing…' : 'Push'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Product Form Modal */}
         <AnimatePresence>
-          {showProductForm && (
-            <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeProductForm}>
+          {showProductForm && (            <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeProductForm}>
               <motion.div className="modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
