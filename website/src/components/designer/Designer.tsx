@@ -356,11 +356,13 @@ export default function Designer() {
     const fc = fcRef.current;
     if (isLoadingRef.current || !fc) return;
     const json = JSON.stringify(fc.toObject(['name', 'customId', 'layerName', 'printZone']));
-    const ss = sideStateRef.current[activeSide];
+    // Use ref so this function is stable and always saves to the correct side,
+    // even when captured by canvas event listeners registered once at init.
+    const ss = sideStateRef.current[activeSideRef.current];
     ss.history.push(json);
     ss.redo = [];
     if (ss.history.length > 50) ss.history.shift();
-  }, [activeSide]);
+  }, []);  // no deps — uses activeSideRef.current
 
   const reapplyClipPaths = useCallback(() => {
     const fc = fcRef.current;
@@ -381,13 +383,15 @@ export default function Designer() {
   /* ── Auto-save (local) ── */
   const scheduleAutoSave = useCallback(() => {
     setSaveStatus('saving');
+    // Capture the side at call time via ref so the timeout always saves to the right side.
+    const sideAtCallTime = activeSideRef.current;
     setTimeout(() => {
       const fc = fcRef.current;
       if (!fc) return;
-      sideStateRef.current[activeSide].json = fc.toObject(['name', 'customId', 'layerName', 'printZone']);
+      sideStateRef.current[sideAtCallTime].json = fc.toObject(['name', 'customId', 'layerName', 'printZone']);
       setSaveStatus('saved');
     }, 500);
-  }, [activeSide]);
+  }, []);  // no deps — uses activeSideRef.current snapshot
 
   /* ── Canvas auto-scale ── */
   const autoScale = useCallback(() => {
