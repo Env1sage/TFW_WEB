@@ -413,7 +413,7 @@ html.dark .theme-toggle { color: var(--accent); }
     display: flex; flex-direction: column; position: absolute;
     top: 70px; left: 0; right: 0; background: var(--surface);
     border-bottom: none; padding: 0.5rem 1rem;
-    box-shadow: var(--clay-shadow-lg); z-index: 99;
+    box-shadow: var(--clay-shadow-lg); z-index: 9999;
   }
   .nav-link { width: 100%; padding: 0.7rem 0.9rem; }
   .mobile-toggle { display: inline-flex; }
@@ -4281,9 +4281,7 @@ a.order-item-name:hover { color: var(--primary); }
 
 /* ── Prevent horizontal overflow globally ── */
 @media (max-width: 768px) {
-  body { overflow-x: hidden; }
   .home-page { overflow-x: hidden; }
-  .app-layout { overflow-x: hidden; }
 }
 
 
