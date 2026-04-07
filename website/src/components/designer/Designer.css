@@ -723,7 +723,7 @@
   color: #fff;
 }
 
-
+.preview-modal-body {
   display: flex;
   flex: 1;
   overflow: hidden;
