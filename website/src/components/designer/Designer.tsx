@@ -66,7 +66,8 @@ export default function Designer() {
   const [layerList, setLayerList] = useState<fabric.FabricObject[]>([]);
   const [, forceUpdate] = useState(0);
   const [imgReady, setImgReady] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<Partial<Record<PrintSide, string>>>({});
+  const [previewSide, setPreviewSide] = useState<PrintSide>('FRONT');
 
   const colors = COLORS.map(c => ({ name: c.name, hex: c.hex }));
 
@@ -805,23 +806,34 @@ export default function Designer() {
   const handlePreview = useCallback(() => {
     const fc = fcRef.current;
     if (!fc) return;
-    // Hide decoration guides (print-area overlays, border, labels)
-    // but keep the shadow overlay (__shadow) so the preview looks realistic.
+    // Hide decoration guides but keep shadow overlay
     const decorGuides = fc.getObjects().filter(o => {
       const name = (o as any).name as string | undefined;
       return name && name.startsWith('__') && name !== '__shadow';
     });
     decorGuides.forEach(o => { o.visible = false; });
-    // Temporarily reset viewport so export is at native canvas size
     const savedTransform = fc.viewportTransform ? [...fc.viewportTransform] : [1, 0, 0, 1, 0, 0];
     fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
     fc.renderAll();
-    const dataUrl = fc.toDataURL({ format: 'png', multiplier: 2 });
-    // Restore
+    const currentDataUrl = fc.toDataURL({ format: 'png', multiplier: 2 });
     fc.setViewportTransform(savedTransform as [number, number, number, number, number, number]);
     decorGuides.forEach(o => { o.visible = true; });
     fc.renderAll();
-    setPreviewUrl(dataUrl);
+
+    // Build previews map: current side from canvas, other side from saved thumbnail
+    const currentSide = activeSideRef.current;
+    const urls: Partial<Record<PrintSide, string>> = {};
+    urls[currentSide] = currentDataUrl;
+    // Save the freshly rendered URL as the thumbnail too
+    sideStateRef.current[currentSide].thumbnail = currentDataUrl;
+    // Collect other side's thumbnail if it has content
+    for (const s of SIDES) {
+      if (s !== currentSide && sideStateRef.current[s].thumbnail) {
+        urls[s] = sideStateRef.current[s].thumbnail;
+      }
+    }
+    setPreviewUrls(urls);
+    setPreviewSide(currentSide);
   }, []);
 
   const handleAddToCart = useCallback(() => {
@@ -1067,23 +1079,35 @@ export default function Designer() {
       />
 
       {/* ── Preview Modal ── */}
-      {previewUrl && (
-        <div className="preview-overlay" onClick={() => setPreviewUrl(null)}>
+      {Object.keys(previewUrls).length > 0 && (
+        <div className="preview-overlay" onClick={() => setPreviewUrls({})}>
           <div className="preview-modal" onClick={e => e.stopPropagation()}>
             <div className="preview-modal-header">
               <span className="preview-modal-title">
                 Print-Ready Preview
               </span>
               <div className="preview-modal-actions">
-                <a className="preview-download-btn" href={previewUrl} download={`${activeProductType}-${activeSide.toLowerCase()}.png`}>
+                <a className="preview-download-btn" href={previewUrls[previewSide]} download={`${activeProductType}-${previewSide.toLowerCase()}.png`}>
                   Download PNG
                 </a>
-                <button className="preview-close-btn" onClick={() => setPreviewUrl(null)}>X</button>
+                <button className="preview-close-btn" onClick={() => setPreviewUrls({})}>X</button>
               </div>
             </div>
+            {/* Side tabs — only shown when both sides have previews */}
+            {Object.keys(previewUrls).length > 1 && (
+              <div className="preview-side-tabs">
+                {(Object.keys(previewUrls) as PrintSide[]).map(s => (
+                  <button
+                    key={s}
+                    className={`preview-side-tab${previewSide === s ? ' active' : ''}`}
+                    onClick={() => setPreviewSide(s)}
+                  >{s}</button>
+                ))}
+              </div>
+            )}
             <div className="preview-modal-body">
               <div className="preview-product-frame">
-                <img src={previewUrl} alt="Product preview" className="preview-product-img" />
+                <img src={previewUrls[previewSide]} alt="Product preview" className="preview-product-img" />
               </div>
               <div className="preview-product-meta">
                 <div className="preview-meta-row">
@@ -1099,7 +1123,7 @@ export default function Designer() {
                 </div>
                 <div className="preview-meta-row">
                   <span className="preview-meta-label">Side</span>
-                  <span className="preview-meta-value">{activeSide}</span>
+                  <span className="preview-meta-value">{previewSide}</span>
                 </div>
                 <div className="preview-meta-row">
                   <span className="preview-meta-label">Print Size</span>
@@ -1107,7 +1131,7 @@ export default function Designer() {
                 </div>
                 <button
                   className="preview-cart-btn"
-                  onClick={() => { setPreviewUrl(null); handleAddToCart(); }}
+                  onClick={() => { setPreviewUrls({}); handleAddToCart(); }}
                 >
                   Add to Cart
                 </button>

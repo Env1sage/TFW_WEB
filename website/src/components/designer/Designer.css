@@ -696,7 +696,34 @@
 }
 .preview-close-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
 
-.preview-modal-body {
+.preview-side-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 24px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.02);
+  flex-shrink: 0;
+}
+.preview-side-tab {
+  padding: 6px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.preview-side-tab:hover { background: rgba(255,255,255,.06); color: #e2e8f0; }
+.preview-side-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+
   display: flex;
   flex: 1;
   overflow: hidden;
