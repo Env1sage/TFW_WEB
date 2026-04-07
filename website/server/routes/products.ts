@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
-import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification } from '../email.js';
+import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate } from '../email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -133,6 +133,20 @@ async function syncShiprocketStatus(shipment: db.DBShipment): Promise<db.DBShipm
         await db.updateOrder(shipment.orderId, { status: mappedStatus });
       }
       console.log(`[Shiprocket] Synced order ${shipment.orderId}: ${shipment.status} → ${mappedStatus}`);
+      // Send customer status email for meaningful delivery transitions
+      if (patch.status && ['shipped', 'out_for_delivery', 'delivered', 'cancelled'].includes(patch.status)) {
+        db.getOrderById(shipment.orderId).then(order => {
+          if (!order) return;
+          const email = order.customerEmail;
+          const name = order.customerName || 'Customer';
+          if (!email) return;
+          sendOrderStatusUpdate({
+            orderId: order.id, customerName: name, customerEmail: email,
+            status: patch.status!, items: order.items, total: order.total,
+            awbCode: awb || shipment.awbCode, courierName: courier || shipment.courierName,
+          }).catch(() => {});
+        }).catch(() => {});
+      }
       return { ...shipment, ...patch } as db.DBShipment;
     }
   } catch (e: any) {
@@ -563,6 +577,16 @@ router.put('/design-orders/:id/status', authMiddleware, requireRole('admin', 'or
     if (!status || !VALID_STATUSES.includes(status)) return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
     const updated = await db.updateDesignOrder(String(req.params.id), { status });
     if (!updated) return res.status(404).json({ error: 'Design order not found' });
+    // Send status update email to customer
+    if (['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'].includes(status)) {
+      const order = await db.getDesignOrderById(String(req.params.id)).catch(() => null);
+      if (order?.customerEmail) {
+        sendOrderStatusUpdate({
+          orderId: order.id, customerName: order.customerName || 'Customer',
+          customerEmail: order.customerEmail, status, total: order.total,
+        }).catch(e => console.error('[Email] design order status update failed:', e));
+      }
+    }
     res.json(updated);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -777,6 +801,20 @@ router.put('/orders/:id/status', authMiddleware, requireRole('admin', 'order_man
     if (!status || !VALID_STATUSES.includes(status)) return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
     const updated = await db.updateOrder(String(req.params.id), { status });
     if (!updated) return res.status(404).json({ error: 'Order not found' });
+    // Send status update email to customer
+    if (['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'].includes(status)) {
+      db.getOrderById(String(req.params.id)).then(order => {
+        if (!order) return;
+        const email = order.customerEmail;
+        const name = order.customerName || 'Customer';
+        if (!email) return;
+        sendOrderStatusUpdate({
+          orderId: order.id, customerName: name, customerEmail: email,
+          status, items: order.items, total: order.total,
+          awbCode: order.shipment?.awbCode, courierName: order.shipment?.courierName,
+        }).catch(e => console.error('[Email] status update failed:', e));
+      }).catch(() => {});
+    }
     res.json(updated);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
