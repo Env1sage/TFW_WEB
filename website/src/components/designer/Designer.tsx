@@ -427,7 +427,14 @@ export default function Designer() {
       if (!isLoadingRef.current && !isGuide(e.target)) { saveHistory(); scheduleAutoSave(); }
       forceUpdate(n => n + 1);
     });
-    fc.on('object:removed', () => refreshLayers());
+    fc.on('object:removed', () => {
+      refreshLayers();
+      // Remove layout from selectedLayoutIds if all its objects were deleted
+      setSelectedLayoutIds(prev => {
+        const remaining = fc.getObjects().filter(o => !isGuide(o));
+        return prev.filter(id => remaining.some(o => (o as any).printZone === id));
+      });
+    });
     fc.on('selection:created', (e: any) => setSelectedObj(e.selected?.[0] || null));
     fc.on('selection:updated', (e: any) => setSelectedObj(e.selected?.[0] || null));
     fc.on('selection:cleared', () => setSelectedObj(null));
@@ -542,14 +549,10 @@ export default function Designer() {
     if (!tmpl?.layouts?.length) return;
     const sideLayouts = tmpl.layouts.filter((l: PrintLayout) => l.side === activeSide);
     if (sideLayouts.length === 0) return;
-    // If active editing layout is not available on this side, switch to first
+    // Only switch the active editing layout — do NOT touch selectedLayoutIds (that would drop the other side's selection)
     const stillValid = sideLayouts.find((l: PrintLayout) => l.id === activeEditingLayoutId);
     if (!stillValid) {
       setActiveEditingLayoutId(sideLayouts[0].id);
-      setSelectedLayoutIds(prev => {
-        const valid = prev.filter(id => tmpl.layouts!.find((l: PrintLayout) => l.id === id));
-        return valid.length > 0 ? valid : [sideLayouts[0].id];
-      });
     }
   }, [activeProductType, activeSide, allTemplates]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -560,7 +563,8 @@ export default function Designer() {
     if (activeEditingLayoutId) return; // already set
     const frontLayouts = tmpl.layouts.filter((l: PrintLayout) => l.side === 'FRONT');
     const first = frontLayouts[0] ?? tmpl.layouts[0];
-    if (first) { setActiveEditingLayoutId(first.id); setSelectedLayoutIds([first.id]); }
+    // Set active editing layout but DON'T pre-select it for pricing — user must place a design first
+    if (first) { setActiveEditingLayoutId(first.id); setSelectedLayoutIds([]); }
   }, [activeProductType, allTemplates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Local price calculation ── */
@@ -568,11 +572,25 @@ export default function Designer() {
     const tmpl = allTemplates[activeProductType];
     let originalPrice: number;
 
-    if (tmpl?.layouts?.length && selectedLayoutIds.length > 0) {
-      // Layout mode: sum selected layout prices
-      const layoutTotal = selectedLayoutIds.reduce((sum, id) => {
-        const layout = tmpl.layouts!.find((l: PrintLayout) => l.id === id);
-        return sum + (layout?.price ?? 499);
+    if (tmpl?.layouts?.length) {
+      // Layout mode: only count layouts that actually have user objects on the canvas (current side)
+      // plus any other sides saved in sideStateRef
+      const allSideObjects: Array<{ printZone: string }> = [];
+      // Current canvas objects
+      const fc = fcRef.current;
+      if (fc) {
+        fc.getObjects().filter(o => !isGuide(o)).forEach(o => allSideObjects.push({ printZone: (o as any).printZone || '' }));
+      }
+      // Objects saved from other sides
+      Object.entries(sideStateRef.current).forEach(([, ss]) => {
+        if (ss.json) {
+          const objs: any[] = (ss.json as any).objects || [];
+          objs.filter(o => o.name == null || !String(o.name).startsWith('__')).forEach(o => allSideObjects.push({ printZone: o.printZone || '' }));
+        }
+      });
+      const layoutTotal = tmpl.layouts!.reduce((sum: number, layout: PrintLayout) => {
+        const hasContent = allSideObjects.some(o => o.printZone === layout.id);
+        return sum + (hasContent ? (layout?.price ?? 499) : 0);
       }, 0);
       originalPrice = layoutTotal * quantity;
     } else {
@@ -589,7 +607,7 @@ export default function Designer() {
     const productBase = (tmpl?.basePrice || 0) * quantity;
     const finalPrice = Math.round((originalPrice + productBase) * (1 - discount / 100));
     setPrice({ originalPrice: originalPrice + productBase, finalPrice, discountPercent: discount });
-  }, [selectedSides, quantity, activePrintSize, pocketPrintEnabled, activeProductType, allTemplates, selectedLayoutIds]);
+  }, [selectedSides, quantity, activePrintSize, pocketPrintEnabled, activeProductType, allTemplates, layerList]); // layerList changes when objects are added/removed → re-evaluate price
 
   /* ── Actions ── */
   const handleAddText = useCallback(() => {
@@ -613,6 +631,10 @@ export default function Designer() {
     (text as any).layerName = activeLayout ? `${activeLayout.name} Text` : (editingPocket ? 'Pocket Text' : 'Text');
     (text as any).printZone = zone;
     fc.add(text); fc.setActiveObject(text); fc.renderAll();
+    // Auto-add this layout to selectedLayoutIds so it's priced
+    if (isLayoutMode && activeEditingLayoutId) {
+      setSelectedLayoutIds(prev => prev.includes(activeEditingLayoutId) ? prev : [...prev, activeEditingLayoutId]);
+    }
   }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
 
   const handleAddImage = useCallback(async (file: File) => {
@@ -642,6 +664,10 @@ export default function Designer() {
         (fImg as any).layerName = activeLayout ? `${activeLayout.name} Image` : (editingPocket ? 'Pocket Image' : 'Image');
         (fImg as any).printZone = zone;
         fc.add(fImg); fc.setActiveObject(fImg); fc.renderAll();
+        // Auto-add this layout to selectedLayoutIds so it's priced
+        if (isLayoutMode && activeEditingLayoutId) {
+          setSelectedLayoutIds(prev => prev.includes(activeEditingLayoutId) ? prev : [...prev, activeEditingLayoutId]);
+        }
       };
       imgEl.src = reader.result as string;
     };
