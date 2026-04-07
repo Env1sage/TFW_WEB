@@ -84,6 +84,21 @@ export default function Home() {
                 alt="Premium Custom T-Shirt"
                 className="hero-img-main"
               />
+              <img
+                src="https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=300&q=80"
+                alt="Custom Hoodie"
+                className="hero-img-float hero-img-float-1"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=300&q=80"
+                alt="Custom Mug"
+                className="hero-img-float hero-img-float-2"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1579762715118-a6f1d4b934f1?w=300&q=80"
+                alt="Custom Poster Print"
+                className="hero-img-float hero-img-float-3"
+              />
               <div className="hero-badge hero-badge-1">
                 <CheckCircle size={16} className="badge-icon" />
                 300 DPI Quality Print

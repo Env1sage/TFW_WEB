@@ -614,6 +614,14 @@ html.dark .footer { background: #0A0C10; }
 }
 .hero-img-placeholder svg { color: var(--primary); opacity: 0.6; }
 .hero-img-placeholder span { font-size: 0.85rem; font-weight: 500; }
+.hero-img-float {
+  position: absolute; width: 110px; aspect-ratio: 1/1; object-fit: cover;
+  border-radius: var(--radius-xl); box-shadow: var(--clay-shadow);
+  border: 3px solid var(--surface);
+}
+.hero-img-float-1 { top: -1.2rem; right: -1.5rem; }
+.hero-img-float-2 { bottom: 3rem; right: -2rem; width: 90px; }
+.hero-img-float-3 { top: 40%; left: -1.8rem; width: 80px; opacity: 0.9; }
 .hero-badge {
   position: absolute; display: flex; align-items: center; gap: 0.6rem;
   background: var(--surface); border: none;

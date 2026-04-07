@@ -529,6 +529,7 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
         shippingCost,
         shippingAddress: order.shippingAddress,
         createdAt: order.createdAt,
+        designImages: order.designImages || {},
       };
 
       if (groupOrderId) {

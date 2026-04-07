@@ -129,7 +129,7 @@ function orderItemCards(items: any[]) {
              style="display:block;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb;" />
          </td>`
       : `<td width="80" valign="top" style="padding:0 12px 0 0;">
-           <div style="width:64px;height:64px;border-radius:8px;background:#f0fdf4;border:1px solid #e5e7eb;text-align:center;line-height:64px;font-size:24px;">👕</div>
+           <div style="width:64px;height:64px;border-radius:8px;background:#f0fdf4;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9ca3af;font-weight:600;text-align:center;">IMG</div>
          </td>`;
 
     const variantParts = [size ? `${size}` : '', colorName !== '-' ? colorName : ''].filter(Boolean).join(' / ');
@@ -161,11 +161,24 @@ function designOrderCard(d: DesignOrderEmailData) {
   const variantParts = [d.printSize ? d.printSize : '', colorStr ? colorStr : '', d.sides?.length ? d.sides.join('+') : ''].filter(Boolean).join(' / ');
   const productLabel = d.productType ? d.productType.charAt(0).toUpperCase() + d.productType.slice(1) : 'Custom Product';
 
+  const firstDesignImg = d.designImages
+    ? Object.values(d.designImages).find(v => v && !v.startsWith('data:'))
+    : '';
+  const productTypeLower = (d.productType || '').toLowerCase();
+  const mockupUrl = (productTypeLower.includes('tshirt') || productTypeLower.includes('t-shirt') || productTypeLower.includes('t_shirt'))
+    ? `${BASE_URL}/mockups/tshirt-front.png`
+    : '';
+  const imgSrc = firstDesignImg ? absoluteImageUrl(firstDesignImg) : mockupUrl;
+  const designImgCell = imgSrc
+    ? `<img src="${imgSrc}" width="64" height="64" alt="Product Preview"
+         style="display:block;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb;" />`
+    : `<div style="width:64px;height:64px;border-radius:8px;background:#f5f3ff;border:1px solid #ddd6fe;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9ca3af;font-weight:600;">CUSTOM</div>`;
+
   return `
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
     <tr>
       <td width="80" valign="top" style="padding:0 12px 0 0;">
-        <div style="width:64px;height:64px;border-radius:8px;background:#f5f3ff;border:1px solid #ddd6fe;text-align:center;line-height:64px;font-size:24px;">🎨</div>
+        ${designImgCell}
       </td>
       <td valign="top" style="padding:0;">
         <div style="font-size:14px;font-weight:600;color:#111;line-height:1.4;">Custom ${productLabel}</div>
@@ -237,7 +250,7 @@ function baseLayout(title: string, body: string) {
         <!-- Header -->
         <tr>
           <td class="email-header" style="background:linear-gradient(135deg,#0E7C61 0%,#0a5e49 100%);padding:28px 32px;border-radius:14px 14px 0 0;text-align:center;">
-            <h1 style="margin:0;color:#fff;font-size:26px;font-weight:800;letter-spacing:-.5px;">TheFramedWall</h1>
+            <img src="${BASE_URL}/logo.svg" alt="TheFramedWall" height="44" style="display:block;margin:0 auto 8px;" />
             <p style="margin:5px 0 0;color:rgba(255,255,255,0.75);font-size:13px;letter-spacing:.5px;">CUSTOM PRINT STUDIO</p>
           </td>
         </tr>
@@ -278,7 +291,7 @@ interface OrderEmailData {
 
 export async function sendOrderConfirmation(data: OrderEmailData) {
   const body = `
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}! 🎉</h2>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}!</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your order has been confirmed and we're getting it ready.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -327,7 +340,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
       <tr><td style="padding-top:16px;">
-        <p style="color:#9ca3af;margin:0;font-size:12px;">🚚 Estimated delivery: <strong>3–5 business days</strong> across India.</p>
+        <p style="color:#9ca3af;margin:0;font-size:12px;">Estimated delivery: <strong>3–5 business days</strong> across India.</p>
         <p style="color:#9ca3af;margin:8px 0 0;font-size:12px;">Need help? <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a></p>
       </td></tr>
     </table>`;
@@ -341,7 +354,7 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
   if (!ADMIN_EMAIL) return;
 
   const body = `
-    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order Received 🛒</h2>
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order Received</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A new order has been placed.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
@@ -371,7 +384,7 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🛒 New Order — #${data.orderId.slice(0,8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
+  await sendMail(ADMIN_EMAIL, `New Order — #${data.orderId.slice(0,8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
 }
 
 // ─── Design Order Emails ──────────────────────────────
@@ -392,6 +405,7 @@ interface DesignOrderEmailData {
   shippingAddress: string;
   paymentMethod?: string;
   createdAt: string;
+  designImages?: Record<string, string>;
 }
 
 export async function sendDesignOrderConfirmation(data: DesignOrderEmailData) {
@@ -399,7 +413,7 @@ export async function sendDesignOrderConfirmation(data: DesignOrderEmailData) {
   const grandTotal = data.unitPrice * data.quantity + shipping;
 
   const body = `
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}! 🎨</h2>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}!</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your custom design order is confirmed and being prepared.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -448,7 +462,7 @@ export async function sendDesignOrderConfirmation(data: DesignOrderEmailData) {
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
       <tr><td style="padding-top:16px;">
-        <p style="color:#9ca3af;margin:0;font-size:12px;">🚚 Estimated delivery: <strong>5–7 business days</strong> for custom prints.</p>
+        <p style="color:#9ca3af;margin:0;font-size:12px;">Estimated delivery: <strong>5–7 business days</strong> for custom prints.</p>
         <p style="color:#9ca3af;margin:8px 0 0;font-size:12px;">Need help? <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a></p>
       </td></tr>
     </table>`;
@@ -462,7 +476,7 @@ export async function sendAdminDesignOrderNotification(data: DesignOrderEmailDat
   const grandTotal = data.unitPrice * data.quantity + shipping;
 
   const body = `
-    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Design Order 🎨</h2>
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Design Order</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A custom design order needs your attention.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
@@ -492,7 +506,7 @@ export async function sendAdminDesignOrderNotification(data: DesignOrderEmailDat
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🎨 New Design Order — #${data.orderId.slice(0,8).toUpperCase()} — ${formatCurrency(grandTotal)}`, baseLayout('New Design Order', body));
+  await sendMail(ADMIN_EMAIL, `New Design Order — #${data.orderId.slice(0,8).toUpperCase()} — ${formatCurrency(grandTotal)}`, baseLayout('New Design Order', body));
 }
 
 // ─── Combined Order (product + custom design in same checkout) ──────────────
@@ -521,7 +535,7 @@ export async function sendCombinedOrderConfirmation(data: CombinedOrderEmailData
   ].join('');
 
   const body = `
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}! 🎉</h2>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}!</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your order has been confirmed. We'll prepare everything together.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -570,7 +584,7 @@ export async function sendCombinedOrderConfirmation(data: CombinedOrderEmailData
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e5e7eb;">
       <tr><td style="padding-top:16px;">
-        <p style="color:#9ca3af;margin:0;font-size:12px;">🚚 Estimated delivery: <strong>5–7 business days</strong> for custom items.</p>
+        <p style="color:#9ca3af;margin:0;font-size:12px;">Estimated delivery: <strong>5–7 business days</strong> for custom items.</p>
         <p style="color:#9ca3af;margin:8px 0 0;font-size:12px;">Need help? <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a></p>
       </td></tr>
     </table>`;
@@ -587,7 +601,7 @@ export async function sendAdminCombinedOrderNotification(data: CombinedOrderEmai
   ].join('');
 
   const body = `
-    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order 🛒🎨</h2>
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 20px;">A customer ordered products + a custom design in one checkout.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
@@ -617,18 +631,18 @@ export async function sendAdminCombinedOrderNotification(data: CombinedOrderEmai
       </td></tr>
     </table>`;
 
-  await sendMail(ADMIN_EMAIL, `🛒🎨 New Order — #${data.productOrderId.slice(0,8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
+  await sendMail(ADMIN_EMAIL, `New Order — #${data.productOrderId.slice(0,8).toUpperCase()} — ${formatCurrency(data.total)}`, baseLayout('New Order', body));
 }
 
 // ─── Delivery Status Update ───────────────────────────
 
-const STATUS_CONFIG: Record<string, { emoji: string; title: string; subtitle: string; color: string; bgColor: string; borderColor: string }> = {
-  confirmed:        { emoji: '✅', title: 'Order Confirmed!',           subtitle: "Your order has been confirmed and we're preparing it.",   color: '#0E7C61', bgColor: '#f0fdf4', borderColor: '#bbf7d0' },
-  processing:       { emoji: '⚙️', title: 'Order Being Processed',      subtitle: 'Your order is being picked and packed by our team.',       color: '#0284c7', bgColor: '#f0f9ff', borderColor: '#bae6fd' },
-  shipped:          { emoji: '🚚', title: 'Order Shipped!',             subtitle: 'Your order is on its way! Track it with the details below.', color: '#7c3aed', bgColor: '#faf5ff', borderColor: '#ddd6fe' },
-  out_for_delivery: { emoji: '📦', title: 'Out for Delivery!',          subtitle: 'Your order is with the delivery agent and arriving today!',  color: '#d97706', bgColor: '#fffbeb', borderColor: '#fde68a' },
-  delivered:        { emoji: '🎉', title: 'Order Delivered!',           subtitle: 'Your order has been delivered. Enjoy your purchase!',       color: '#0E7C61', bgColor: '#f0fdf4', borderColor: '#bbf7d0' },
-  cancelled:        { emoji: '❌', title: 'Order Cancelled',            subtitle: 'Your order has been cancelled. If this was unexpected, please contact us.', color: '#dc2626', bgColor: '#fef2f2', borderColor: '#fecaca' },
+const STATUS_CONFIG: Record<string, { title: string; subtitle: string; color: string; bgColor: string; borderColor: string }> = {
+  confirmed:        { title: 'Order Confirmed!',           subtitle: "Your order has been confirmed and we're preparing it.",   color: '#0E7C61', bgColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  processing:       { title: 'Order Being Processed',      subtitle: 'Your order is being picked and packed by our team.',       color: '#0284c7', bgColor: '#f0f9ff', borderColor: '#bae6fd' },
+  shipped:          { title: 'Order Shipped!',             subtitle: 'Your order is on its way! Track it with the details below.', color: '#7c3aed', bgColor: '#faf5ff', borderColor: '#ddd6fe' },
+  out_for_delivery: { title: 'Out for Delivery!',          subtitle: 'Your order is with the delivery agent and arriving today!',  color: '#d97706', bgColor: '#fffbeb', borderColor: '#fde68a' },
+  delivered:        { title: 'Order Delivered!',           subtitle: 'Your order has been delivered. Enjoy your purchase!',       color: '#0E7C61', bgColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  cancelled:        { title: 'Order Cancelled',            subtitle: 'Your order has been cancelled. If this was unexpected, please contact us.', color: '#dc2626', bgColor: '#fef2f2', borderColor: '#fecaca' },
 };
 
 interface OrderStatusEmailData {
@@ -656,17 +670,17 @@ export async function sendOrderStatusUpdate(data: OrderStatusEmailData) {
     </table>` : '';
 
   const itemsSection = data.items?.length ? `
-    <h3 style="color:#1a1a1a;margin:20px 0 10px;font-size:15px;">📦 Your Items</h3>
+    <h3 style="color:#1a1a1a;margin:20px 0 10px;font-size:15px;">Your Items</h3>
     ${orderItemCards(data.items)}` : '';
 
   const body = `
-    <h2 style="color:#1a1a1a;margin:0 0 6px;font-size:22px;">${cfg.emoji} ${cfg.title}</h2>
+    <h2 style="color:#1a1a1a;margin:0 0 6px;font-size:22px;">${cfg.title}</h2>
     <p style="color:#555;margin:0 0 24px;font-size:15px;">Hi <strong>${data.customerName}</strong>, ${cfg.subtitle}</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:${cfg.bgColor};border:1px solid ${cfg.borderColor};border-radius:10px;margin-bottom:20px;">
       <tr><td style="padding:16px 18px;">
         <p style="margin:0;font-size:14px;"><strong>Order ID:</strong> <span style="color:#555;">${data.orderId}</span></p>
-        <p style="margin:6px 0 0;font-size:15px;"><strong>Status:</strong> <span style="color:${cfg.color};font-weight:700;">${cfg.emoji} ${cfg.title.replace('!', '')}</span></p>
+        <p style="margin:6px 0 0;font-size:15px;"><strong>Status:</strong> <span style="color:${cfg.color};font-weight:700;">${cfg.title.replace('!', '')}</span></p>
         ${data.total ? `<p style="margin:6px 0 0;font-size:14px;"><strong>Order Total:</strong> ${formatCurrency(data.total)}</p>` : ''}
       </td></tr>
     </table>
@@ -681,11 +695,11 @@ export async function sendOrderStatusUpdate(data: OrderStatusEmailData) {
     </table>`;
 
   const subjects: Record<string, string> = {
-    confirmed:        `Order Confirmed ✓ — #${data.orderId.slice(0,8).toUpperCase()}`,
+    confirmed:        `Order Confirmed — #${data.orderId.slice(0,8).toUpperCase()}`,
     processing:       `Your Order is Being Prepared — #${data.orderId.slice(0,8).toUpperCase()}`,
-    shipped:          `📦 Your Order is Shipped — #${data.orderId.slice(0,8).toUpperCase()}`,
-    out_for_delivery: `🚚 Out for Delivery Today — #${data.orderId.slice(0,8).toUpperCase()}`,
-    delivered:        `🎉 Delivered! — #${data.orderId.slice(0,8).toUpperCase()}`,
+    shipped:          `Your Order is Shipped — #${data.orderId.slice(0,8).toUpperCase()}`,
+    out_for_delivery: `Out for Delivery Today — #${data.orderId.slice(0,8).toUpperCase()}`,
+    delivered:        `Delivered! — #${data.orderId.slice(0,8).toUpperCase()}`,
     cancelled:        `Order Cancelled — #${data.orderId.slice(0,8).toUpperCase()}`,
   };
 
@@ -694,7 +708,7 @@ export async function sendOrderStatusUpdate(data: OrderStatusEmailData) {
 
 export async function sendNewsletterWelcome(email: string) {
   const body = `
-    <h2 style="color:#1a1a1a;margin:0 0 8px;">You're subscribed! 🎉</h2>
+    <h2 style="color:#1a1a1a;margin:0 0 8px;">You're subscribed!</h2>
     <p style="color:#666;margin:0 0 24px;">Thank you for subscribing to TheFramedWall updates. You'll be the first to hear about new products, exclusive deals, and design inspiration.</p>
 
     <div style="background:#f0faf7;border-radius:8px;padding:24px;margin-bottom:24px;text-align:center;">
@@ -703,7 +717,7 @@ export async function sendNewsletterWelcome(email: string) {
       <a href="${process.env.CLIENT_URL || 'https://theframedwall.com'}/design-studio" style="display:inline-block;background:#0E7C61;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Start Designing</a>
     </div>`;
 
-  await sendMail(email, '🎨 Welcome to TheFramedWall — You\'re subscribed!', baseLayout('Welcome!', body));
+  await sendMail(email, 'Welcome to TheFramedWall — You\'re subscribed!', baseLayout('Welcome!', body));
 }
 
 export async function sendAdminNewsletterNotification(email: string) {
@@ -711,5 +725,5 @@ export async function sendAdminNewsletterNotification(email: string) {
   const body = `
     <h2 style="color:#1a1a1a;margin:0 0 8px;">New Newsletter Subscriber</h2>
     <p style="color:#444;font-size:15px;margin:0;"><strong>${email}</strong> has subscribed to the newsletter.</p>`;
-  await sendMail(ADMIN_EMAIL, `📧 New Subscriber: ${email}`, baseLayout('New Subscriber', body));
+  await sendMail(ADMIN_EMAIL, `New Subscriber: ${email}`, baseLayout('New Subscriber', body));
 }
