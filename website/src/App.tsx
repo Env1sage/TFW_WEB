@@ -38,6 +38,7 @@ import DesignStudioCart from './pages/DesignStudioCart';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 import OrderTracking from './pages/OrderTracking';
+import GoogleCallback from './pages/GoogleCallback';
 
 function AppContent() {
   const location = useLocation();
@@ -84,6 +85,7 @@ function AppContent() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/2fa-verify" element={<TwoFactorVerify />} />
+              <Route path="/auth/google/callback" element={<GoogleCallback />} />
               <Route path="/2fa-setup" element={<ProtectedRoute><TwoFactorSetup /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

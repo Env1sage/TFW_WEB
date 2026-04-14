@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { v4 as uuid } from 'uuid';
 import * as db from '../database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import crypto from 'crypto';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -180,6 +181,107 @@ router.put('/me', authMiddleware, async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Update failed' });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const APP_URL = process.env.APP_URL || 'https://theframedwall.com';
+const GOOGLE_REDIRECT_URI = `${APP_URL}/api/auth/google/callback`;
+
+// Initiates Google OAuth flow
+router.get('/google', (req: Request, res: Response) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.status(503).json({ error: 'Google sign-in is not configured' });
+  }
+  const state = crypto.randomBytes(16).toString('hex');
+  const stateSigned = jwt.sign({ state }, JWT_SECRET!, { expiresIn: '10m' });
+  res.cookie('oauth_state', stateSigned, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+    path: '/',
+  });
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: GOOGLE_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// Handles Google OAuth callback
+router.get('/google/callback', async (req: Request, res: Response) => {
+  const CLIENT_ORIGIN = process.env.CLIENT_URL || 'https://theframedwall.com';
+  try {
+    const { code, state, error } = req.query as Record<string, string>;
+
+    if (error || !code) {
+      return res.redirect(`${CLIENT_ORIGIN}/auth/google/callback?error=${encodeURIComponent(error || 'access_denied')}`);
+    }
+
+    // Verify CSRF state
+    const stateCookie = (req as any).cookies?.oauth_state;
+    if (!stateCookie) throw new Error('State cookie missing');
+    const decoded = jwt.verify(stateCookie, JWT_SECRET!) as any;
+    if (decoded.state !== state) throw new Error('State mismatch');
+    res.clearCookie('oauth_state', { path: '/' });
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) throw new Error('OAuth not configured');
+
+    // Exchange auth code for access token
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }),
+    });
+    if (!tokenRes.ok) throw new Error('Token exchange failed');
+    const tokens = await tokenRes.json() as any;
+
+    // Fetch user profile from Google
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    if (!profileRes.ok) throw new Error('Profile fetch failed');
+    const profile = await profileRes.json() as any;
+
+    const { sub: googleId, email, name, picture } = profile;
+    if (!googleId || !email) throw new Error('Incomplete profile from Google');
+
+    // Find or create user
+    let user = await db.findUserByGoogleId(googleId);
+    if (!user) {
+      // Check if an account with this email already exists — link it
+      const existing = await db.findUserByEmail(email);
+      if (existing) {
+        await db.updateUser(existing.id, { googleId, avatar: existing.avatar || picture });
+        user = await db.findUserById(existing.id);
+      } else {
+        const newId = uuid();
+        await db.addUser({ id: newId, name, email, password: null, role: 'user', twoFactorEnabled: false, googleId, avatar: picture });
+        user = await db.findUserById(newId);
+      }
+    }
+    if (!user) throw new Error('User creation failed');
+
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET!, { expiresIn: '7d' });
+    res.redirect(`${CLIENT_ORIGIN}/auth/google/callback?token=${token}`);
+  } catch (e: any) {
+    console.error('Google OAuth error:', e.message);
+    res.redirect(`${CLIENT_ORIGIN}/auth/google/callback?error=oauth_failed`);
   }
 });
 
