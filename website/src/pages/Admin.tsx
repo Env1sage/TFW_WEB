@@ -1933,150 +1933,146 @@ export default function Admin() {
                   <button className="icon-btn" onClick={closeProductForm}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSaveProduct} className="modal-body">
-                  <div className="form-section-divider"><span>Basic Info</span></div>
-                  <div className="form-row">
-                    <div className="form-group"><label>Name</label><input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} required /></div>
-                    <div className="form-group">
-                      <label>Category</label>
-                      <select
-                        value={(productForm as any).categoryId || ''}
-                        onChange={e => {
-                          const cat = categories.find(c => c.id === e.target.value);
-                          setProductForm({ ...productForm, category: cat?.name || '', ...(cat ? { categoryId: cat.id } : { categoryId: '' }) } as any);
-                        }}
-                        required
-                      >
-                        <option value="">— Select category —</option>
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+
+                  {/* ── Basic Info ── */}
+                  <div className="pf-section">
+                    <div className="pf-section-title">Basic Info</div>
+                    <div className="form-row">
+                      <div className="form-group"><label>Product Name *</label><input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} placeholder="e.g. Classic Polo T-Shirt" required /></div>
+                      <div className="form-group">
+                        <label>Category *</label>
+                        <select value={(productForm as any).categoryId || ''} onChange={e => { const cat = categories.find(c => c.id === e.target.value); setProductForm({ ...productForm, category: cat?.name || '', ...(cat ? { categoryId: cat.id } : { categoryId: '' }) } as any); }} required>
+                          <option value="">— Select category —</option>
+                          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                  <div className="form-group"><label>Description</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} rows={3} /></div>
-                  <div className="form-row">
-                    <div className="form-group"><label>Price (₹)</label><input type="number" step="0.01" min="0" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: +e.target.value })} required /></div>
-                    <div className="form-group">
-                      <label>Design Image (your artwork / print)</label>
-                      <div className="image-input-group">
-                        <input type="text" value={productForm.image} onChange={e => setProductForm({ ...productForm, image: e.target.value })} placeholder="Upload the design artwork →" />
-                        <label className="btn btn-ghost upload-btn" title="Upload image">
-                          {uploadingField === 'productImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
-                          <input type="file" accept="image/png,image/jpeg,image/webp" hidden
-                            onChange={e => { const f = e.target.files?.[0]; if (f) handleProductImageUpload(f); e.target.value = ''; }} />
+                    <div className="form-row">
+                      <div className="form-group"><label>Price (₹) *</label><input type="number" step="0.01" min="0" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: +e.target.value })} required /></div>
+                      <div className="form-group">
+                        <label className="pf-row-label">
+                          <span>Flags</span>
                         </label>
-                      </div>
-                      {productForm.image && <img src={productForm.image} alt="Design preview" className="form-preview" />}
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Product Images <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— additional photos shown in product gallery (not mockup-based)</span></label>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
-                      {(productForm.images || []).map((url, i) => (
-                        <div key={i} style={{ position: 'relative' }}>
-                          <img src={url} alt={`Product shot ${i + 1}`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
-                          <button type="button" onClick={() => setProductForm(f => ({ ...f, images: (f.images || []).filter((_, idx) => idx !== i) }))}
-                            style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, padding: 0 }}>×</button>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+                          <label className="checkbox-label"><input type="checkbox" checked={productForm.customizable} onChange={e => setProductForm({ ...productForm, customizable: e.target.checked })} /> Customizable</label>
+                          <label className="checkbox-label"><input type="checkbox" checked={productForm.featured} onChange={e => setProductForm({ ...productForm, featured: e.target.checked })} /> Featured</label>
                         </div>
-                      ))}
-                      <label className="btn btn-ghost upload-btn" style={{ height: 64, width: 64, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontSize: '.72rem', borderStyle: 'dashed' }} title="Add product image">
-                        {uploadingField === 'productExtraImage' ? <div className="spinner-sm" /> : <><Upload size={16} /><span>Add</span></>}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleProductExtraImageUpload(f); e.target.value = ''; }} />
-                      </label>
+                      </div>
+                    </div>
+                    <div className="form-group"><label>Description</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} rows={2} placeholder="Short product description shown to customers…" /></div>
+                  </div>
+
+                  {/* ── Images ── */}
+                  <div className="pf-section">
+                    <div className="pf-section-title">Images</div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Design Artwork *</label>
+                        <div className="image-input-group">
+                          <input type="text" value={productForm.image} onChange={e => setProductForm({ ...productForm, image: e.target.value })} placeholder="Paste URL or upload →" />
+                          <label className="btn btn-ghost upload-btn" title="Upload image">
+                            {uploadingField === 'productImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
+                            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleProductImageUpload(f); e.target.value = ''; }} />
+                          </label>
+                        </div>
+                        {productForm.image && <img src={productForm.image} alt="Design preview" className="form-preview" />}
+                      </div>
+                      <div className="form-group">
+                        <label>Gallery Photos <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— optional extra shots</span></label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          {(productForm.images || []).map((url, i) => (
+                            <div key={i} style={{ position: 'relative' }}>
+                              <img src={url} alt={`Shot ${i + 1}`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                              <button type="button" onClick={() => setProductForm(f => ({ ...f, images: (f.images || []).filter((_, idx) => idx !== i) }))}
+                                style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', border: 'none', borderRadius: '50%', width: 16, height: 16, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, padding: 0 }}>×</button>
+                            </div>
+                          ))}
+                          <label className="btn btn-ghost upload-btn" style={{ height: 56, width: 56, flexDirection: 'column', gap: 2, fontSize: '.7rem', borderStyle: 'dashed' }} title="Add photo">
+                            {uploadingField === 'productExtraImage' ? <div className="spinner-sm" /> : <><Upload size={14} /><span>Add</span></>}
+                            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleProductExtraImageUpload(f); e.target.value = ''; }} />
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="form-group" style={{ display: 'none' }}>
-                    <label>Display Mockup <span style={{ fontSize: '0.72rem', color: '#666' }}>(your design will be shown on this mockup to customers)</span></label>
-                    <select
-                      value={(productForm as any).mockupId || ''}
-                      onChange={e => setProductForm({ ...productForm, mockupId: e.target.value || undefined } as any)}
-                    >
-                      <option value="">— No mockup (show flat image) —</option>
-                      {mockups.filter(m => m.active).map(m => (
-                        <option key={m.id} value={m.id}>{m.name} ({m.category})</option>
-                      ))}
+
+                  {/* ── Stock & Shipping (hidden mockup field kept) ── */}
+                  <div style={{ display: 'none' }}>
+                    <select value={(productForm as any).mockupId || ''} onChange={e => setProductForm({ ...productForm, mockupId: e.target.value || undefined } as any)}>
+                      <option value="">— No mockup —</option>
+                      {mockups.filter(m => m.active).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
-                    {(productForm as any).mockupId && (() => {
-                      const selectedMockup = mockups.find(m => m.id === (productForm as any).mockupId);
-                      return selectedMockup ? (
-                        <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'flex-start' }}>
-                          <img src={selectedMockup.frontImage} alt="Mockup" style={{ width: 80, height: 100, objectFit: 'contain', borderRadius: 6, background: '#f1f5f9', border: '1px solid var(--border)' }} />
-                          <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>Customers will see your design composited onto this mockup template.</p>
-                        </div>
-                      ) : null;
-                    })()}
                   </div>
-                  <div className="form-section-divider"><span>Stock &amp; Shipping</span></div>
-                  <div className="form-row">
-                    <div className="form-group"><label>Stock</label><input type="number" min="0" value={productForm.stock ?? 100} onChange={e => setProductForm({ ...productForm, stock: +e.target.value })} /></div>
-                    <div className="form-group"><label>Rating (0-5)</label><input type="number" step="0.1" min="0" max="5" value={productForm.rating ?? 4.5} onChange={e => setProductForm({ ...productForm, rating: +e.target.value })} /></div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Weight <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— grams (for Shiprocket)</span></label>
-                      <input type="number" min="1" value={(productForm as any).weightGrams ?? 200} onChange={e => setProductForm({ ...productForm, weightGrams: +e.target.value } as any)} placeholder="e.g. 200" />
+                  <div className="pf-section">
+                    <div className="pf-section-title">Stock &amp; Shipping</div>
+                    <div className="form-row">
+                      <div className="form-group"><label>Stock</label><input type="number" min="0" value={productForm.stock ?? 100} onChange={e => setProductForm({ ...productForm, stock: +e.target.value })} /></div>
+                      <div className="form-group"><label>Rating (0–5)</label><input type="number" step="0.1" min="0" max="5" value={productForm.rating ?? 4.5} onChange={e => setProductForm({ ...productForm, rating: +e.target.value })} /></div>
                     </div>
-                    <div className="form-group">
-                      <label>Dimensions L × B × H <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— cm</span></label>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <input type="number" min="1" value={(productForm as any).lengthCm ?? 30} onChange={e => setProductForm({ ...productForm, lengthCm: +e.target.value } as any)} placeholder="L" style={{ flex: 1 }} />
-                        <input type="number" min="1" value={(productForm as any).breadthCm ?? 20} onChange={e => setProductForm({ ...productForm, breadthCm: +e.target.value } as any)} placeholder="B" style={{ flex: 1 }} />
-                        <input type="number" min="1" value={(productForm as any).heightCm ?? 5} onChange={e => setProductForm({ ...productForm, heightCm: +e.target.value } as any)} placeholder="H" style={{ flex: 1 }} />
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Weight <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>grams</span></label>
+                        <input type="number" min="1" value={(productForm as any).weightGrams ?? 200} onChange={e => setProductForm({ ...productForm, weightGrams: +e.target.value } as any)} placeholder="200" />
+                      </div>
+                      <div className="form-group">
+                        <label>Dimensions L × B × H <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>cm</span></label>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input type="number" min="1" value={(productForm as any).lengthCm ?? 30} onChange={e => setProductForm({ ...productForm, lengthCm: +e.target.value } as any)} placeholder="L" style={{ flex: 1 }} />
+                          <input type="number" min="1" value={(productForm as any).breadthCm ?? 20} onChange={e => setProductForm({ ...productForm, breadthCm: +e.target.value } as any)} placeholder="B" style={{ flex: 1 }} />
+                          <input type="number" min="1" value={(productForm as any).heightCm ?? 5} onChange={e => setProductForm({ ...productForm, heightCm: +e.target.value } as any)} placeholder="H" style={{ flex: 1 }} />
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="form-section-divider"><span>Options</span></div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Sizes <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— separate with commas</span></label>
-                      <input type="text" value={(productForm.sizes || []).join(', ')} onChange={e => setProductForm({ ...productForm, sizes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="e.g. XS, S, M, L, XL, XXL" />
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-                        {['XS','S','M','L','XL','XXL'].map(sz => (
-                          <button key={sz} type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: '.74rem', minHeight: 'unset', background: (productForm.sizes||[]).includes(sz) ? 'var(--primary)' : undefined, color: (productForm.sizes||[]).includes(sz) ? '#fff' : undefined }}
-                            onClick={() => setProductForm(f => ({ ...f, sizes: (f.sizes||[]).includes(sz) ? (f.sizes||[]).filter(s=>s!==sz) : [...(f.sizes||[]), sz] }))}>
-                            {sz}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="form-group">
-                      <label>Colors</label>
-                      {globalColors.length > 0 ? (
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                          {globalColors.map(gc => {
-                            const selected = (productForm.colors||[]).includes(gc.hex);
-                            return (
-                              <button key={gc.hex} type="button" title={`${gc.name} (${gc.hex})`}
-                                style={{ width: 30, height: 30, borderRadius: '50%', background: gc.hex, border: selected ? '3px solid var(--primary)' : '2px solid rgba(0,0,0,.18)', cursor: 'pointer', outline: selected ? '2px solid var(--primary)' : 'none', outlineOffset: 2, transition: 'all .15s', flexShrink: 0 }}
-                                onClick={() => setProductForm(f => ({ ...f, colors: selected ? (f.colors||[]).filter(c => c !== gc.hex) : [...(f.colors||[]), gc.hex] }))}
-                              />
-                            );
-                          })}
+
+                  {/* ── Options ── */}
+                  <div className="pf-section">
+                    <div className="pf-section-title">Options</div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Sizes</label>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                          {['XS','S','M','L','XL','XXL'].map(sz => (
+                            <button key={sz} type="button" className="btn btn-ghost" style={{ padding: '4px 12px', fontSize: '.8rem', minHeight: 'unset', background: (productForm.sizes||[]).includes(sz) ? 'var(--primary)' : undefined, color: (productForm.sizes||[]).includes(sz) ? '#fff' : undefined, borderRadius: 20 }}
+                              onClick={() => setProductForm(f => ({ ...f, sizes: (f.sizes||[]).includes(sz) ? (f.sizes||[]).filter(s=>s!==sz) : [...(f.sizes||[]), sz] }))}>
+                              {sz}
+                            </button>
+                          ))}
                         </div>
-                      ) : (
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-3)', margin: '0 0 6px' }}>
-                          No palette colours yet. <button type="button" onClick={() => { closeProductForm(); setTab('colors'); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, padding: 0, fontSize: '0.8rem' }}>Add colours in Colors tab →</button>
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-                        {(productForm.colors || []).map((hex, i) => (
-                          <span key={i} title={`${hex} — click to remove`} style={{ width: 22, height: 22, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.15)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
-                            onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter((_,idx)=>idx!==i) }))} />
-                        ))}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <input type="color" value={colorPickerValue} style={{ width: 26, height: 26, padding: 2, border: '1.5px solid var(--border)', borderRadius: '50%', cursor: 'pointer' }}
-                            title="Pick custom colour" onChange={e => setColorPickerValue(e.target.value)} />
-                          <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: '.74rem', minHeight: 'unset' }}
+                        <input type="text" value={(productForm.sizes || []).join(', ')} onChange={e => setProductForm({ ...productForm, sizes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="or type custom sizes…" style={{ marginTop: 8 }} />
+                      </div>
+                      <div className="form-group">
+                        <label>Colors</label>
+                        {globalColors.length > 0 ? (
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2, marginBottom: 6 }}>
+                            {globalColors.map(gc => {
+                              const selected = (productForm.colors||[]).includes(gc.hex);
+                              return (
+                                <button key={gc.hex} type="button" title={`${gc.name} (${gc.hex})`}
+                                  style={{ width: 32, height: 32, borderRadius: '50%', background: gc.hex, border: selected ? '3px solid var(--primary)' : '2px solid rgba(0,0,0,.18)', cursor: 'pointer', outline: selected ? '2px solid var(--primary)' : 'none', outlineOffset: 2, transition: 'all .15s', flexShrink: 0 }}
+                                  onClick={() => setProductForm(f => ({ ...f, colors: selected ? (f.colors||[]).filter(c => c !== gc.hex) : [...(f.colors||[]), gc.hex] }))}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-3)', margin: '4px 0 6px' }}>
+                            No palette yet. <button type="button" onClick={() => { closeProductForm(); setTab('colors'); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, padding: 0, fontSize: '0.8rem' }}>Build palette →</button>
+                          </p>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          {(productForm.colors || []).map((hex, i) => (
+                            <span key={i} title={`${hex} — click to remove`} style={{ width: 24, height: 24, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.18)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
+                              onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter((_,idx)=>idx!==i) }))} />
+                          ))}
+                          <input type="color" value={colorPickerValue} style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid var(--border)', cursor: 'pointer', padding: 2 }} title="Custom colour" onChange={e => setColorPickerValue(e.target.value)} />
+                          <button type="button" className="btn btn-ghost" style={{ padding: '3px 10px', fontSize: '.76rem', minHeight: 'unset', borderRadius: 20 }}
                             onClick={() => { if (colorPickerValue && !(productForm.colors||[]).includes(colorPickerValue)) setProductForm(f => ({ ...f, colors: [...(f.colors||[]), colorPickerValue] })); }}>
                             + Custom
                           </button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="form-row checkboxes">
-                    <label className="checkbox-label"><input type="checkbox" checked={productForm.customizable} onChange={e => setProductForm({ ...productForm, customizable: e.target.checked })} /> Customizable</label>
-                    <label className="checkbox-label"><input type="checkbox" checked={productForm.featured} onChange={e => setProductForm({ ...productForm, featured: e.target.checked })} /> Featured</label>
                   </div>
                   <div className="modal-actions">
                     <button type="button" className="btn btn-ghost" onClick={closeProductForm}>Cancel</button>
