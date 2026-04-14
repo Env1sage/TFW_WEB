@@ -142,14 +142,6 @@ export default function Admin() {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [colorPickerValue, setColorPickerValue] = useState('#ff0000');
 
-  // Shipping zones
-  interface ShippingZone { id: string; name: string; label: string; pinPatterns: string[]; shippingCharge: number; freeAbove: number; sortOrder: number; active: boolean; createdAt: string; }
-  const [shippingZones, setShippingZones] = useState<ShippingZone[]>([]);
-  const [showShippingZoneForm, setShowShippingZoneForm] = useState(false);
-  const [editingShippingZone, setEditingShippingZone] = useState<ShippingZone | null>(null);
-  const [shippingZoneForm, setShippingZoneForm] = useState<Partial<ShippingZone>>({});
-  const [savingShippingZone, setSavingShippingZone] = useState(false);
-
   // Print area editor
   const [paeDraft, setPaeDraft] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(null);
