@@ -218,6 +218,29 @@ export async function initDB() {
       ALTER TABLE website_mockups ADD COLUMN IF NOT EXISTS back_print_price NUMERIC(10,2) NOT NULL DEFAULT 0;
     `);
 
+    // Add weight and dimensions to products
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS weight_grams INT NOT NULL DEFAULT 200;
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS length_cm INT NOT NULL DEFAULT 30;
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS breadth_cm INT NOT NULL DEFAULT 20;
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS height_cm INT NOT NULL DEFAULT 5;
+    `);
+
+    // Shipping zones table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_shipping_zones (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        label TEXT NOT NULL,
+        pin_patterns JSONB NOT NULL DEFAULT '[]',
+        shipping_charge NUMERIC(10,2) NOT NULL DEFAULT 49,
+        free_above NUMERIC(10,2) NOT NULL DEFAULT 999,
+        sort_order INT NOT NULL DEFAULT 0,
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     // Ensure unique constraints exist on categories (safe to run repeatedly)
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug ON website_categories(slug);
@@ -251,6 +274,21 @@ export async function initDB() {
 
     // Always seed mockup categories (ON CONFLICT DO NOTHING is safe)
     await seedMockupCategories(client);
+
+    // Seed default shipping zones if none exist
+    const zoneCheck = await client.query(`SELECT COUNT(*) as cnt FROM website_shipping_zones`);
+    if (parseInt(zoneCheck.rows[0].cnt) === 0) {
+      await client.query(
+        `INSERT INTO website_shipping_zones (id, name, label, pin_patterns, shipping_charge, free_above, sort_order, active, created_at) VALUES
+         ($1, $2, $3, $4, $5, $6, $7, $8, NOW()),
+         ($9, $10, $11, $12, $13, $14, $15, $16, NOW())`,
+        [
+          uuidv4(), 'pune_local', 'Pune & PCMC', JSON.stringify(['411', '412']), 29, 499, 1, true,
+          uuidv4(), 'india_rest', 'Rest of India (Courier)', JSON.stringify([]), 79, 999, 2, true,
+        ]
+      );
+      console.log('Seeded default shipping zones');
+    }
 
     // Seed products if empty
     const prodCheck = await client.query(`SELECT COUNT(*) as cnt FROM website_products`);
@@ -395,6 +433,7 @@ export interface DBProduct {
   image: string; images: string[]; customizable: boolean; colors: string[];
   sizes: string[]; stock: number; rating: number; reviewCount: number;
   featured: boolean; createdAt: string;
+  weightGrams: number; lengthCm: number; breadthCm: number; heightCm: number;
   mockup?: { id: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea: any };
 }
 
@@ -409,6 +448,8 @@ function rowToProduct(row: any): DBProduct {
     colors: row.colors || [], sizes: row.sizes || [],
     stock: row.stock, rating: parseFloat(row.rating), reviewCount: row.review_count,
     featured: row.featured, createdAt: row.created_at,
+    weightGrams: row.weight_grams || 200, lengthCm: row.length_cm || 30,
+    breadthCm: row.breadth_cm || 20, heightCm: row.height_cm || 5,
   };
   // Attach mockup data if joined
   if (row.m_id) {
@@ -541,9 +582,9 @@ export async function deleteMockupCategory(id: string) {
 
 export async function addProduct(p: any): Promise<DBProduct> {
   const { rows } = await pool.query(
-    `INSERT INTO website_products (id, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW()) RETURNING *`,
-    [p.id, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false]
+    `INSERT INTO website_products (id, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,NOW()) RETURNING *`,
+    [p.id, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5]
   );
   return rowToProduct(rows[0]);
 }
@@ -554,6 +595,7 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
     categoryId: 'category_id', mockupId: 'mockup_id',
     image: 'image', customizable: 'customizable', stock: 'stock',
     rating: 'rating', reviewCount: 'review_count', featured: 'featured',
+    weightGrams: 'weight_grams', lengthCm: 'length_cm', breadthCm: 'breadth_cm', heightCm: 'height_cm',
   };
   const jsonFields = ['images', 'colors', 'sizes'];
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
@@ -571,6 +613,62 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
 
 export async function deleteProduct(id: string) {
   await pool.query(`DELETE FROM website_products WHERE id = $1`, [id]);
+}
+
+/* ── Shipping Zone queries ── */
+export interface DBShippingZone {
+  id: string; name: string; label: string;
+  pinPatterns: string[];
+  shippingCharge: number; freeAbove: number;
+  sortOrder: number; active: boolean; createdAt: string;
+}
+
+function rowToShippingZone(row: any): DBShippingZone {
+  return {
+    id: row.id, name: row.name, label: row.label,
+    pinPatterns: row.pin_patterns || [],
+    shippingCharge: parseFloat(row.shipping_charge),
+    freeAbove: parseFloat(row.free_above),
+    sortOrder: row.sort_order,
+    active: row.active,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getShippingZones(): Promise<DBShippingZone[]> {
+  const { rows } = await pool.query(`SELECT * FROM website_shipping_zones ORDER BY sort_order ASC`);
+  return rows.map(rowToShippingZone);
+}
+
+export async function addShippingZone(z: Omit<DBShippingZone, 'createdAt'>): Promise<DBShippingZone> {
+  const { rows } = await pool.query(
+    `INSERT INTO website_shipping_zones (id, name, label, pin_patterns, shipping_charge, free_above, sort_order, active, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *`,
+    [z.id, z.name, z.label, JSON.stringify(z.pinPatterns), z.shippingCharge, z.freeAbove, z.sortOrder, z.active]
+  );
+  return rowToShippingZone(rows[0]);
+}
+
+export async function updateShippingZone(id: string, patch: Partial<Omit<DBShippingZone, 'id' | 'createdAt'>>): Promise<DBShippingZone | null> {
+  const fieldMap: Record<string, string> = {
+    name: 'name', label: 'label', shippingCharge: 'shipping_charge',
+    freeAbove: 'free_above', sortOrder: 'sort_order', active: 'active',
+  };
+  const sets: string[] = []; const vals: any[] = []; let idx = 1;
+  for (const [key, col] of Object.entries(fieldMap)) {
+    if (key in patch) { sets.push(`${col} = $${idx}`); vals.push((patch as any)[key]); idx++; }
+  }
+  if ('pinPatterns' in patch) { sets.push(`pin_patterns = $${idx}`); vals.push(JSON.stringify(patch.pinPatterns)); idx++; }
+  if (sets.length === 0) return null;
+  vals.push(id);
+  const { rows } = await pool.query(
+    `UPDATE website_shipping_zones SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals
+  );
+  return rows.length ? rowToShippingZone(rows[0]) : null;
+}
+
+export async function deleteShippingZone(id: string) {
+  await pool.query(`DELETE FROM website_shipping_zones WHERE id = $1`, [id]);
 }
 
 /* ── Order queries ── */

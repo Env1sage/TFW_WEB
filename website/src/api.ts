@@ -217,4 +217,14 @@ export const api = {
   // Newsletter
   subscribeNewsletter: (email: string) =>
     request<{ success: boolean }>('/products/newsletter/subscribe', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  // Shipping Zones (admin)
+  getShippingZones: () => request<any[]>('/products/shipping-zones'),
+  createShippingZone: (data: any) => request<any>('/products/shipping-zones', { method: 'POST', body: JSON.stringify(data) }),
+  updateShippingZone: (id: string, data: any) => request<any>(`/products/shipping-zones/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteShippingZone: (id: string) => request<any>(`/products/shipping-zones/${id}`, { method: 'DELETE' }),
+
+  // Shipping estimate (public)
+  getShippingEstimate: (pinCode: string, subtotal: number) =>
+    request<{ cost: number; zone: string }>('/products/shipping-estimate', { method: 'POST', body: JSON.stringify({ pinCode, subtotal }) }),
 };

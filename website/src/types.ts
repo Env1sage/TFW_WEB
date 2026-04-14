@@ -35,6 +35,10 @@ export interface Product {
   createdAt: string;
   mockupId?: string;
   mockup?: ProductMockup;
+  weightGrams?: number;
+  lengthCm?: number;
+  breadthCm?: number;
+  heightCm?: number;
 }
 
 export interface CartItem {

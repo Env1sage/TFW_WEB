@@ -35,8 +35,9 @@ interface MockupCategory {
 }
 
 const defaultProduct: Partial<Product> = {
-  name: '', description: '', price: 0, category: '', image: '', customizable: true,
+  name: '', description: '', price: 0, category: '', image: '', images: [], customizable: true,
   featured: false, colors: ['#000000', '#ffffff', '#6366f1'], sizes: ['S', 'M', 'L', 'XL'], rating: 4.5, reviewCount: 0,
+  weightGrams: 200, lengthCm: 30, breadthCm: 20, heightCm: 5,
 };
 
 const defaultMockup: Partial<Mockup> = {
@@ -125,12 +126,29 @@ export default function Admin() {
   const [productForm, setProductForm] = useState(defaultProduct);
   const [savingProduct, setSavingProduct] = useState(false);
 
+  // Shipping zones
+  interface ShippingZone { id: string; name: string; label: string; pinPatterns: string[]; shippingCharge: number; freeAbove: number; sortOrder: number; active: boolean; createdAt: string; }
+  const [shippingZones, setShippingZones] = useState<ShippingZone[]>([]);
+  const [showShippingZoneForm, setShowShippingZoneForm] = useState(false);
+  const [editingShippingZone, setEditingShippingZone] = useState<ShippingZone | null>(null);
+  const [shippingZoneForm, setShippingZoneForm] = useState<Partial<ShippingZone>>({});
+  const [savingShippingZone, setSavingShippingZone] = useState(false);
+
   // Mockup form
   const [showMockupForm, setShowMockupForm] = useState(false);
   const [editingMockup, setEditingMockup] = useState<Mockup | null>(null);
   const [mockupForm, setMockupForm] = useState(defaultMockup);
   const [savingMockup, setSavingMockup] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [colorPickerValue, setColorPickerValue] = useState('#ff0000');
+
+  // Shipping zones
+  interface ShippingZone { id: string; name: string; label: string; pinPatterns: string[]; shippingCharge: number; freeAbove: number; sortOrder: number; active: boolean; createdAt: string; }
+  const [shippingZones, setShippingZones] = useState<ShippingZone[]>([]);
+  const [showShippingZoneForm, setShowShippingZoneForm] = useState(false);
+  const [editingShippingZone, setEditingShippingZone] = useState<ShippingZone | null>(null);
+  const [shippingZoneForm, setShippingZoneForm] = useState<Partial<ShippingZone>>({});
+  const [savingShippingZone, setSavingShippingZone] = useState(false);
 
   // Print area editor
   const [paeDraft, setPaeDraft] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -191,10 +209,10 @@ export default function Admin() {
   const load = async () => {
     setLoading(true);
     try {
-      const [p, o, a, m, d, cats, mockupCats, coup] = await Promise.all([
-        api.getProducts(), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(), api.getCoupons(),
+      const [p, o, a, m, d, cats, mockupCats, coup, zones] = await Promise.all([
+        api.getProducts(), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(), api.getCoupons(), api.getShippingZones(),
       ]);
-      setProducts(p); setOrders(o); setAnalytics(a); setMockups(m); setDesignOrders(d); setCategories(cats); setMockupCategories(mockupCats); setCoupons(coup);
+      setProducts(p); setOrders(o); setAnalytics(a); setMockups(m); setDesignOrders(d); setCategories(cats); setMockupCategories(mockupCats); setCoupons(coup); setShippingZones(zones);
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   };
@@ -328,6 +346,47 @@ export default function Admin() {
     } finally {
       setUploadingField(null);
     }
+  };
+
+  // Extra product image upload (appends to images[])
+  const handleProductExtraImageUpload = async (file: File) => {
+    setUploadingField('productExtraImage');
+    try {
+      const { url } = await api.uploadProductImage(file);
+      setProductForm(prev => ({ ...prev, images: [...(prev.images || []), url] }));
+      toast.success('Image added!');
+    } catch (e: any) {
+      toast.error(e.message || 'Upload failed');
+    } finally {
+      setUploadingField(null);
+    }
+  };
+
+  // Shipping zone handlers
+  const openNewShippingZone = () => { setEditingShippingZone(null); setShippingZoneForm({ label: '', pinPatterns: [], shippingCharge: 49, freeAbove: 999, sortOrder: 0, active: true }); setShowShippingZoneForm(true); };
+  const openEditShippingZone = (z: ShippingZone) => { setEditingShippingZone(z); setShippingZoneForm({ ...z, pinPatterns: [...z.pinPatterns] }); setShowShippingZoneForm(true); };
+  const handleSaveShippingZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shippingZoneForm.label?.trim()) return toast.error('Label is required');
+    setSavingShippingZone(true);
+    try {
+      if (editingShippingZone) {
+        const updated = await api.updateShippingZone(editingShippingZone.id, shippingZoneForm);
+        setShippingZones(prev => prev.map(z => z.id === editingShippingZone.id ? updated : z));
+        toast.success('Zone updated');
+      } else {
+        const created = await api.createShippingZone(shippingZoneForm);
+        setShippingZones(prev => [...prev, created]);
+        toast.success('Zone created');
+      }
+      setShowShippingZoneForm(false);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setSavingShippingZone(false); }
+  };
+  const handleDeleteShippingZone = async (id: string) => {
+    if (!confirm('Delete this shipping zone?')) return;
+    try { await api.deleteShippingZone(id); setShippingZones(prev => prev.filter(z => z.id !== id)); toast.success('Zone deleted'); }
+    catch (e: any) { toast.error(e.message); }
   };
 
   // Mockup CRUD
@@ -1696,8 +1755,7 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Orders without Shiprocket push */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
+            {/* Orders without Shiprocket push */}            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
               <h3 style={{ margin: '0 0 12px', fontSize: '1rem' }}>Orders missing Shiprocket push</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
                 Orders below have no Shiprocket order ID (auto-push failed or wasn't triggered). Click "Push" to retry.
@@ -1728,6 +1786,43 @@ export default function Admin() {
                       <button className="btn btn-sm btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handlePushToShiprocket(o.id, true)} disabled={srPushingFor === o.id}>
                         <Truck size={13} /> {srPushingFor === o.id ? 'Pushing…' : 'Push'}
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Shipping Zones Section */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, marginTop: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <IndianRupee size={16} /> Shipping Zones &amp; Charges
+                </h3>
+                <button className="btn btn-primary btn-sm" onClick={openNewShippingZone} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Plus size={14} /> Add Zone
+                </button>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
+                Zones are matched by pin code prefix. Specific zones (with pin patterns) are checked first; the catch-all zone handles the rest.
+              </p>
+              {shippingZones.length === 0 ? (
+                <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>No zones configured yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {shippingZones.map(z => (
+                    <div key={z.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-2)', borderRadius: 8, border: `1px solid ${z.active ? 'var(--border)' : '#fca5a5'}` }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{z.label}</span>
+                        {z.pinPatterns.length > 0 && <span style={{ marginLeft: 8, fontSize: '0.78rem', color: 'var(--text-2)' }}>Pin prefixes: {z.pinPatterns.join(', ')}</span>}
+                        {z.pinPatterns.length === 0 && <span style={{ marginLeft: 8, fontSize: '0.78rem', color: 'var(--text-3)' }}>(catch-all)</span>}
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-2)', marginTop: 2 }}>
+                          ₹{z.shippingCharge} shipping · Free above ₹{z.freeAbove} · {z.active ? '✅ Active' : '❌ Inactive'}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEditShippingZone(z)}><Edit3 size={14} /></button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDeleteShippingZone(z.id)}><Trash2 size={14} /></button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1820,6 +1915,22 @@ export default function Admin() {
                     </div>
                   </div>
                   <div className="form-group">
+                    <label>Product Images <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— additional photos shown in product gallery (not mockup-based)</span></label>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
+                      {(productForm.images || []).map((url, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={url} alt={`Product shot ${i + 1}`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                          <button type="button" onClick={() => setProductForm(f => ({ ...f, images: (f.images || []).filter((_, idx) => idx !== i) }))}
+                            style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, padding: 0 }}>×</button>
+                        </div>
+                      ))}
+                      <label className="btn btn-ghost upload-btn" style={{ height: 64, width: 64, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontSize: '.72rem', borderStyle: 'dashed' }} title="Add product image">
+                        {uploadingField === 'productExtraImage' ? <div className="spinner-sm" /> : <><Upload size={16} /><span>Add</span></>}
+                        <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleProductExtraImageUpload(f); e.target.value = ''; }} />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="form-group">
                     <label>Display Mockup <span style={{ fontSize: '0.72rem', color: '#666' }}>(your design will be shown on this mockup to customers)</span></label>
                     <select
                       value={(productForm as any).mockupId || ''}
@@ -1846,6 +1957,20 @@ export default function Admin() {
                   </div>
                   <div className="form-row">
                     <div className="form-group">
+                      <label>Weight <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— grams (for Shiprocket)</span></label>
+                      <input type="number" min="1" value={(productForm as any).weightGrams ?? 200} onChange={e => setProductForm({ ...productForm, weightGrams: +e.target.value } as any)} placeholder="e.g. 200" />
+                    </div>
+                    <div className="form-group">
+                      <label>Dimensions L × B × H <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— cm</span></label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input type="number" min="1" value={(productForm as any).lengthCm ?? 30} onChange={e => setProductForm({ ...productForm, lengthCm: +e.target.value } as any)} placeholder="L" style={{ flex: 1 }} />
+                        <input type="number" min="1" value={(productForm as any).breadthCm ?? 20} onChange={e => setProductForm({ ...productForm, breadthCm: +e.target.value } as any)} placeholder="B" style={{ flex: 1 }} />
+                        <input type="number" min="1" value={(productForm as any).heightCm ?? 5} onChange={e => setProductForm({ ...productForm, heightCm: +e.target.value } as any)} placeholder="H" style={{ flex: 1 }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
                       <label>Sizes <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— separate with commas</span></label>
                       <input type="text" value={(productForm.sizes || []).join(', ')} onChange={e => setProductForm({ ...productForm, sizes: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="e.g. XS, S, M, L, XL, XXL" />
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
@@ -1862,12 +1987,17 @@ export default function Admin() {
                       <input type="text" value={(productForm.colors || []).join(', ')} onChange={e => setProductForm({ ...productForm, colors: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="e.g. #ffffff, #1a1a1a, #c0392b" />
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
                         {(productForm.colors || []).map((hex, i) => (
-                          <span key={i} title={hex} style={{ width: 22, height: 22, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.15)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
+                          <span key={i} title={`${hex} — click to remove`} style={{ width: 22, height: 22, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.15)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
                             onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter((_,idx)=>idx!==i) }))} />
                         ))}
-                        <input type="color" style={{ width: 26, height: 26, padding: 2, border: '1.5px solid var(--border)', borderRadius: '50%', cursor: 'pointer', background: 'transparent' }}
-                          title="Pick a color to add"
-                          onChange={e => { const hex = e.target.value; if (hex && !(productForm.colors||[]).includes(hex)) setProductForm(f => ({ ...f, colors: [...(f.colors||[]), hex] })); }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input type="color" value={colorPickerValue} style={{ width: 26, height: 26, padding: 2, border: '1.5px solid var(--border)', borderRadius: '50%', cursor: 'pointer' }}
+                            title="Pick color" onChange={e => setColorPickerValue(e.target.value)} />
+                          <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: '.74rem', minHeight: 'unset' }}
+                            onClick={() => { if (colorPickerValue && !(productForm.colors||[]).includes(colorPickerValue)) setProductForm(f => ({ ...f, colors: [...(f.colors||[]), colorPickerValue] })); }}>
+                            + Add
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2152,6 +2282,58 @@ export default function Admin() {
                     <button type="button" className="btn btn-ghost" onClick={closeMockupForm}>Cancel</button>
                     <button type="submit" className="btn btn-primary" disabled={savingMockup}>
                       {savingMockup ? <div className="spinner-sm" /> : <><Save size={16} /> {editingMockup ? 'Update' : 'Create'}</>}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Shipping Zone Form Modal */}
+        <AnimatePresence>
+          {showShippingZoneForm && (
+            <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowShippingZoneForm(false)}>
+              <motion.div className="modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2>{editingShippingZone ? 'Edit Shipping Zone' : 'Add Shipping Zone'}</h2>
+                  <button className="icon-btn" onClick={() => setShowShippingZoneForm(false)}><X size={20} /></button>
+                </div>
+                <form onSubmit={handleSaveShippingZone} className="modal-body">
+                  <div className="form-group">
+                    <label>Zone Label *</label>
+                    <input type="text" value={shippingZoneForm.label || ''} onChange={e => setShippingZoneForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Pune &amp; PCMC" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Pin Code Prefixes <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— comma-separated (leave empty for catch-all)</span></label>
+                    <input type="text" value={(shippingZoneForm.pinPatterns || []).join(', ')}
+                      onChange={e => setShippingZoneForm(f => ({ ...f, pinPatterns: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                      placeholder="e.g. 411, 412, 413" />
+                    <p style={{ fontSize: '.78rem', color: 'var(--text-3)', margin: '4px 0 0' }}>Pune city: 411 · PCMC/Pimpri: 411018, 411019 · Leave blank to match all other pins.</p>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Shipping Charge (₹)</label>
+                      <input type="number" min="0" step="1" value={shippingZoneForm.shippingCharge ?? 49} onChange={e => setShippingZoneForm(f => ({ ...f, shippingCharge: +e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Free Shipping Above (₹)</label>
+                      <input type="number" min="0" step="1" value={shippingZoneForm.freeAbove ?? 999} onChange={e => setShippingZoneForm(f => ({ ...f, freeAbove: +e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Sort Order</label>
+                      <input type="number" min="0" value={shippingZoneForm.sortOrder ?? 0} onChange={e => setShippingZoneForm(f => ({ ...f, sortOrder: +e.target.value }))} />
+                    </div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: 24 }}>
+                      <label className="checkbox-label"><input type="checkbox" checked={shippingZoneForm.active ?? true} onChange={e => setShippingZoneForm(f => ({ ...f, active: e.target.checked }))} /> Active</label>
+                    </div>
+                  </div>
+                  <div className="modal-actions">
+                    <button type="button" className="btn btn-ghost" onClick={() => setShowShippingZoneForm(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={savingShippingZone}>
+                      {savingShippingZone ? <div className="spinner-sm" /> : <><Save size={16} /> {editingShippingZone ? 'Update' : 'Create'}</>}
                     </button>
                   </div>
                 </form>

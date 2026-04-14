@@ -36,6 +36,7 @@ export default function Products() {
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
 
   const category = searchParams.get('category') || 'all';
@@ -79,7 +80,17 @@ export default function Products() {
           <p>{search ? `Results for "${search}"` : 'Discover and customize your perfect products'}</p>
         </motion.div>
 
-        <div className="products-toolbar">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <button
+            className="btn btn-outline btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+            onClick={() => setShowFilters(v => !v)}
+          >
+            <Filter size={14} /> {showFilters ? 'Hide Filters' : 'Filters & Sort'}
+          </button>
+          <span className="product-count">{products.length} product{products.length !== 1 ? 's' : ''}</span>
+        </div>
+        {showFilters && <div className="products-toolbar">
           <div className="filter-group">
             <Filter size={16} />
             <select value={category} onChange={e => setParam('category', e.target.value)}>
@@ -120,8 +131,7 @@ export default function Products() {
             <button className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')}><Grid3X3 size={18} /></button>
             <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}><LayoutList size={18} /></button>
           </div>
-          <span className="product-count">{products.length} product{products.length !== 1 ? 's' : ''}</span>
-        </div>
+        </div>}
 
         {/* Category pill buttons */}
         {categories.length > 0 && (

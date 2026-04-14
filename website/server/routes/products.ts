@@ -206,7 +206,14 @@ async function autoShiprocketPush(
           })),
           payment_method: 'Prepaid',
           sub_total: order.total,
-          length: 30, breadth: 20, height: 5, weight: 0.5,
+          ...await (async () => {
+            let w = 0; let l = 30; let b = 20; let h = 5;
+            for (const item of order.items || []) {
+              const p = await db.getProductById(item.productId).catch(() => null);
+              if (p) { w += (p.weightGrams / 1000) * (item.quantity || 1); l = Math.max(l, p.lengthCm); b = Math.max(b, p.breadthCm); h = Math.max(h, p.heightCm); }
+            }
+            return { weight: w || 0.5, length: l, breadth: b, height: h };
+          })(),
         };
 
     const srResponse = await shiprocketRequest('POST', '/orders/create/adhoc', srPayload);
@@ -324,6 +331,88 @@ router.post('/upload', authMiddleware, requireRole('admin', 'product_manager'), 
     const url = `/uploads/products/${req.file.filename}`;
     res.json({ url });
   });
+});
+
+// ─── Shipping Zones ───────────────────────────────────────────────
+/** Calculate shipping cost for an order based on pin code and subtotal */
+async function calculateShipping(shippingAddress: string, subtotal: number): Promise<number> {
+  const pinMatch = shippingAddress.match(/\b(\d{6})\b/);
+  const pin = pinMatch ? pinMatch[1] : '';
+  try {
+    const zones = await db.getShippingZones();
+    const sorted = [...zones].sort((a, b) => {
+      // Zones with patterns first (more specific), then catch-all
+      if (a.pinPatterns.length > 0 && b.pinPatterns.length === 0) return -1;
+      if (a.pinPatterns.length === 0 && b.pinPatterns.length > 0) return 1;
+      return a.sortOrder - b.sortOrder;
+    });
+    for (const zone of sorted) {
+      if (!zone.active) continue;
+      const matches = zone.pinPatterns.length === 0 || (pin && zone.pinPatterns.some(p => pin.startsWith(p)));
+      if (matches) return subtotal >= zone.freeAbove ? 0 : zone.shippingCharge;
+    }
+  } catch { /* fall through to default */ }
+  return subtotal >= 999 ? 0 : 49;
+}
+
+// Get shipping zones (public)
+router.get('/shipping-zones', async (_req: Request, res: Response) => {
+  try { res.json(await db.getShippingZones()); } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Create shipping zone (admin)
+router.post('/shipping-zones', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
+  try {
+    const { name, label, pinPatterns, shippingCharge, freeAbove, sortOrder, active } = req.body;
+    if (!label?.trim()) return res.status(400).json({ error: 'Label is required' });
+    const zone = await db.addShippingZone({
+      id: uuid(), name: name || label, label: label.trim(),
+      pinPatterns: Array.isArray(pinPatterns) ? pinPatterns : [],
+      shippingCharge: Number(shippingCharge) || 49,
+      freeAbove: Number(freeAbove) || 999,
+      sortOrder: Number(sortOrder) || 0,
+      active: active ?? true,
+    });
+    res.status(201).json(zone);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Update shipping zone (admin)
+router.put('/shipping-zones/:id', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
+  try {
+    const patch: any = {};
+    const { label, pinPatterns, shippingCharge, freeAbove, sortOrder, active } = req.body;
+    if (label !== undefined) patch.label = label;
+    if (pinPatterns !== undefined) patch.pinPatterns = Array.isArray(pinPatterns) ? pinPatterns : [];
+    if (shippingCharge !== undefined) patch.shippingCharge = Number(shippingCharge);
+    if (freeAbove !== undefined) patch.freeAbove = Number(freeAbove);
+    if (sortOrder !== undefined) patch.sortOrder = Number(sortOrder);
+    if (active !== undefined) patch.active = Boolean(active);
+    const updated = await db.updateShippingZone(String(req.params.id), patch);
+    if (!updated) return res.status(404).json({ error: 'Zone not found' });
+    res.json(updated);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Delete shipping zone (admin)
+router.delete('/shipping-zones/:id', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
+  try { await db.deleteShippingZone(String(req.params.id)); res.json({ success: true }); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Estimate shipping cost (public)
+router.post('/shipping-estimate', async (req: Request, res: Response) => {
+  try {
+    const { pinCode, subtotal } = req.body;
+    const address = pinCode ? `${pinCode}` : '';
+    const cost = await calculateShipping(address, Number(subtotal) || 0);
+    // Also return zone info
+    const zones = await db.getShippingZones();
+    const pin = String(pinCode || '');
+    const sorted = [...zones].sort((a, b) => a.pinPatterns.length > 0 && b.pinPatterns.length === 0 ? -1 : a.pinPatterns.length === 0 && b.pinPatterns.length > 0 ? 1 : a.sortOrder - b.sortOrder);
+    const matchedZone = sorted.find(z => z.active && (z.pinPatterns.length === 0 || (pin && z.pinPatterns.some(p => pin.startsWith(p)))));
+    res.json({ cost, zone: matchedZone?.label || 'Standard' });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // Get categories (public) — returns full category objects with id/name/slug/tokenId
@@ -553,7 +642,7 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
 
     // Send emails (non-blocking)
     if (resolvedEmail) {
-      const shippingCost = order.total >= 999 ? 0 : 49;
+      const shippingCost = await calculateShipping(order.shippingAddress, order.total);
       const baseEmailData = {
         orderId: order.id,
         customerName: resolvedName,
@@ -583,7 +672,7 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
           const pairedSubtotal = pairedItems.reduce((s: number, i: any) => s + (i.price || 0), 0);
           const pairedDiscount = paired.discountAmount || 0;
           const combinedSubtotal = pairedSubtotal + order.unitPrice * order.quantity;
-          const combinedShipping = (combinedSubtotal - pairedDiscount) >= 999 ? 0 : 49;
+          const combinedShipping = await calculateShipping(order.shippingAddress, combinedSubtotal - pairedDiscount);
           const combinedTotal = combinedSubtotal - pairedDiscount + combinedShipping;
           const combinedData = {
             groupOrderId,
@@ -818,8 +907,9 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
     const user = await db.findUserById((req as any).userId);
     if (user) {
       // Calculate shipping the same way as the frontend
+    // Calculate shipping based on pin code / zone
       const rawSubtotal = total; // sum of item prices before discount
-      const shippingCost = (rawSubtotal - (discount)) >= 999 ? 0 : 49;
+      const shippingCost = await calculateShipping(shippingAddress, rawSubtotal - discount);
       const emailData = {
         orderId: order.id, customerName: user.name, customerEmail: user.email,
         items: orderItems, subtotal: rawSubtotal, shippingCost,
@@ -1426,7 +1516,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create product (admin only)
 router.post('/', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
-    const { name, description, price, category, categoryId, mockupId, image, customizable, colors, sizes, stock, featured } = req.body;
+    const { name, description, price, category, categoryId, mockupId, image, customizable, colors, sizes, stock, featured, weightGrams, lengthCm, breadthCm, heightCm } = req.body;
     if (!name || !price || !category) return res.status(400).json({ error: 'Name, price, and category required' });
 
     // Resolve category name from categoryId if provided
@@ -1448,7 +1538,7 @@ router.post('/', authMiddleware, requireRole('admin', 'product_manager'), async 
       categoryId: resolvedCategoryId,
       mockupId: mockupId || null,
       image: image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
-      images: [],
+      images: images || [],
       customizable: customizable ?? true,
       colors: colors || [],
       sizes: sizes || [],
@@ -1456,6 +1546,10 @@ router.post('/', authMiddleware, requireRole('admin', 'product_manager'), async 
       rating: 0,
       reviewCount: 0,
       featured: featured ?? false,
+      weightGrams: weightGrams ?? 200,
+      lengthCm: lengthCm ?? 30,
+      breadthCm: breadthCm ?? 20,
+      heightCm: heightCm ?? 5,
     });
     res.status(201).json(product);
   } catch (e: any) {

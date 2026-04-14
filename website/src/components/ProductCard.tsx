@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star, ShoppingCart, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Product } from '../types';
@@ -7,6 +7,7 @@ import MockupPreview from './MockupPreview';
 
 export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { addItem } = useCart();
+  const navigate = useNavigate();
 
   return (
     <motion.div
@@ -14,6 +15,8 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
+      onClick={() => navigate(`/products/${product.id}`)}
+      style={{ cursor: 'pointer' }}
     >
       <div className="product-card-image">
         <MockupPreview
@@ -31,11 +34,11 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             <button
               className="btn btn-primary"
               disabled={product.stock === 0}
-              onClick={(e) => { e.preventDefault(); if (product.stock > 0) addItem(product, { color: product.colors[0], size: product.sizes[0] }); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (product.stock > 0) addItem(product, { color: product.colors[0], size: product.sizes[0] }); }}
             >
               <ShoppingCart size={15} /> {product.stock === 0 ? 'Out of Stock' : 'Quick Add'}
             </button>
-            <Link to={`/products/${product.id}`} className="btn btn-outline-dark" style={{ textAlign: 'center' }}>
+            <Link to={`/products/${product.id}`} className="btn btn-outline-dark" style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
               <Eye size={15} /> View Details
             </Link>
           </div>
@@ -43,7 +46,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
       </div>
       <div className="product-card-body">
         <span className="product-category">{product.category}</span>
-        <Link to={`/products/${product.id}`}><h3 className="product-name">{product.name}</h3></Link>
+        <h3 className="product-name">{product.name}</h3>
         <div className="product-meta">
           <div className="product-rating">
             <Star size={14} fill="#f59e0b" stroke="#f59e0b" />

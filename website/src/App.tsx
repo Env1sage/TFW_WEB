@@ -1,9 +1,15 @@
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate, useEffect } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -45,6 +51,7 @@ function AppContent() {
 
   return (
     <>
+      <ScrollToTop />
       <Toaster position="top-right" toastOptions={{
         style: { borderRadius: '10px', background: '#1e293b', color: '#fff' },
       }} />
