@@ -114,7 +114,8 @@ export default function Payment() {
       amount:      rpOrder.amount,
       currency:    rpOrder.currency,
       name:        'TheFramedWall',
-      description: 'Order Payment',
+      description: 'Custom Print Studio',
+      image:       'https://theframedwall.com/favicon.svg',
       order_id:    rpOrder.orderId,
       handler: async (response: any) => {
         try {
