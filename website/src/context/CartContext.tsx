@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import type { CartItem, Product } from '../types';
 import toast from 'react-hot-toast';
 
+function genId() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+
 export interface DesignCartItem {
   id: string;           // unique client-side id (Date.now string)
   productType: string;
@@ -21,8 +23,8 @@ interface CartState {
   items: CartItem[];
   designItems: DesignCartItem[];
   addItem: (product: Product, opts?: { color?: string; size?: string; customText?: string }) => void;
-  removeItem: (productId: string, color?: string, size?: string) => void;
-  updateQuantity: (productId: string, qty: number, color?: string, size?: string) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, qty: number) => void;
   addDesignItem: (item: Omit<DesignCartItem, 'id'>) => void;
   removeDesignItem: (id: string) => void;
   updateDesignQuantity: (id: string, qty: number) => void;
@@ -68,28 +70,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         toast.success('Updated quantity in cart');
         return prev.map(i =>
-          i.product.id === product.id && i.color === opts?.color && i.size === opts?.size
+          i.cartItemId === existing.cartItemId
             ? { ...i, quantity: i.quantity + 1 }
             : i
         );
       }
       toast.success('Added to cart!');
-      return [...prev, { product, quantity: 1, ...opts }];
+      return [...prev, { cartItemId: genId(), product, quantity: 1, ...opts }];
     });
   }, []);
 
-  const removeItem = useCallback((productId: string, color?: string, size?: string) => {
-    setItems(prev => prev.filter(i =>
-      !(i.product.id === productId && i.color === color && i.size === size)
-    ));
+  const removeItem = useCallback((cartItemId: string) => {
+    setItems(prev => prev.filter(i => i.cartItemId !== cartItemId));
     toast.success('Removed from cart');
   }, []);
 
-  const updateQuantity = useCallback((productId: string, qty: number, color?: string, size?: string) => {
+  const updateQuantity = useCallback((cartItemId: string, qty: number) => {
     if (qty < 1) return;
     setItems(prev => prev.map(i =>
-      i.product.id === productId && i.color === color && i.size === size
-        ? { ...i, quantity: qty } : i
+      i.cartItemId === cartItemId ? { ...i, quantity: qty } : i
     ));
   }, []);
 

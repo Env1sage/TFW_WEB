@@ -42,6 +42,7 @@ export interface Product {
 }
 
 export interface CartItem {
+  cartItemId: string;  // unique per-entry id for reliable removal
   product: Product;
   quantity: number;
   color?: string;

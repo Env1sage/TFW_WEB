@@ -247,7 +247,7 @@ export default function Cart() {
               {/* Mini item list */}
               <div className="checkout-item-list">
                 {items.map(item => (
-                  <div key={`${item.product.id}|${item.color}|${item.size}`} className="checkout-mini-item">
+                  <div key={item.cartItemId} className="checkout-mini-item">
                     <img src={item.product.image} alt={item.product.name} />
                     <span className="checkout-mini-name">{item.product.name} ×{item.quantity}</span>
                     <span className="checkout-mini-price">₹{(item.product.price * item.quantity).toFixed(0)}</span>
@@ -308,7 +308,7 @@ export default function Cart() {
           <div className="cart-items">
             <AnimatePresence>
               {items.map(item => (
-                <motion.div key={`${item.product.id}|${item.color ?? ''}|${item.size ?? ''}`} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
+                <motion.div key={item.cartItemId} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
                   <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
                   <div className="cart-item-info">
                     <Link to={`/products/${item.product.id}`}><h3>{item.product.name}</h3></Link>
@@ -316,19 +316,19 @@ export default function Cart() {
                       {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' ? '1px solid var(--border)' : 'none' }} />}
                       {item.size && <span>{item.size}</span>}
                       {item.product.customizable && (
-                        <Link to="/design-studio" className="cart-customize-btn"><Palette size={12} /> Customise</Link>
+                        <Link to={item.product.mockupId ? `/design-studio/${item.product.id}` : '/design-studio'} className="cart-customize-btn"><Palette size={12} /> Customise</Link>
                       )}
                     </p>
                     <span className="cart-item-price">₹{item.product.price.toFixed(0)}</span>
                   </div>
                   <div className="cart-item-controls">
                     <div className="quantity-selector">
-                      <button onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.color, item.size)} disabled={item.quantity <= 1}><Minus size={14} /></button>
+                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)} disabled={item.quantity <= 1}><Minus size={14} /></button>
                       <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.color, item.size)}><Plus size={14} /></button>
+                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}><Plus size={14} /></button>
                     </div>
                     <span className="cart-item-total">₹{(item.product.price * item.quantity).toFixed(0)}</span>
-                    <button className="icon-btn danger" onClick={() => removeItem(item.product.id, item.color, item.size)}><Trash2 size={16} /></button>
+                    <button className="icon-btn danger" onClick={() => removeItem(item.cartItemId)}><Trash2 size={16} /></button>
                   </div>
                 </motion.div>
               ))}

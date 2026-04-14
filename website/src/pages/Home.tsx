@@ -66,7 +66,7 @@ export default function Home() {
               <Link to="/products" className="btn btn-primary btn-lg">
                 Shop Products <ArrowRight size={18} />
               </Link>
-              <Link to="/design-studio" className="btn btn-primary btn-lg">
+              <Link to="/design-studio" className="btn btn-outline-dark btn-lg">
                 <Palette size={18} /> Design Studio
               </Link>
             </div>

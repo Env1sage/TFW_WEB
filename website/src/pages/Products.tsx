@@ -58,7 +58,8 @@ export default function Products() {
     if (minPrice) params.minPrice = minPrice;
     if (maxPrice) params.maxPrice = maxPrice;
     api.getProducts(params).then(p => {
-      setProducts(p);
+      // Sort out-of-stock products to the bottom (A5)
+      setProducts(p.sort((a, b) => (a.stock === 0 ? 1 : 0) - (b.stock === 0 ? 1 : 0)));
       setError(null);
     }).catch((err) => {
       console.error('Failed to load products:', err);

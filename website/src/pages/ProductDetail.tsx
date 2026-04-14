@@ -175,6 +175,11 @@ export default function ProductDetail() {
               <button className="btn btn-primary btn-lg btn-block" onClick={handleAdd}>
                 <ShoppingCart size={18} /> Add to Cart — ₹{(product.price * quantity).toFixed(0)}
               </button>
+              {product.customizable && (
+                <Link to={`/design-studio/${product.id}`} className="btn btn-outline btn-lg btn-block" style={{ marginTop: 10 }}>
+                  <Palette size={18} /> Customize in Design Studio
+                </Link>
+              )}
             </div>
 
             <div className="product-badges">

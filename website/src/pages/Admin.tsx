@@ -2032,6 +2032,9 @@ export default function Admin() {
                   <div className="form-group">
                     <label>Base Product Price (₹) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— cost of the physical item, added to design fee in cart</span></label>
                     <input type="number" min="0" step="1" value={mockupForm.basePrice ?? 0} onChange={e => setMockupForm({ ...mockupForm, basePrice: parseFloat(e.target.value) || 0 })} placeholder="e.g. 499" />
+                    {(mockupForm.basePrice === 0 || !mockupForm.basePrice) && (
+                      <p style={{ color: 'var(--warning, #d97706)', fontSize: '0.8rem', marginTop: 4 }}>⚠️ Base price is 0 — customers will only pay the design fee, not the product cost</p>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Front Image * (PNG/JPG/WebP, max 10MB)</label>
