@@ -2419,8 +2419,8 @@ a.order-item-name:hover { color: var(--primary); }
   display: flex; gap: 0.25rem; padding: 0.5rem 1rem; border-top: 1px solid var(--border);
 }
 .form-preview {
-  width: 100%; max-height: 120px; object-fit: contain; margin-top: 0.5rem;
-  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+  width: 80px; height: 80px; object-fit: contain; margin-top: 0.5rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
 }
 .image-input-group {
   display: flex; gap: 0.5rem; align-items: stretch;
@@ -2434,6 +2434,13 @@ a.order-item-name:hover { color: var(--primary); }
   flex-shrink: 0;
 }
 .upload-btn input[type="file"] { display: none; }
+/* Round native color picker */
+input[type="color"] {
+  -webkit-appearance: none; appearance: none;
+  border-radius: 50%; overflow: hidden; cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
 /* ── Print Area Editor (tabbed with per-size pricing) ── */
 .pae-main-label { font-weight: 600; font-size: 0.9rem; color: var(--text); }

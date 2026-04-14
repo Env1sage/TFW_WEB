@@ -228,7 +228,7 @@ export default function Admin() {
 
   // Product CRUD
   const openNewProduct = () => { setEditingProduct(null); setProductForm({ ...defaultProduct }); setShowProductForm(true); };
-  const openEditProduct = (p: Product) => { setEditingProduct(p); setProductForm({ ...p }); setShowProductForm(true); };
+  const openEditProduct = (p: Product) => { setEditingProduct(p); setProductForm({ ...p, colors: [...new Set(p.colors || [])] }); setShowProductForm(true); };
   const closeProductForm = () => { setShowProductForm(false); setEditingProduct(null); };
   const saveGlobalColors = (cols: {name: string, hex: string}[]) => {
     setGlobalColors(cols); localStorage.setItem('tfw_global_colors', JSON.stringify(cols));
@@ -244,13 +244,15 @@ export default function Admin() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.name || !productForm.price || !productForm.category) { toast.error('Name, price & category are required'); return; }
+    // Deduplicate colors before saving
+    const cleanForm = { ...productForm, colors: [...new Set((productForm.colors || []).map(c => c.trim().toLowerCase()))] };
     setSavingProduct(true);
     try {
       if (editingProduct) {
-        await api.updateProduct(editingProduct.id, productForm);
+        await api.updateProduct(editingProduct.id, cleanForm);
         toast.success('Product updated');
       } else {
-        await api.createProduct(productForm as Omit<Product, 'id' | 'createdAt'>);
+        await api.createProduct(cleanForm as Omit<Product, 'id' | 'createdAt'>);
         toast.success('Product created');
       }
       closeProductForm(); load();
@@ -1886,16 +1888,24 @@ export default function Admin() {
               <h2 style={{ margin: '0 0 6px' }}>Colour Palette</h2>
               <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', margin: 0 }}>Define available colours. These appear as one-click swatches when adding or editing a product.</p>
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Colour</label>
-                <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} style={{ width: 48, height: 40, padding: 4, border: '1.5px solid var(--border)', borderRadius: 8, cursor: 'pointer' }} />
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 28 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)}
+                    style={{ width: 52, height: 52, padding: 3, border: '2px solid var(--border)', borderRadius: '50%', cursor: 'pointer', display: 'block' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>HEX</span>
+                  <input type="text" value={newColorHex} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setNewColorHex(e.target.value); }}
+                    style={{ width: 90, fontFamily: 'monospace', fontSize: '0.88rem' }} placeholder="#000000" />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>NAME</span>
+                  <input type="text" value={newColorName} onChange={e => setNewColorName(e.target.value)} placeholder="e.g. Jet Black"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGlobalColor(); } }} />
+                </div>
+                <button className="btn btn-primary" style={{ whiteSpace: 'nowrap', alignSelf: 'flex-end', marginBottom: 0 }} onClick={addGlobalColor} type="button">+ Add</button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Name</label>
-                <input type="text" value={newColorName} onChange={e => setNewColorName(e.target.value)} placeholder="e.g. Jet Black" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGlobalColor(); } }} />
-              </div>
-              <button className="btn btn-primary" style={{ whiteSpace: 'nowrap', alignSelf: 'flex-end' }} onClick={addGlobalColor} type="button">+ Add Colour</button>
             </div>
             {globalColors.length === 0 ? (
               <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>No colours added yet. Use the form above to build your palette.</p>

@@ -133,7 +133,7 @@ export default function ProductDetail() {
               <div className="option-group">
                 <label>Color</label>
                 <div className="color-options">
-                  {product.colors.map(c => (
+                  {[...new Set(product.colors)].map(c => (
                     <button
                       key={c}
                       className={`color-option ${selectedColor === c ? 'active' : ''}`}
