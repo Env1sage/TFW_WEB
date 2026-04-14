@@ -3227,15 +3227,18 @@ a.order-item-name:hover { color: var(--primary); }
    CATEGORY PILLS
    ================================================ */
 .category-pills {
-  display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;
+  display: flex; flex-wrap: nowrap; gap: 0.5rem; margin-bottom: 1.5rem;
+  overflow-x: auto; padding-bottom: 4px;
+  scrollbar-width: none;
 }
+.category-pills::-webkit-scrollbar { display: none; }
 .category-pill {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.45rem 1rem; border-radius: 999px;
   border: none; background: var(--surface);
   color: var(--text-secondary); font-size: 0.85rem; font-weight: 500;
   cursor: pointer; transition: all 0.2s ease;
-  box-shadow: var(--clay-shadow-sm);
+  box-shadow: var(--clay-shadow-sm); white-space: nowrap; flex-shrink: 0;
 }
 .category-pill:hover {
   color: var(--primary); box-shadow: var(--clay-shadow);
