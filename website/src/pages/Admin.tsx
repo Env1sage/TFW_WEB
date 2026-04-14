@@ -82,7 +82,7 @@ function normalizePrintArea(pa: any): { layouts: PrintLayout[]; allowMultipleLay
   return { layouts, allowMultipleLayouts: false, allowBackPrint: layouts.some(l => l.side === 'BACK') };
 }
 
-type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database' | 'shiprocket' | 'email';
+type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'database' | 'shiprocket' | 'email' | 'colors';
 
 const defaultCoupon: Partial<Coupon> = {
   code: '', description: '', discountType: 'percentage', discountValue: 0,
@@ -141,6 +141,12 @@ export default function Admin() {
   const [savingMockup, setSavingMockup] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [colorPickerValue, setColorPickerValue] = useState('#ff0000');
+  // Global colour palette (persisted in localStorage)
+  const [globalColors, setGlobalColors] = useState<{name: string, hex: string}[]>(() => {
+    try { return JSON.parse(localStorage.getItem('tfw_global_colors') || '[]'); } catch { return []; }
+  });
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorHex, setNewColorHex] = useState('#000000');
 
   // Print area editor
   const [paeDraft, setPaeDraft] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -224,6 +230,16 @@ export default function Admin() {
   const openNewProduct = () => { setEditingProduct(null); setProductForm({ ...defaultProduct }); setShowProductForm(true); };
   const openEditProduct = (p: Product) => { setEditingProduct(p); setProductForm({ ...p }); setShowProductForm(true); };
   const closeProductForm = () => { setShowProductForm(false); setEditingProduct(null); };
+  const saveGlobalColors = (cols: {name: string, hex: string}[]) => {
+    setGlobalColors(cols); localStorage.setItem('tfw_global_colors', JSON.stringify(cols));
+  };
+  const addGlobalColor = () => {
+    if (!newColorName.trim()) return;
+    if (globalColors.some(c => c.hex.toLowerCase() === newColorHex.toLowerCase())) { toast.error('Colour already in palette'); return; }
+    saveGlobalColors([...globalColors, { name: newColorName.trim(), hex: newColorHex }]);
+    setNewColorName('');
+  };
+  const removeGlobalColor = (hex: string) => saveGlobalColors(globalColors.filter(c => c.hex !== hex));
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -759,6 +775,7 @@ export default function Admin() {
           <button className={`tab ${tab === 'database' ? 'active' : ''}`} onClick={() => { setTab('database'); if (!dbData) loadDb(); }}><Database size={16} /> Database</button>
           <button className={`tab ${tab === 'shiprocket' ? 'active' : ''}`} onClick={() => setTab('shiprocket')}><Truck size={16} /> Shiprocket</button>
           <button className={`tab ${tab === 'email' ? 'active' : ''}`} onClick={() => setTab('email')}><Mail size={16} /> Email</button>
+          <button className={`tab ${tab === 'colors' ? 'active' : ''}`} onClick={() => setTab('colors')}><Palette size={16} /> Colors</button>
         </div>
 
         {/* Analytics Tab */}
@@ -1862,15 +1879,51 @@ export default function Admin() {
           </motion.div>
         )}
 
+        {/* Colors Tab */}
+        {tab === 'colors' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 640 }}>
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ margin: '0 0 6px' }}>Colour Palette</h2>
+              <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', margin: 0 }}>Define available colours. These appear as one-click swatches when adding or editing a product.</p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Colour</label>
+                <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} style={{ width: 48, height: 40, padding: 4, border: '1.5px solid var(--border)', borderRadius: 8, cursor: 'pointer' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Name</label>
+                <input type="text" value={newColorName} onChange={e => setNewColorName(e.target.value)} placeholder="e.g. Jet Black" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGlobalColor(); } }} />
+              </div>
+              <button className="btn btn-primary" style={{ whiteSpace: 'nowrap', alignSelf: 'flex-end' }} onClick={addGlobalColor} type="button">+ Add Colour</button>
+            </div>
+            {globalColors.length === 0 ? (
+              <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>No colours added yet. Use the form above to build your palette.</p>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {globalColors.map(c => (
+                  <div key={c.hex} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 40, boxShadow: 'var(--clay-shadow-sm)' }}>
+                    <span style={{ width: 22, height: 22, borderRadius: '50%', background: c.hex, border: '1.5px solid rgba(0,0,0,.15)', flexShrink: 0, display: 'inline-block' }} />
+                    <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>{c.name}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontFamily: 'monospace' }}>{c.hex}</span>
+                    <button type="button" onClick={() => removeGlobalColor(c.hex)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 0, display: 'flex', alignItems: 'center' }} title="Remove"><X size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {/* Product Form Modal */}
         <AnimatePresence>
           {showProductForm && (            <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeProductForm}>
-              <motion.div className="modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={e => e.stopPropagation()}>
+              <motion.div className="modal" style={{ maxWidth: 720 }} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
                   <button className="icon-btn" onClick={closeProductForm}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSaveProduct} className="modal-body">
+                  <div className="form-section-divider"><span>Basic Info</span></div>
                   <div className="form-row">
                     <div className="form-group"><label>Name</label><input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} required /></div>
                     <div className="form-group">
@@ -1922,7 +1975,7 @@ export default function Admin() {
                       </label>
                     </div>
                   </div>
-                  <div className="form-group">
+                  <div className="form-group" style={{ display: 'none' }}>
                     <label>Display Mockup <span style={{ fontSize: '0.72rem', color: '#666' }}>(your design will be shown on this mockup to customers)</span></label>
                     <select
                       value={(productForm as any).mockupId || ''}
@@ -1943,6 +1996,7 @@ export default function Admin() {
                       ) : null;
                     })()}
                   </div>
+                  <div className="form-section-divider"><span>Stock &amp; Shipping</span></div>
                   <div className="form-row">
                     <div className="form-group"><label>Stock</label><input type="number" min="0" value={productForm.stock ?? 100} onChange={e => setProductForm({ ...productForm, stock: +e.target.value })} /></div>
                     <div className="form-group"><label>Rating (0-5)</label><input type="number" step="0.1" min="0" max="5" value={productForm.rating ?? 4.5} onChange={e => setProductForm({ ...productForm, rating: +e.target.value })} /></div>
@@ -1961,6 +2015,7 @@ export default function Admin() {
                       </div>
                     </div>
                   </div>
+                  <div className="form-section-divider"><span>Options</span></div>
                   <div className="form-row">
                     <div className="form-group">
                       <label>Sizes <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— separate with commas</span></label>
@@ -1975,19 +2030,35 @@ export default function Admin() {
                       </div>
                     </div>
                     <div className="form-group">
-                      <label>Colors <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— hex codes, comma-separated</span></label>
-                      <input type="text" value={(productForm.colors || []).join(', ')} onChange={e => setProductForm({ ...productForm, colors: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} placeholder="e.g. #ffffff, #1a1a1a, #c0392b" />
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
+                      <label>Colors</label>
+                      {globalColors.length > 0 ? (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                          {globalColors.map(gc => {
+                            const selected = (productForm.colors||[]).includes(gc.hex);
+                            return (
+                              <button key={gc.hex} type="button" title={`${gc.name} (${gc.hex})`}
+                                style={{ width: 30, height: 30, borderRadius: '50%', background: gc.hex, border: selected ? '3px solid var(--primary)' : '2px solid rgba(0,0,0,.18)', cursor: 'pointer', outline: selected ? '2px solid var(--primary)' : 'none', outlineOffset: 2, transition: 'all .15s', flexShrink: 0 }}
+                                onClick={() => setProductForm(f => ({ ...f, colors: selected ? (f.colors||[]).filter(c => c !== gc.hex) : [...(f.colors||[]), gc.hex] }))}
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-3)', margin: '0 0 6px' }}>
+                          No palette colours yet. <button type="button" onClick={() => { closeProductForm(); setTab('colors'); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, padding: 0, fontSize: '0.8rem' }}>Add colours in Colors tab →</button>
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
                         {(productForm.colors || []).map((hex, i) => (
                           <span key={i} title={`${hex} — click to remove`} style={{ width: 22, height: 22, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.15)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
                             onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter((_,idx)=>idx!==i) }))} />
                         ))}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <input type="color" value={colorPickerValue} style={{ width: 26, height: 26, padding: 2, border: '1.5px solid var(--border)', borderRadius: '50%', cursor: 'pointer' }}
-                            title="Pick color" onChange={e => setColorPickerValue(e.target.value)} />
+                            title="Pick custom colour" onChange={e => setColorPickerValue(e.target.value)} />
                           <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: '.74rem', minHeight: 'unset' }}
                             onClick={() => { if (colorPickerValue && !(productForm.colors||[]).includes(colorPickerValue)) setProductForm(f => ({ ...f, colors: [...(f.colors||[]), colorPickerValue] })); }}>
-                            + Add
+                            + Custom
                           </button>
                         </div>
                       </div>

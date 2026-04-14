@@ -3471,6 +3471,17 @@ a.order-item-name:hover { color: var(--primary); }
   display: flex; justify-content: flex-end; gap: 0.75rem;
   padding-top: 0.75rem; border-top: 1px solid var(--border); margin-top: 0.5rem;
 }
+/* Product form section dividers */
+.form-section-divider {
+  display: flex; align-items: center; gap: 10px; margin: 6px 0 2px;
+}
+.form-section-divider::before, .form-section-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.form-section-divider span {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-3); white-space: nowrap;
+}
 
 @media (max-width: 600px) {
   .form-row { grid-template-columns: 1fr; }
