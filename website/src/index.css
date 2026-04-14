@@ -4283,9 +4283,9 @@ a.order-item-name:hover { color: var(--primary); }
 
   .container { padding: 0 0.75rem; }
 
-  /* Hero CTA — stack vertically */
-  .hero-actions { flex-direction: column; }
-  .hero-actions .btn { width: 100%; }
+  /* Hero CTA — stack vertically, equal size */
+  .hero-actions { flex-direction: column; align-items: stretch; }
+  .hero-actions .btn { width: 100%; display: flex; box-sizing: border-box; }
 
   /* Hero stats — compact */
   .hero-stats { gap: 0.5rem 0; padding-top: 1rem; }
