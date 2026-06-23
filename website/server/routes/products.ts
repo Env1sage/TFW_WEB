@@ -8,6 +8,7 @@ import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
 import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendCombinedOrderConfirmation, sendAdminCombinedOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate, sendTestEmail } from '../email.js';
+import { testSMSConfig, getSMSConfig } from '../sms.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -308,7 +309,7 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 // Get all products (public)
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const { category, search, featured, sort, minPrice, maxPrice } = _req.query;
+    const { category, search, featured, sort, minPrice, maxPrice, brand, model } = _req.query;
     const products = await db.getProducts({
       category: category as string,
       search: search as string,
@@ -316,6 +317,8 @@ router.get('/', async (_req: Request, res: Response) => {
       sort: sort as string,
       minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+      brandSlug: brand as string | undefined,
+      modelSlug: model as string | undefined,
     });
     res.json(products);
   } catch (e: any) {
@@ -334,22 +337,33 @@ router.post('/upload', authMiddleware, requireRole('admin', 'product_manager'), 
 });
 
 // ─── Shipping Zones ───────────────────────────────────────────────
-/** Calculate shipping cost for an order based on pin code and subtotal */
-async function calculateShipping(shippingAddress: string, subtotal: number): Promise<number> {
+
+function sortZones(zones: Awaited<ReturnType<typeof db.getShippingZones>>) {
+  return [...zones].sort((a, b) => {
+    if (a.pinPatterns.length > 0 && b.pinPatterns.length === 0) return -1;
+    if (a.pinPatterns.length === 0 && b.pinPatterns.length > 0) return 1;
+    return a.sortOrder - b.sortOrder;
+  });
+}
+
+/** Calculate shipping cost for an order based on pin code, subtotal, and optional weight/type. */
+async function calculateShipping(
+  shippingAddress: string, subtotal: number,
+  weightGrams = 0, deliveryType = 'standard'
+): Promise<number> {
   const pinMatch = shippingAddress.match(/\b(\d{6})\b/);
   const pin = pinMatch ? pinMatch[1] : '';
   try {
     const zones = await db.getShippingZones();
-    const sorted = [...zones].sort((a, b) => {
-      // Zones with patterns first (more specific), then catch-all
-      if (a.pinPatterns.length > 0 && b.pinPatterns.length === 0) return -1;
-      if (a.pinPatterns.length === 0 && b.pinPatterns.length > 0) return 1;
-      return a.sortOrder - b.sortOrder;
-    });
+    const sorted = sortZones(zones);
     for (const zone of sorted) {
       if (!zone.active) continue;
-      const matches = zone.pinPatterns.length === 0 || (pin && zone.pinPatterns.some(p => pin.startsWith(p)));
-      if (matches) return subtotal >= zone.freeAbove ? 0 : zone.shippingCharge;
+      const pinMatches = zone.pinPatterns.length === 0 || (pin && zone.pinPatterns.some(p => pin.startsWith(p)));
+      if (!pinMatches) continue;
+      const weightMatches = weightGrams === 0 ||
+        (weightGrams >= zone.weightFromGrams && weightGrams <= zone.weightToGrams);
+      const typeMatches = zone.deliveryType === 'standard' || zone.deliveryType === deliveryType;
+      if (weightMatches && typeMatches) return subtotal >= zone.freeAbove ? 0 : zone.shippingCharge;
     }
   } catch { /* fall through to default */ }
   return subtotal >= 999 ? 0 : 49;
@@ -363,7 +377,8 @@ router.get('/shipping-zones', async (_req: Request, res: Response) => {
 // Create shipping zone (admin)
 router.post('/shipping-zones', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
-    const { name, label, pinPatterns, shippingCharge, freeAbove, sortOrder, active } = req.body;
+    const { name, label, pinPatterns, shippingCharge, freeAbove, sortOrder, active,
+            weightFromGrams, weightToGrams, deliveryType, estimatedDays } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'Label is required' });
     const zone = await db.addShippingZone({
       id: uuid(), name: name || label, label: label.trim(),
@@ -372,6 +387,10 @@ router.post('/shipping-zones', authMiddleware, requireRole('admin', 'product_man
       freeAbove: Number(freeAbove) || 999,
       sortOrder: Number(sortOrder) || 0,
       active: active ?? true,
+      weightFromGrams: Number(weightFromGrams) || 0,
+      weightToGrams: Number(weightToGrams) || 99999,
+      deliveryType: deliveryType || 'standard',
+      estimatedDays: estimatedDays || '5-7 days',
     });
     res.status(201).json(zone);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -381,13 +400,18 @@ router.post('/shipping-zones', authMiddleware, requireRole('admin', 'product_man
 router.put('/shipping-zones/:id', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
     const patch: any = {};
-    const { label, pinPatterns, shippingCharge, freeAbove, sortOrder, active } = req.body;
+    const { label, pinPatterns, shippingCharge, freeAbove, sortOrder, active,
+            weightFromGrams, weightToGrams, deliveryType, estimatedDays } = req.body;
     if (label !== undefined) patch.label = label;
     if (pinPatterns !== undefined) patch.pinPatterns = Array.isArray(pinPatterns) ? pinPatterns : [];
     if (shippingCharge !== undefined) patch.shippingCharge = Number(shippingCharge);
     if (freeAbove !== undefined) patch.freeAbove = Number(freeAbove);
     if (sortOrder !== undefined) patch.sortOrder = Number(sortOrder);
     if (active !== undefined) patch.active = Boolean(active);
+    if (weightFromGrams !== undefined) patch.weightFromGrams = Number(weightFromGrams);
+    if (weightToGrams !== undefined) patch.weightToGrams = Number(weightToGrams);
+    if (deliveryType !== undefined) patch.deliveryType = deliveryType;
+    if (estimatedDays !== undefined) patch.estimatedDays = estimatedDays;
     const updated = await db.updateShippingZone(String(req.params.id), patch);
     if (!updated) return res.status(404).json({ error: 'Zone not found' });
     res.json(updated);
@@ -406,12 +430,36 @@ router.post('/shipping-estimate', async (req: Request, res: Response) => {
     const { pinCode, subtotal } = req.body;
     const address = pinCode ? `${pinCode}` : '';
     const cost = await calculateShipping(address, Number(subtotal) || 0);
-    // Also return zone info
     const zones = await db.getShippingZones();
     const pin = String(pinCode || '');
-    const sorted = [...zones].sort((a, b) => a.pinPatterns.length > 0 && b.pinPatterns.length === 0 ? -1 : a.pinPatterns.length === 0 && b.pinPatterns.length > 0 ? 1 : a.sortOrder - b.sortOrder);
-    const matchedZone = sorted.find(z => z.active && (z.pinPatterns.length === 0 || (pin && z.pinPatterns.some(p => pin.startsWith(p)))));
+    const matchedZone = sortZones(zones).find(z => z.active && (z.pinPatterns.length === 0 || (pin && z.pinPatterns.some(p => pin.startsWith(p)))));
     res.json({ cost, zone: matchedZone?.label || 'Standard' });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Shipping class rate — weight-aware + delivery-type-aware lookup (public)
+router.post('/shipping-class-rate', async (req: Request, res: Response) => {
+  try {
+    const { pinCode, subtotal, weightGrams, deliveryType } = req.body;
+    const pin = String(pinCode || '');
+    const wg = Number(weightGrams) || 0;
+    const dt = String(deliveryType || 'standard');
+    const sub = Number(subtotal) || 0;
+
+    const zones = await db.getShippingZones();
+    const sorted = sortZones(zones);
+
+    const matched = sorted.find(z => {
+      if (!z.active) return false;
+      const pinOk = z.pinPatterns.length === 0 || (pin && z.pinPatterns.some(p => pin.startsWith(p)));
+      const weightOk = wg === 0 || (wg >= z.weightFromGrams && wg <= z.weightToGrams);
+      const typeOk = z.deliveryType === 'standard' || z.deliveryType === dt;
+      return pinOk && weightOk && typeOk;
+    });
+
+    if (!matched) return res.json({ cost: sub >= 999 ? 0 : 49, zone: null, estimatedDays: '5-7 days' });
+    const cost = sub >= matched.freeAbove ? 0 : matched.shippingCharge;
+    res.json({ cost, zone: matched.label, estimatedDays: matched.estimatedDays, zoneId: matched.id });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -600,7 +648,8 @@ router.get('/analytics', authMiddleware, adminMiddleware, async (_req: Request, 
 // --- Design Orders (must be before /:id) ---
 router.post('/design-orders', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { productType, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName, groupOrderId } = req.body;
+    const { productType, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName, groupOrderId,
+            deliveryMethod: dDeliveryMethod, deliveryConfig: dDeliveryConfig, shippingCost: dShippingCost } = req.body;
     if (!productType || !designImages || !quantity) return res.status(400).json({ error: 'Product type, design images, and quantity are required' });
     const userId: string = (req as any).userId;
     let resolvedName = customerName || 'Customer';
@@ -639,6 +688,10 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
       total: total || 0, shippingAddress: shippingAddress || '',
       groupOrderId: groupOrderId || undefined,
     });
+    // Persist delivery fields (separate update since addDesignOrder schema predates this)
+    if (dDeliveryMethod || dDeliveryConfig || dShippingCost != null) {
+      await db.addDesignOrderDelivery(order.id, dDeliveryMethod || 'standard', dDeliveryConfig || {}, dShippingCost ?? 0).catch(() => {});
+    }
 
     // Send emails (non-blocking)
     if (resolvedEmail) {
@@ -866,7 +919,8 @@ router.post('/razorpay/verify', authMiddleware, async (req: Request, res: Respon
 // Create order (auth required)
 router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { items, shippingAddress, razorpayOrderId, paymentId, couponCode, discountAmount, groupOrderId } = req.body;
+    const { items, shippingAddress, razorpayOrderId, paymentId, couponCode, discountAmount, groupOrderId,
+            deliveryMethod, deliveryConfig, shippingCost: clientShippingCost } = req.body;
     if (!items?.length || !shippingAddress) return res.status(400).json({ error: 'Items and address required' });
 
     let total = 0;
@@ -888,6 +942,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       await db.incrementCouponUseCount(couponCode);
     }
 
+    const resolvedDeliveryMethod = deliveryMethod || 'standard';
     const order = await db.addOrder({
       id: uuid(),
       userId: (req as any).userId,
@@ -901,6 +956,9 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       couponCode: couponCode || undefined,
       discountAmount: discount,
       groupOrderId: groupOrderId || undefined,
+      deliveryMethod: resolvedDeliveryMethod,
+      deliveryConfig: deliveryConfig || {},
+      shippingCost: clientShippingCost ?? 0,
     });
 
     // Send emails (non-blocking)
@@ -911,7 +969,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       const rawSubtotal = total; // sum of item prices before discount
       const shippingCost = await calculateShipping(shippingAddress, rawSubtotal - discount);
       const emailData = {
-        orderId: order.id, customerName: user.name, customerEmail: user.email,
+        orderId: order.id, customerName: user.name, customerEmail: user.email ?? '',
         items: orderItems, subtotal: rawSubtotal, shippingCost,
         discountAmount: discount, total: order.total,
         shippingAddress, createdAt: order.createdAt,
@@ -923,12 +981,16 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
         sendOrderConfirmation(emailData).catch(e => console.error('[Email] order confirmation failed:', e));
         sendAdminOrderNotification(emailData).catch(e => console.error('[Email] admin notification failed:', e));
       }
-      // Auto-push to Shiprocket (non-blocking)
-      autoShiprocketPush(order.id, false, order, user.name, user.email)
-        .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
+      // Auto-push to Shiprocket only for standard shipping
+      if (resolvedDeliveryMethod === 'standard') {
+        autoShiprocketPush(order.id, false, order, user.name, user.email ?? undefined)
+          .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
+      }
     } else {
-      autoShiprocketPush(order.id, false, order)
-        .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
+      if (resolvedDeliveryMethod === 'standard') {
+        autoShiprocketPush(order.id, false, order)
+          .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
+      }
     }
 
     res.status(201).json(order);
@@ -1472,9 +1534,12 @@ router.post('/orders/:id/tracking/event', authMiddleware, requireRole('admin', '
 // Public — anyone can submit
 router.post('/corporate-inquiry', async (req: Request, res: Response) => {
   try {
-    const { companyName, contactName, email, phone, productInterest, quantity, message } = req.body;
+    const { companyName, contactName, email, phone, productInterest, productInterests, quantity, quantityMin, quantityMax, message, attachmentName } = req.body;
     if (!companyName || !contactName || !email) return res.status(400).json({ error: 'Company name, contact name, and email are required' });
-    const inquiry = await db.addCorporateInquiry({ companyName, contactName, email, phone: phone || '', productInterest: productInterest || '', quantity: Number(quantity) || 100, message: message || '' });
+    const interestValue = Array.isArray(productInterests) && productInterests.length ? productInterests.join(', ') : (productInterest || '');
+    const qtyDisplay = quantityMin && quantityMax ? `${quantityMin}–${quantityMax}` : String(quantity || 100);
+    const fullMessage = [message, attachmentName ? `[Attachment: ${attachmentName}]` : '', `Quantity range: ${qtyDisplay}`].filter(Boolean).join('\n');
+    const inquiry = await db.addCorporateInquiry({ companyName, contactName, email, phone: phone || '', productInterest: interestValue, quantity: Number(quantityMin) || Number(quantity) || 100, message: fullMessage });
     res.json(inquiry);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -1500,6 +1565,24 @@ router.put('/corporate-inquiries/:id', authMiddleware, requireRole('admin', 'ord
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── Admin: Test SMS / SMS Config ────────────────────────────────────────────
+router.post('/test-sms', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+    if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number' });
+    }
+    const result = await testSMSConfig(phone);
+    res.json(result);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/sms-config', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
+  res.json(getSMSConfig());
 });
 
 // Get single product (public) — MUST be after all named routes to avoid shadowing
@@ -1578,6 +1661,18 @@ router.put('/:id', authMiddleware, requireRole('admin', 'product_manager'), asyn
   }
 });
 
+// Quick stock toggle (admin only) — sets stock=0 or restores to 100
+router.patch('/:id/stock', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
+  try {
+    const existing = await db.getProductById(String(req.params.id));
+    if (!existing) return res.status(404).json({ error: 'Product not found' });
+    const { stock } = req.body;
+    if (typeof stock !== 'number') return res.status(400).json({ error: 'stock must be a number' });
+    const updated = await db.updateProduct(String(req.params.id), { stock });
+    res.json(updated);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // Delete product (admin only)
 router.delete('/:id', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
@@ -1614,6 +1709,59 @@ router.post('/test-email', authMiddleware, adminMiddleware, async (req: Request,
     const result = await sendTestEmail(to);
     res.json(result);
   } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// ─── Admin: Seed Full Product Catalog ────────────────
+router.post('/seed-catalog', authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
+  try {
+    const { CATALOG_PRODUCTS, CATALOG_CATEGORIES } = await import('../data/productCatalog.js');
+
+    // 1. Ensure all catalog categories exist
+    const catRows: Record<string, string> = {};
+    for (const catName of CATALOG_CATEGORIES) {
+      const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      let existing = (await db.pool.query('SELECT id FROM website_categories WHERE LOWER(name) = LOWER($1)', [catName])).rows[0];
+      if (!existing) {
+        const newId = uuid();
+        await db.pool.query(
+          'INSERT INTO website_categories (id, name, slug, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+          [newId, catName, slug]
+        );
+        existing = { id: newId };
+      }
+      catRows[catName.toLowerCase()] = existing.id;
+    }
+
+    // 2. Insert products (skip duplicates by id)
+    let added = 0;
+    let skipped = 0;
+    for (const p of CATALOG_PRODUCTS) {
+      const catId = catRows[p.category.toLowerCase()];
+      const { rowCount } = await db.pool.query(
+        `INSERT INTO website_products
+           (id, name, description, price, category, category_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'[]',$8,$9,$10,$11,$12,$13,$14,NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           image = EXCLUDED.image,
+           name = EXCLUDED.name,
+           description = EXCLUDED.description,
+           price = EXCLUDED.price,
+           colors = EXCLUDED.colors,
+           sizes = EXCLUDED.sizes,
+           featured = EXCLUDED.featured`,
+        [p.id, p.name, p.description, p.price, p.category, catId || null,
+         p.image, p.customizable, JSON.stringify(p.colors), JSON.stringify(p.sizes),
+         p.stock, p.rating, p.reviewCount, p.featured]
+      );
+      if ((rowCount ?? 0) > 0) added++; else skipped++;
+    }
+
+    res.json({ success: true, added, skipped, total: CATALOG_PRODUCTS.length });
+  } catch (e: any) {
+    console.error('Seed catalog error:', e);
     res.status(500).json({ error: e.message });
   }
 });

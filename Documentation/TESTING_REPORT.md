@@ -273,7 +273,7 @@ Test script location: `website/_test_api.cjs`
 Run with:
 ```bash
 cd website
-node _test_api.cjs
+node _test_api.cjs=[=]
 ```
 
 ---

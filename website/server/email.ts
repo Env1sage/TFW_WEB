@@ -737,6 +737,43 @@ export async function sendAdminNewsletterNotification(email: string) {
   await sendMail(ADMIN_EMAIL, `New Subscriber: ${email}`, baseLayout('New Subscriber', body));
 }
 
+// ─── Back-In-Stock Notification ──────────────────────
+
+export async function sendBackInStockEmail(data: {
+  name: string;
+  email: string;
+  productName: string;
+  productUrl: string;
+  productImage?: string;
+  price: number;
+}) {
+  const imgHtml = data.productImage
+    ? `<img src="${absoluteImageUrl(data.productImage)}" alt="${data.productName}" width="120" height="120"
+         style="display:block;margin:0 auto 20px;border-radius:12px;object-fit:cover;border:1px solid #e5e7eb;" />`
+    : '';
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111;">It's back in stock!</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Hi ${data.name || 'there'}, great news — the item you wanted is available again.</p>
+
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+      ${imgHtml}
+      <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:#111;">${data.productName}</p>
+      <p style="margin:0 0 16px;font-size:20px;font-weight:800;color:#0E7C61;">${formatCurrency(data.price)}</p>
+      <a href="${data.productUrl}"
+         style="display:inline-block;background:#0E7C61;color:#fff;padding:13px 36px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">
+        Shop Now →
+      </a>
+    </div>
+
+    <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;">
+      Stock is limited — order soon before it sells out again.<br>
+      <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a>
+    </p>`;
+
+  await sendMail(data.email, `${data.productName} is back in stock!`, baseLayout('Back In Stock', body));
+}
+
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: string; smtpConfigured: boolean }> {
   const smtpConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
   if (!smtpConfigured) {

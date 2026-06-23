@@ -35,15 +35,8 @@ export default function Profile() {
   };
 
   const handleDisable2FA = async () => {
-    if (disableCode.length !== 6) { toast.error('Enter 6-digit code'); return; }
-    setDisabling2FA(true);
-    try {
-      await api.disable2FA(disableCode);
-      await refreshUser();
-      setShowDisable(false); setDisableCode('');
-      toast.success('2FA disabled');
-    } catch (err: any) { toast.error(err.message || 'Failed to disable 2FA'); }
-    finally { setDisabling2FA(false); }
+    // 2FA removed — phone OTP auth is used instead
+    toast('Two-factor auth is handled via OTP login');
   };
 
   const handleLogout = () => { logout(); navigate('/'); };
@@ -63,7 +56,7 @@ export default function Profile() {
               <User size={40} />
             </div>
             <h2>{user.name}</h2>
-            <p>{user.email}</p>
+            <p>{user.phone ? `+91 ${user.phone}` : user.email || ''}</p>
             <span className={`badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}`}>{user.role}</span>
           </motion.div>
 
@@ -76,7 +69,7 @@ export default function Profile() {
               </div>
               <div className="form-group">
                 <label>Email</label>
-                <div className="input-wrapper"><Mail size={18} /><input type="email" value={user.email} disabled /></div>
+                <div className="input-wrapper"><Mail size={18} /><input type="email" value={user.email ?? ''} disabled /></div>
               </div>
 
               <h3 style={{ marginTop: '1.5rem' }}><Lock size={18} /> Change Password</h3>

@@ -30,24 +30,38 @@ import Profile from './pages/Profile';
 import Orders from './pages/Orders';
 import Admin from './pages/Admin';
 import About from './pages/About';
+import Collections from './pages/Collections';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import RefundPolicy from './pages/RefundPolicy';
+import CollectionDetail from './pages/CollectionDetail';
 import Contact from './pages/Contact';
 import FAQ from './pages/FAQ';
 import CorporateInquiry from './pages/CorporateInquiry';
 import Customizer from './pages/Customizer';
 import DesignStudioCart from './pages/DesignStudioCart';
+import DesignStudioLanding from './pages/DesignStudioLanding';
+import DesignStudioProduct from './pages/DesignStudioProduct';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 import OrderTracking from './pages/OrderTracking';
 import GoogleCallback from './pages/GoogleCallback';
+import AdminLogin from './pages/AdminLogin';
+import CategoryBrands from './pages/CategoryBrands';
+import BrandModels from './pages/BrandModels';
+import Analytics from './pages/Analytics';
 
 function AppContent() {
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const isDesignStudio = location.pathname.startsWith('/design-studio');
-  const isAdmin = location.pathname.startsWith('/admin');
+  // Full-screen canvas routes (no Navbar/Footer)
+  const isDesignStudio = location.pathname.startsWith('/design-studio/customize') ||
+    location.pathname === '/design-studio/cart';
+  const isAdmin = location.pathname.startsWith('/admin') && location.pathname !== '/admin-login';
+  const isAdminLogin = location.pathname === '/admin-login';
 
   // Redirect admin users away from public pages to the admin dashboard
-  if (!isAdmin && !isDesignStudio && !authLoading && user && ADMIN_ROLES.includes(user.role)) {
+  if (!isAdmin && !isAdminLogin && !isDesignStudio && !authLoading && user && ADMIN_ROLES.includes(user.role)) {
     return <Navigate to="/admin" replace />;
   }
 
@@ -59,16 +73,20 @@ function AppContent() {
       }} />
       {isDesignStudio ? (
         <Routes>
-          <Route path="/design-studio" element={<Customizer />} />
+          <Route path="/design-studio/customize/:id" element={<Customizer />} />
           <Route path="/design-studio/cart" element={<DesignStudioCart />} />
-          <Route path="/design-studio/:id" element={<Customizer />} />
         </Routes>
       ) : isAdmin ? (
         <ErrorBoundary>
           <Routes>
+            <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Analytics /></ProtectedRoute>} />
             <Route path="/admin/*" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
           </Routes>
         </ErrorBoundary>
+      ) : isAdminLogin ? (
+        <Routes>
+          <Route path="/admin-login" element={<AdminLogin />} />
+        </Routes>
       ) : (
         <div className="app-layout">
           <Navbar />
@@ -89,10 +107,19 @@ function AppContent() {
               <Route path="/2fa-setup" element={<ProtectedRoute><TwoFactorSetup /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+              <Route path="/design-studio" element={<DesignStudioLanding />} />
+              <Route path="/design-studio/product/:id" element={<DesignStudioProduct />} />
+              <Route path="/collections" element={<Collections />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/refund" element={<RefundPolicy />} />
+              <Route path="/collections/:id" element={<CollectionDetail />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/corporate" element={<CorporateInquiry />} />
+              <Route path="/shop/:categorySlug/:brandSlug" element={<BrandModels />} />
+              <Route path="/shop/:categorySlug" element={<CategoryBrands />} />
             </Routes>
             </ErrorBoundary>
           </main>

@@ -239,6 +239,10 @@ export async function initDB() {
         active BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE website_shipping_zones ADD COLUMN IF NOT EXISTS weight_from_grams INT NOT NULL DEFAULT 0;
+      ALTER TABLE website_shipping_zones ADD COLUMN IF NOT EXISTS weight_to_grams INT NOT NULL DEFAULT 99999;
+      ALTER TABLE website_shipping_zones ADD COLUMN IF NOT EXISTS delivery_type TEXT NOT NULL DEFAULT 'standard';
+      ALTER TABLE website_shipping_zones ADD COLUMN IF NOT EXISTS estimated_days TEXT NOT NULL DEFAULT '5-7 days';
     `);
 
     // Ensure unique constraints exist on categories (safe to run repeatedly)
@@ -302,6 +306,272 @@ export async function initDB() {
       SET category_id = c.id
       FROM website_categories c
       WHERE LOWER(p.category) = LOWER(c.name) AND p.category_id IS NULL;
+    `);
+
+    // Collections
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_collections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        tagline TEXT NOT NULL DEFAULT '',
+        tag TEXT NOT NULL DEFAULT 'Custom',
+        gradient TEXT NOT NULL DEFAULT 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
+        glow TEXT NOT NULL DEFAULT '#0E7C61',
+        shimmer TEXT NOT NULL DEFAULT 'rgba(255,255,255,0.15)',
+        symbol TEXT NOT NULL DEFAULT '✨',
+        badge TEXT NOT NULL DEFAULT 'New',
+        badge_color TEXT NOT NULL DEFAULT '#C6A75E',
+        featured BOOLEAN NOT NULL DEFAULT false,
+        active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS website_collection_products (
+        collection_id TEXT NOT NULL REFERENCES website_collections(id) ON DELETE CASCADE,
+        product_id TEXT NOT NULL REFERENCES website_products(id) ON DELETE CASCADE,
+        sort_order INT NOT NULL DEFAULT 0,
+        added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (collection_id, product_id)
+      );
+    `);
+
+    // Collections cover image migration
+    await client.query(`
+      ALTER TABLE website_collections ADD COLUMN IF NOT EXISTS cover_image TEXT NOT NULL DEFAULT '';
+    `);
+
+    // Phone-based OTP auth migrations
+    await client.query(`
+      ALTER TABLE website_users ALTER COLUMN email DROP NOT NULL;
+      ALTER TABLE website_users ADD COLUMN IF NOT EXISTS phone TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON website_users(phone) WHERE phone IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS website_otp_sessions (
+        id TEXT PRIMARY KEY,
+        phone TEXT UNIQUE NOT NULL,
+        otp TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        verified BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    // Inventory management columns on products
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS low_stock_threshold INT NOT NULL DEFAULT 10;
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS variants JSONB NOT NULL DEFAULT '[]';
+    `);
+
+    // Inventory audit log
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_inventory_logs (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES website_products(id) ON DELETE CASCADE,
+        product_name TEXT NOT NULL DEFAULT '',
+        sku TEXT NOT NULL DEFAULT '',
+        change_type TEXT NOT NULL DEFAULT 'adjustment',
+        quantity_before INT NOT NULL,
+        quantity_change INT NOT NULL,
+        quantity_after INT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_inv_logs_product ON website_inventory_logs(product_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_inv_logs_created ON website_inventory_logs(created_at DESC);
+    `);
+
+    // Leads CRM
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_leads (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        mobile TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'new',
+        source TEXT NOT NULL DEFAULT 'organic',
+        products_viewed JSONB NOT NULL DEFAULT '[]',
+        notes TEXT NOT NULL DEFAULT '',
+        last_activity TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_leads_status ON website_leads(status);
+      CREATE INDEX IF NOT EXISTS idx_leads_created ON website_leads(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_leads_email ON website_leads(email) WHERE email != '';
+      CREATE INDEX IF NOT EXISTS idx_leads_mobile ON website_leads(mobile) WHERE mobile != '';
+    `);
+
+    // Site-wide settings
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      INSERT INTO website_settings (key, value) VALUES ('upload_enabled', 'true')
+      ON CONFLICT (key) DO NOTHING;
+    `);
+
+    // ── Back-In-Stock notification requests ─────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_back_in_stock (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES website_products(id) ON DELETE CASCADE,
+        product_name TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        mobile TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        notified_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_bis_product ON website_back_in_stock(product_id, status);
+      CREATE INDEX IF NOT EXISTS idx_bis_status ON website_back_in_stock(status);
+      CREATE INDEX IF NOT EXISTS idx_bis_email ON website_back_in_stock(email) WHERE email != '';
+      CREATE INDEX IF NOT EXISTS idx_bis_created ON website_back_in_stock(created_at DESC);
+    `);
+
+    // ── Courier Config (per-carrier settings) ───────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_courier_config (
+        carrier TEXT PRIMARY KEY,
+        enabled BOOLEAN NOT NULL DEFAULT false,
+        api_key TEXT NOT NULL DEFAULT '',
+        api_secret TEXT NOT NULL DEFAULT '',
+        api_url TEXT NOT NULL DEFAULT '',
+        source_pincode TEXT NOT NULL DEFAULT '',
+        volumetric_divisor NUMERIC(8,2) NOT NULL DEFAULT 5000,
+        markup_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+        markup_flat NUMERIC(10,2) NOT NULL DEFAULT 0,
+        zone_rates JSONB NOT NULL DEFAULT '{}',
+        credentials JSONB NOT NULL DEFAULT '{}',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      INSERT INTO website_courier_config (carrier, enabled, api_url, volumetric_divisor, zone_rates) VALUES
+        ('shiprocket', false, 'https://apiv2.shiprocket.in/v1/external', 5000, '{}'),
+        ('delhivery',  false, 'https://track.delhivery.com',             5000, '{"local":35,"regional":50,"national":80,"remote":120}'),
+        ('bluedart',   false, 'https://api.bluedart.com',                5000, '{"local":60,"regional":80,"national":110,"remote":160}'),
+        ('dtdc',       false, 'https://www.dtdc.in',                     5000, '{"local":40,"regional":60,"national":90,"remote":130}')
+      ON CONFLICT (carrier) DO NOTHING;
+
+      CREATE TABLE IF NOT EXISTS website_shipping_rate_cache (
+        cache_key TEXT PRIMARY KEY,
+        carrier TEXT NOT NULL,
+        rates JSONB NOT NULL DEFAULT '[]',
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_rate_cache_exp ON website_shipping_rate_cache(expires_at);
+    `);
+
+    // ── Promotional Banners ──────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_banners (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        subtitle TEXT NOT NULL DEFAULT '',
+        badge_text TEXT NOT NULL DEFAULT '',
+        badge_type TEXT NOT NULL DEFAULT 'featured',
+        image_url TEXT NOT NULL DEFAULT '',
+        cta_label TEXT NOT NULL DEFAULT 'Shop Now',
+        cta_url TEXT NOT NULL DEFAULT '/products',
+        cta_label_2 TEXT NOT NULL DEFAULT '',
+        cta_url_2 TEXT NOT NULL DEFAULT '',
+        bg_gradient TEXT NOT NULL DEFAULT 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
+        accent_color TEXT NOT NULL DEFAULT '#C6A75E',
+        text_color TEXT NOT NULL DEFAULT '#ffffff',
+        active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INT NOT NULL DEFAULT 0,
+        start_date TIMESTAMPTZ,
+        end_date TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_banners_active ON website_banners(active, sort_order);
+    `);
+
+    // ── Brands & Device Models (Category → Brand → Model → Design Studio) ──
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_brands (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        logo TEXT NOT NULL DEFAULT '',
+        category_id TEXT REFERENCES website_categories(id) ON DELETE SET NULL,
+        active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_brands_slug ON website_brands(slug);
+      CREATE INDEX IF NOT EXISTS idx_brands_category ON website_brands(category_id, active, sort_order);
+
+      CREATE TABLE IF NOT EXISTS website_device_models (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        display_name TEXT NOT NULL DEFAULT '',
+        brand_id TEXT NOT NULL REFERENCES website_brands(id) ON DELETE CASCADE,
+        active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(brand_id, slug)
+      );
+      CREATE INDEX IF NOT EXISTS idx_models_brand ON website_device_models(brand_id, active, sort_order);
+    `);
+
+    // Add brand_id and model_id to products
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS brand_id TEXT REFERENCES website_brands(id) ON DELETE SET NULL;
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS model_id TEXT REFERENCES website_device_models(id) ON DELETE SET NULL;
+    `);
+
+    // ── Delivery Method (Store Pickup · Hyperlocal · Standard) ──────────────
+    await client.query(`
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS delivery_method TEXT NOT NULL DEFAULT 'standard';
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS delivery_config JSONB NOT NULL DEFAULT '{}';
+      ALTER TABLE website_orders ADD COLUMN IF NOT EXISTS shipping_cost NUMERIC(10,2) NOT NULL DEFAULT 0;
+      ALTER TABLE website_design_orders ADD COLUMN IF NOT EXISTS delivery_method TEXT NOT NULL DEFAULT 'standard';
+      ALTER TABLE website_design_orders ADD COLUMN IF NOT EXISTS delivery_config JSONB NOT NULL DEFAULT '{}';
+      ALTER TABLE website_design_orders ADD COLUMN IF NOT EXISTS shipping_cost NUMERIC(10,2) NOT NULL DEFAULT 0;
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_delivery_settings (
+        key TEXT PRIMARY KEY,
+        value JSONB NOT NULL DEFAULT '{}',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      INSERT INTO website_delivery_settings (key, value) VALUES
+        ('store_pickup', '{"enabled":false,"storeName":"TheFramedWall","address":"","city":"","state":"","pincode":"","phone":"","hours":"Mon–Sat, 10am–8pm","landmark":"","readyInDays":1}'),
+        ('hyperlocal',   '{"enabled":false,"flatFee":99,"maxRadiusKm":15,"dunzo":{"enabled":false,"clientId":"","apiKey":""},"porter":{"enabled":false,"apiKey":""}}'),
+        ('standard',     '{"enabled":true}')
+      ON CONFLICT (key) DO NOTHING;
+    `);
+
+    // Analytics events table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_product_events (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        product_id TEXT,
+        product_name TEXT,
+        category TEXT,
+        brand_id TEXT,
+        brand_name TEXT,
+        size TEXT,
+        color TEXT,
+        session_id TEXT NOT NULL,
+        user_id TEXT,
+        price NUMERIC(10,2),
+        quantity INT NOT NULL DEFAULT 1,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_pev_type_created ON website_product_events(event_type, created_at);
+      CREATE INDEX IF NOT EXISTS idx_pev_product_created ON website_product_events(product_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_pev_session ON website_product_events(session_id);
     `);
   } finally {
     client.release();
@@ -375,29 +645,35 @@ async function seedProducts(client: pg.PoolClient) {
 
 /* ── User queries ── */
 export interface DBUser {
-  id: string; name: string; email: string; password: string | null;
+  id: string; name: string; email: string | null; phone?: string; password: string | null;
   role: string; twoFactorSecret?: string; twoFactorEnabled: boolean;
   googleId?: string; avatar?: string; createdAt: string;
 }
 
 function rowToUser(row: any): DBUser {
   return {
-    id: row.id, name: row.name, email: row.email, password: row.password,
-    role: row.role, twoFactorSecret: row.two_factor_secret || undefined,
+    id: row.id, name: row.name, email: row.email ?? null, phone: row.phone || undefined,
+    password: row.password, role: row.role,
+    twoFactorSecret: row.two_factor_secret || undefined,
     twoFactorEnabled: row.two_factor_enabled, googleId: row.google_id || undefined,
     avatar: row.avatar || undefined, createdAt: row.created_at,
   };
 }
 
-export async function addUser(u: { id: string; name: string; email: string; password: string | null; role: string; twoFactorEnabled: boolean; googleId?: string; avatar?: string }) {
+export async function addUser(u: { id: string; name: string; email?: string | null; phone?: string | null; password: string | null; role: string; twoFactorEnabled: boolean; googleId?: string; avatar?: string }) {
   await pool.query(
-    `INSERT INTO website_users (id, name, email, password, role, two_factor_enabled, google_id, avatar, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())`,
-    [u.id, u.name, u.email, u.password, u.role, u.twoFactorEnabled, u.googleId || null, u.avatar || null]
+    `INSERT INTO website_users (id, name, email, phone, password, role, two_factor_enabled, google_id, avatar, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
+    [u.id, u.name, u.email ?? null, u.phone ?? null, u.password, u.role, u.twoFactorEnabled, u.googleId || null, u.avatar || null]
   );
 }
 
 export async function findUserByEmail(email: string): Promise<DBUser | null> {
   const { rows } = await pool.query(`SELECT * FROM website_users WHERE email = $1`, [email]);
+  return rows.length ? rowToUser(rows[0]) : null;
+}
+
+export async function findUserByPhone(phone: string): Promise<DBUser | null> {
+  const { rows } = await pool.query(`SELECT * FROM website_users WHERE phone = $1`, [phone]);
   return rows.length ? rowToUser(rows[0]) : null;
 }
 
@@ -413,8 +689,9 @@ export async function findUserByGoogleId(googleId: string): Promise<DBUser | nul
 
 export async function updateUser(id: string, patch: Record<string, any>): Promise<DBUser | null> {
   const fieldMap: Record<string, string> = {
-    name: 'name', password: 'password', twoFactorSecret: 'two_factor_secret',
-    twoFactorEnabled: 'two_factor_enabled', avatar: 'avatar', googleId: 'google_id',
+    name: 'name', email: 'email', phone: 'phone', password: 'password',
+    twoFactorSecret: 'two_factor_secret', twoFactorEnabled: 'two_factor_enabled',
+    avatar: 'avatar', googleId: 'google_id',
   };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {
@@ -424,6 +701,29 @@ export async function updateUser(id: string, patch: Record<string, any>): Promis
   vals.push(id);
   const { rows } = await pool.query(`UPDATE website_users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
   return rows.length ? rowToUser(rows[0]) : null;
+}
+
+/* ── OTP session queries ── */
+export async function createOtpSession(id: string, phone: string, otp: string, expiresAt: Date) {
+  await pool.query(
+    `INSERT INTO website_otp_sessions (id, phone, otp, expires_at, created_at) VALUES ($1,$2,$3,$4,NOW())
+     ON CONFLICT (phone) DO UPDATE SET id=$1, otp=$3, expires_at=$4, verified=false, created_at=NOW()`,
+    [id, phone, otp, expiresAt]
+  );
+}
+
+export async function findOtpSession(sessionId: string): Promise<{ id: string; phone: string; otp: string; expiresAt: Date; verified: boolean } | null> {
+  const { rows } = await pool.query(
+    `SELECT * FROM website_otp_sessions WHERE id=$1 AND verified=false AND expires_at > NOW()`,
+    [sessionId]
+  );
+  if (!rows.length) return null;
+  const r = rows[0];
+  return { id: r.id, phone: r.phone, otp: r.otp, expiresAt: r.expires_at, verified: r.verified };
+}
+
+export async function markOtpVerified(sessionId: string) {
+  await pool.query(`UPDATE website_otp_sessions SET verified=true WHERE id=$1`, [sessionId]);
 }
 
 /* ── Product queries ── */
@@ -464,14 +764,32 @@ function rowToProduct(row: any): DBProduct {
   return product;
 }
 
-export async function getProducts(opts?: { category?: string; search?: string; featured?: boolean; sort?: string; minPrice?: number; maxPrice?: number }): Promise<DBProduct[]> {
+export async function getProducts(opts?: { category?: string; search?: string; featured?: boolean; sort?: string; minPrice?: number; maxPrice?: number; brandSlug?: string; modelSlug?: string }): Promise<DBProduct[]> {
   let where = ''; const params: any[] = []; let idx = 1;
   const conditions: string[] = [];
   if (opts?.category && opts.category !== 'all') { conditions.push(`p.category = $${idx}`); params.push(opts.category); idx++; }
-  if (opts?.search) { conditions.push(`(LOWER(p.name) LIKE $${idx} OR LOWER(p.description) LIKE $${idx})`); params.push(`%${opts.search.toLowerCase()}%`); idx++; }
+  if (opts?.search) {
+    // Split into words for wildcard matching — each word must appear in name or description
+    const words = opts.search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const wordConditions = words.map(w => {
+      const p = `%${w}%`;
+      params.push(p); params.push(p); params.push(p);
+      const i = idx; idx += 3;
+      return `(LOWER(p.name) LIKE $${i} OR LOWER(p.description) LIKE $${i+1} OR LOWER(p.category) LIKE $${i+2})`;
+    });
+    if (wordConditions.length) conditions.push(`(${wordConditions.join(' AND ')})`);
+  }
   if (opts?.featured) { conditions.push(`p.featured = true`); }
   if (opts?.minPrice !== undefined && !isNaN(opts.minPrice)) { conditions.push(`p.price >= $${idx}`); params.push(opts.minPrice); idx++; }
   if (opts?.maxPrice !== undefined && !isNaN(opts.maxPrice)) { conditions.push(`p.price <= $${idx}`); params.push(opts.maxPrice); idx++; }
+  if (opts?.brandSlug) {
+    conditions.push(`p.brand_id = (SELECT id FROM website_brands WHERE slug = $${idx} LIMIT 1)`);
+    params.push(opts.brandSlug); idx++;
+  }
+  if (opts?.modelSlug) {
+    conditions.push(`p.model_id = (SELECT id FROM website_device_models WHERE slug = $${idx} LIMIT 1)`);
+    params.push(opts.modelSlug); idx++;
+  }
   if (conditions.length) where = 'WHERE ' + conditions.join(' AND ');
 
   let orderBy = 'ORDER BY p.created_at DESC';
@@ -621,6 +939,10 @@ export interface DBShippingZone {
   pinPatterns: string[];
   shippingCharge: number; freeAbove: number;
   sortOrder: number; active: boolean; createdAt: string;
+  weightFromGrams: number;
+  weightToGrams: number;
+  deliveryType: string;
+  estimatedDays: string;
 }
 
 function rowToShippingZone(row: any): DBShippingZone {
@@ -632,6 +954,10 @@ function rowToShippingZone(row: any): DBShippingZone {
     sortOrder: row.sort_order,
     active: row.active,
     createdAt: row.created_at,
+    weightFromGrams: row.weight_from_grams ?? 0,
+    weightToGrams: row.weight_to_grams ?? 99999,
+    deliveryType: row.delivery_type || 'standard',
+    estimatedDays: row.estimated_days || '5-7 days',
   };
 }
 
@@ -642,9 +968,12 @@ export async function getShippingZones(): Promise<DBShippingZone[]> {
 
 export async function addShippingZone(z: Omit<DBShippingZone, 'createdAt'>): Promise<DBShippingZone> {
   const { rows } = await pool.query(
-    `INSERT INTO website_shipping_zones (id, name, label, pin_patterns, shipping_charge, free_above, sort_order, active, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *`,
-    [z.id, z.name, z.label, JSON.stringify(z.pinPatterns), z.shippingCharge, z.freeAbove, z.sortOrder, z.active]
+    `INSERT INTO website_shipping_zones
+       (id, name, label, pin_patterns, shipping_charge, free_above, sort_order, active,
+        weight_from_grams, weight_to_grams, delivery_type, estimated_days, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) RETURNING *`,
+    [z.id, z.name, z.label, JSON.stringify(z.pinPatterns), z.shippingCharge, z.freeAbove, z.sortOrder, z.active,
+     z.weightFromGrams ?? 0, z.weightToGrams ?? 99999, z.deliveryType || 'standard', z.estimatedDays || '5-7 days']
   );
   return rowToShippingZone(rows[0]);
 }
@@ -653,6 +982,8 @@ export async function updateShippingZone(id: string, patch: Partial<Omit<DBShipp
   const fieldMap: Record<string, string> = {
     name: 'name', label: 'label', shippingCharge: 'shipping_charge',
     freeAbove: 'free_above', sortOrder: 'sort_order', active: 'active',
+    weightFromGrams: 'weight_from_grams', weightToGrams: 'weight_to_grams',
+    deliveryType: 'delivery_type', estimatedDays: 'estimated_days',
   };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {
@@ -680,6 +1011,9 @@ export interface DBOrder {
   groupOrderId?: string;
   customerName?: string; customerEmail?: string;
   shipment?: DBShipment;
+  deliveryMethod: string;
+  deliveryConfig: any;
+  shippingCost: number;
 }
 
 function rowToOrder(row: any): DBOrder {
@@ -695,6 +1029,9 @@ function rowToOrder(row: any): DBOrder {
     groupOrderId: row.group_order_id || undefined,
     customerName: row.customer_name || undefined,
     customerEmail: row.customer_email || undefined,
+    deliveryMethod: row.delivery_method || 'standard',
+    deliveryConfig: row.delivery_config || {},
+    shippingCost: parseFloat(row.shipping_cost || '0'),
     shipment: row.ship_id ? {
       id: row.ship_id, orderId: row.id,
       shiprocketOrderId: row.ship_sr_order_id || undefined,
@@ -713,13 +1050,19 @@ export async function addOrder(o: {
   shippingAddress: string; razorpayOrderId?: string; paymentId?: string;
   paymentStatus?: string; couponCode?: string; discountAmount?: number;
   groupOrderId?: string;
+  deliveryMethod?: string; deliveryConfig?: any; shippingCost?: number;
 }) {
   const { rows } = await pool.query(
-    `INSERT INTO website_orders (id, user_id, items, total, status, shipping_address, razorpay_order_id, payment_id, payment_status, coupon_code, discount_amount, group_order_id, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) RETURNING *`,
+    `INSERT INTO website_orders
+       (id, user_id, items, total, status, shipping_address,
+        razorpay_order_id, payment_id, payment_status,
+        coupon_code, discount_amount, group_order_id,
+        delivery_method, delivery_config, shipping_cost, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW()) RETURNING *`,
     [o.id, o.userId, JSON.stringify(o.items), o.total, o.status, o.shippingAddress,
      o.razorpayOrderId || null, o.paymentId || null, o.paymentStatus || 'paid',
-     o.couponCode || null, o.discountAmount || 0, o.groupOrderId || null]
+     o.couponCode || null, o.discountAmount || 0, o.groupOrderId || null,
+     o.deliveryMethod || 'standard', JSON.stringify(o.deliveryConfig || {}), o.shippingCost || 0]
   );
   return rowToOrder(rows[0]);
 }
@@ -1322,4 +1665,656 @@ export async function updateInquiryStatus(id: string, status: string, adminNotes
     [status, adminNotes, id]
   );
   return rows.length ? rowToInquiry(rows[0]) : null;
+}
+
+/* ── Collection queries ── */
+export interface DBCollection {
+  id: string; name: string; tagline: string; tag: string;
+  gradient: string; glow: string; shimmer: string; symbol: string;
+  badge: string; badgeColor: string; featured: boolean; active: boolean;
+  sortOrder: number; createdAt: string; productCount?: number;
+  coverImage: string;
+}
+
+function rowToCollection(row: any): DBCollection {
+  return {
+    id: row.id, name: row.name, tagline: row.tagline, tag: row.tag,
+    gradient: row.gradient, glow: row.glow, shimmer: row.shimmer, symbol: row.symbol,
+    badge: row.badge, badgeColor: row.badge_color, featured: row.featured,
+    active: row.active, sortOrder: row.sort_order, createdAt: row.created_at,
+    productCount: row.product_count ? parseInt(row.product_count) : 0,
+    coverImage: row.cover_image || '',
+  };
+}
+
+export async function getCollections(activeOnly = true): Promise<DBCollection[]> {
+  const where = activeOnly ? 'WHERE c.active = true' : '';
+  const { rows } = await pool.query(`
+    SELECT c.*, COUNT(cp.product_id) as product_count
+    FROM website_collections c
+    LEFT JOIN website_collection_products cp ON cp.collection_id = c.id
+    ${where}
+    GROUP BY c.id
+    ORDER BY c.sort_order ASC, c.created_at DESC
+  `);
+  return rows.map(rowToCollection);
+}
+
+export async function getCollectionById(id: string): Promise<DBCollection | null> {
+  const { rows } = await pool.query(`
+    SELECT c.*, COUNT(cp.product_id) as product_count
+    FROM website_collections c
+    LEFT JOIN website_collection_products cp ON cp.collection_id = c.id
+    WHERE c.id = $1
+    GROUP BY c.id
+  `, [id]);
+  return rows.length ? rowToCollection(rows[0]) : null;
+}
+
+export async function createCollection(c: Omit<DBCollection, 'createdAt' | 'productCount'>): Promise<DBCollection> {
+  const { rows } = await pool.query(`
+    INSERT INTO website_collections (id, name, tagline, tag, gradient, glow, shimmer, symbol, badge, badge_color, featured, active, sort_order, cover_image, created_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW()) RETURNING *
+  `, [c.id, c.name, c.tagline, c.tag, c.gradient, c.glow, c.shimmer, c.symbol, c.badge, c.badgeColor, c.featured, c.active, c.sortOrder, c.coverImage || '']);
+  return rowToCollection(rows[0]);
+}
+
+export async function updateCollection(id: string, patch: Partial<DBCollection>): Promise<DBCollection | null> {
+  const fieldMap: Record<string, string> = {
+    name: 'name', tagline: 'tagline', tag: 'tag', gradient: 'gradient',
+    glow: 'glow', shimmer: 'shimmer', symbol: 'symbol', badge: 'badge',
+    badgeColor: 'badge_color', featured: 'featured', active: 'active', sortOrder: 'sort_order',
+    coverImage: 'cover_image',
+  };
+  const sets: string[] = []; const vals: any[] = []; let idx = 1;
+  for (const [key, col] of Object.entries(fieldMap)) {
+    if (key in patch) { sets.push(`${col} = $${idx}`); vals.push((patch as any)[key]); idx++; }
+  }
+  if (!sets.length) return getCollectionById(id);
+  vals.push(id);
+  const { rows } = await pool.query(`UPDATE website_collections SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
+  return rows.length ? rowToCollection(rows[0]) : null;
+}
+
+export async function deleteCollection(id: string): Promise<boolean> {
+  const { rowCount } = await pool.query('DELETE FROM website_collections WHERE id = $1', [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+export async function getCollectionProducts(collectionId: string): Promise<any[]> {
+  const { rows } = await pool.query(`
+    SELECT p.*, cp.sort_order as cp_sort
+    FROM website_collection_products cp
+    JOIN website_products p ON p.id = cp.product_id
+    WHERE cp.collection_id = $1
+    ORDER BY cp.sort_order ASC, cp.added_at ASC
+  `, [collectionId]);
+  return rows;
+}
+
+export async function addProductToCollection(collectionId: string, productId: string, sortOrder = 0): Promise<boolean> {
+  await pool.query(
+    `INSERT INTO website_collection_products (collection_id, product_id, sort_order, added_at)
+     VALUES ($1, $2, $3, NOW()) ON CONFLICT DO NOTHING`,
+    [collectionId, productId, sortOrder]
+  );
+  return true;
+}
+
+export async function removeProductFromCollection(collectionId: string, productId: string): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    'DELETE FROM website_collection_products WHERE collection_id = $1 AND product_id = $2',
+    [collectionId, productId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/* ── Brands ── */
+
+export async function getBrands(categoryId?: string): Promise<any[]> {
+  const q = categoryId
+    ? `SELECT b.*, c.name AS category_name, c.slug AS category_slug,
+              (SELECT COUNT(*) FROM website_device_models dm WHERE dm.brand_id = b.id AND dm.active = true) AS model_count
+       FROM website_brands b
+       LEFT JOIN website_categories c ON c.id = b.category_id
+       WHERE b.category_id = $1 AND b.active = true
+       ORDER BY b.sort_order, b.name`
+    : `SELECT b.*, c.name AS category_name, c.slug AS category_slug,
+              (SELECT COUNT(*) FROM website_device_models dm WHERE dm.brand_id = b.id AND dm.active = true) AS model_count
+       FROM website_brands b
+       LEFT JOIN website_categories c ON c.id = b.category_id
+       WHERE b.active = true
+       ORDER BY b.sort_order, b.name`;
+  const { rows } = categoryId ? await pool.query(q, [categoryId]) : await pool.query(q);
+  return rows;
+}
+
+export async function getAllBrands(): Promise<any[]> {
+  const { rows } = await pool.query(
+    `SELECT b.*, c.name AS category_name, c.slug AS category_slug,
+            (SELECT COUNT(*) FROM website_device_models dm WHERE dm.brand_id = b.id) AS model_count
+     FROM website_brands b
+     LEFT JOIN website_categories c ON c.id = b.category_id
+     ORDER BY b.sort_order, b.name`
+  );
+  return rows;
+}
+
+export async function getBrandBySlug(slug: string): Promise<any | null> {
+  const { rows } = await pool.query(
+    `SELECT b.*, c.name AS category_name, c.slug AS category_slug
+     FROM website_brands b
+     LEFT JOIN website_categories c ON c.id = b.category_id
+     WHERE b.slug = $1`,
+    [slug]
+  );
+  return rows[0] ?? null;
+}
+
+export async function createBrand(data: {
+  id: string; name: string; slug: string; logo: string;
+  categoryId?: string; active: boolean; sortOrder: number;
+}): Promise<any> {
+  const { rows } = await pool.query(
+    `INSERT INTO website_brands (id, name, slug, logo, category_id, active, sort_order, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING *`,
+    [data.id, data.name, data.slug, data.logo, data.categoryId || null, data.active, data.sortOrder]
+  );
+  return rows[0];
+}
+
+export async function updateBrand(id: string, data: {
+  name?: string; slug?: string; logo?: string;
+  categoryId?: string | null; active?: boolean; sortOrder?: number;
+}): Promise<any | null> {
+  const fields: string[] = [];
+  const vals: any[] = [];
+  let i = 1;
+  if (data.name !== undefined)      { fields.push(`name=$${i++}`);       vals.push(data.name); }
+  if (data.slug !== undefined)      { fields.push(`slug=$${i++}`);       vals.push(data.slug); }
+  if (data.logo !== undefined)      { fields.push(`logo=$${i++}`);       vals.push(data.logo); }
+  if ('categoryId' in data)         { fields.push(`category_id=$${i++}`); vals.push(data.categoryId ?? null); }
+  if (data.active !== undefined)    { fields.push(`active=$${i++}`);     vals.push(data.active); }
+  if (data.sortOrder !== undefined) { fields.push(`sort_order=$${i++}`); vals.push(data.sortOrder); }
+  if (!fields.length) return null;
+  vals.push(id);
+  const { rows } = await pool.query(
+    `UPDATE website_brands SET ${fields.join(',')} WHERE id=$${i} RETURNING *`,
+    vals
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteBrand(id: string): Promise<boolean> {
+  const { rowCount } = await pool.query('DELETE FROM website_brands WHERE id=$1', [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+/* ── Device Models ── */
+
+export async function getModelsByBrand(brandId: string, activeOnly = true): Promise<any[]> {
+  const q = activeOnly
+    ? `SELECT dm.*, b.name AS brand_name, b.slug AS brand_slug, c.slug AS category_slug
+       FROM website_device_models dm
+       JOIN website_brands b ON b.id = dm.brand_id
+       LEFT JOIN website_categories c ON c.id = b.category_id
+       WHERE dm.brand_id = $1 AND dm.active = true
+       ORDER BY dm.sort_order, dm.name`
+    : `SELECT dm.*, b.name AS brand_name, b.slug AS brand_slug, c.slug AS category_slug
+       FROM website_device_models dm
+       JOIN website_brands b ON b.id = dm.brand_id
+       LEFT JOIN website_categories c ON c.id = b.category_id
+       WHERE dm.brand_id = $1
+       ORDER BY dm.sort_order, dm.name`;
+  const { rows } = await pool.query(q, [brandId]);
+  return rows;
+}
+
+export async function getAllModels(): Promise<any[]> {
+  const { rows } = await pool.query(
+    `SELECT dm.*, b.name AS brand_name, b.slug AS brand_slug, c.name AS category_name, c.slug AS category_slug
+     FROM website_device_models dm
+     JOIN website_brands b ON b.id = dm.brand_id
+     LEFT JOIN website_categories c ON c.id = b.category_id
+     ORDER BY b.name, dm.sort_order, dm.name`
+  );
+  return rows;
+}
+
+export async function getModelBySlug(brandSlug: string, modelSlug: string): Promise<any | null> {
+  const { rows } = await pool.query(
+    `SELECT dm.*, b.name AS brand_name, b.slug AS brand_slug, c.slug AS category_slug
+     FROM website_device_models dm
+     JOIN website_brands b ON b.id = dm.brand_id
+     LEFT JOIN website_categories c ON c.id = b.category_id
+     WHERE b.slug = $1 AND dm.slug = $2`,
+    [brandSlug, modelSlug]
+  );
+  return rows[0] ?? null;
+}
+
+export async function createModel(data: {
+  id: string; name: string; slug: string; displayName: string;
+  brandId: string; active: boolean; sortOrder: number;
+}): Promise<any> {
+  const { rows } = await pool.query(
+    `INSERT INTO website_device_models (id, name, slug, display_name, brand_id, active, sort_order, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING *`,
+    [data.id, data.name, data.slug, data.displayName, data.brandId, data.active, data.sortOrder]
+  );
+  return rows[0];
+}
+
+export async function updateModel(id: string, data: {
+  name?: string; slug?: string; displayName?: string;
+  brandId?: string; active?: boolean; sortOrder?: number;
+}): Promise<any | null> {
+  const fields: string[] = [];
+  const vals: any[] = [];
+  let i = 1;
+  if (data.name !== undefined)        { fields.push(`name=$${i++}`);         vals.push(data.name); }
+  if (data.slug !== undefined)        { fields.push(`slug=$${i++}`);         vals.push(data.slug); }
+  if (data.displayName !== undefined) { fields.push(`display_name=$${i++}`); vals.push(data.displayName); }
+  if (data.brandId !== undefined)     { fields.push(`brand_id=$${i++}`);     vals.push(data.brandId); }
+  if (data.active !== undefined)      { fields.push(`active=$${i++}`);       vals.push(data.active); }
+  if (data.sortOrder !== undefined)   { fields.push(`sort_order=$${i++}`);   vals.push(data.sortOrder); }
+  if (!fields.length) return null;
+  vals.push(id);
+  const { rows } = await pool.query(
+    `UPDATE website_device_models SET ${fields.join(',')} WHERE id=$${i} RETURNING *`,
+    vals
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteModel(id: string): Promise<boolean> {
+  const { rowCount } = await pool.query('DELETE FROM website_device_models WHERE id=$1', [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+/* ── Promotional Banners ── */
+
+export async function getActiveBanners(): Promise<any[]> {
+  const now = new Date().toISOString();
+  const { rows } = await pool.query(
+    `SELECT * FROM website_banners
+     WHERE active = true
+       AND (start_date IS NULL OR start_date <= $1)
+       AND (end_date IS NULL OR end_date >= $1)
+     ORDER BY sort_order ASC, created_at ASC`,
+    [now]
+  );
+  return rows;
+}
+
+export async function getAllBanners(): Promise<any[]> {
+  const { rows } = await pool.query(
+    'SELECT * FROM website_banners ORDER BY sort_order ASC, created_at DESC'
+  );
+  return rows;
+}
+
+export async function createBanner(data: {
+  id: string; title: string; subtitle: string; badgeText: string; badgeType: string;
+  imageUrl: string; ctaLabel: string; ctaUrl: string; ctaLabel2: string; ctaUrl2: string;
+  bgGradient: string; accentColor: string; textColor: string;
+  active: boolean; sortOrder: number; startDate?: string | null; endDate?: string | null;
+}): Promise<any> {
+  const { rows } = await pool.query(
+    `INSERT INTO website_banners
+       (id,title,subtitle,badge_text,badge_type,image_url,cta_label,cta_url,
+        cta_label_2,cta_url_2,bg_gradient,accent_color,text_color,active,sort_order,start_date,end_date,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
+     RETURNING *`,
+    [data.id, data.title, data.subtitle, data.badgeText, data.badgeType,
+     data.imageUrl, data.ctaLabel, data.ctaUrl, data.ctaLabel2, data.ctaUrl2,
+     data.bgGradient, data.accentColor, data.textColor,
+     data.active, data.sortOrder, data.startDate || null, data.endDate || null]
+  );
+  return rows[0];
+}
+
+export async function updateBanner(id: string, data: Partial<{
+  title: string; subtitle: string; badgeText: string; badgeType: string;
+  imageUrl: string; ctaLabel: string; ctaUrl: string; ctaLabel2: string; ctaUrl2: string;
+  bgGradient: string; accentColor: string; textColor: string;
+  active: boolean; sortOrder: number; startDate: string | null; endDate: string | null;
+}>): Promise<any | null> {
+  const MAP: Record<string, string> = {
+    title: 'title', subtitle: 'subtitle', badgeText: 'badge_text', badgeType: 'badge_type',
+    imageUrl: 'image_url', ctaLabel: 'cta_label', ctaUrl: 'cta_url',
+    ctaLabel2: 'cta_label_2', ctaUrl2: 'cta_url_2',
+    bgGradient: 'bg_gradient', accentColor: 'accent_color', textColor: 'text_color',
+    active: 'active', sortOrder: 'sort_order', startDate: 'start_date', endDate: 'end_date',
+  };
+  const fields: string[] = [];
+  const vals: any[] = [];
+  let i = 1;
+  for (const [key, col] of Object.entries(MAP)) {
+    if (key in data) { fields.push(`${col}=$${i++}`); vals.push((data as any)[key] ?? null); }
+  }
+  if (!fields.length) return null;
+  vals.push(id);
+  const { rows } = await pool.query(
+    `UPDATE website_banners SET ${fields.join(',')} WHERE id=$${i} RETURNING *`,
+    vals
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteBanner(id: string): Promise<boolean> {
+  const { rowCount } = await pool.query('DELETE FROM website_banners WHERE id=$1', [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+/* ── Courier Config ── */
+
+export async function getCourierConfigs(): Promise<any[]> {
+  const { rows } = await pool.query(
+    'SELECT * FROM website_courier_config ORDER BY carrier ASC'
+  );
+  return rows;
+}
+
+export async function getCourierConfig(carrier: string): Promise<any | null> {
+  const { rows } = await pool.query(
+    'SELECT * FROM website_courier_config WHERE carrier=$1', [carrier]
+  );
+  return rows[0] ?? null;
+}
+
+export async function updateCourierConfig(carrier: string, data: {
+  enabled?: boolean; apiKey?: string; apiSecret?: string; apiUrl?: string;
+  sourcePincode?: string; volumetricDivisor?: number;
+  markupPercent?: number; markupFlat?: number;
+  zoneRates?: Record<string, number>; credentials?: Record<string, any>;
+}): Promise<any | null> {
+  const MAP: Record<string, string> = {
+    enabled: 'enabled', apiKey: 'api_key', apiSecret: 'api_secret',
+    apiUrl: 'api_url', sourcePincode: 'source_pincode',
+    volumetricDivisor: 'volumetric_divisor',
+    markupPercent: 'markup_percent', markupFlat: 'markup_flat',
+    zoneRates: 'zone_rates', credentials: 'credentials',
+  };
+  const fields: string[] = ['updated_at=NOW()'];
+  const vals: any[] = [];
+  let i = 1;
+  for (const [key, col] of Object.entries(MAP)) {
+    if (key in data) {
+      const val = (data as any)[key];
+      fields.push(`${col}=$${i++}`);
+      vals.push(typeof val === 'object' && val !== null ? JSON.stringify(val) : val);
+    }
+  }
+  vals.push(carrier);
+  const { rows } = await pool.query(
+    `UPDATE website_courier_config SET ${fields.join(',')} WHERE carrier=$${i} RETURNING *`,
+    vals
+  );
+  return rows[0] ?? null;
+}
+
+/* ── Shipping Rate Cache ── */
+
+export async function getCachedRates(cacheKey: string): Promise<any[] | null> {
+  const { rows } = await pool.query(
+    'SELECT rates FROM website_shipping_rate_cache WHERE cache_key=$1 AND expires_at > NOW()',
+    [cacheKey]
+  );
+  return rows[0]?.rates ?? null;
+}
+
+export async function setCachedRates(cacheKey: string, carrier: string, rates: any[], ttlSeconds = 300): Promise<void> {
+  await pool.query(
+    `INSERT INTO website_shipping_rate_cache (cache_key, carrier, rates, expires_at, created_at)
+     VALUES ($1,$2,$3,NOW() + ($4 || ' seconds')::interval, NOW())
+     ON CONFLICT (cache_key) DO UPDATE SET rates=$3, expires_at=NOW() + ($4 || ' seconds')::interval`,
+    [cacheKey, carrier, JSON.stringify(rates), ttlSeconds]
+  );
+}
+
+export async function evictExpiredRateCache(): Promise<void> {
+  await pool.query('DELETE FROM website_shipping_rate_cache WHERE expires_at < NOW()');
+}
+
+/* ── Delivery Settings ── */
+
+export async function getDeliverySettings(): Promise<Record<string, any>> {
+  const { rows } = await pool.query('SELECT key, value FROM website_delivery_settings ORDER BY key');
+  return Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+}
+
+export async function getDeliverySettingByKey(key: string): Promise<any | null> {
+  const { rows } = await pool.query(
+    'SELECT value FROM website_delivery_settings WHERE key=$1', [key]
+  );
+  return rows[0]?.value ?? null;
+}
+
+export async function updateDeliverySetting(key: string, value: any): Promise<void> {
+  await pool.query(
+    `INSERT INTO website_delivery_settings (key, value, updated_at)
+     VALUES ($1, $2::jsonb, NOW())
+     ON CONFLICT (key) DO UPDATE SET value=$2::jsonb, updated_at=NOW()`,
+    [key, JSON.stringify(value)]
+  );
+}
+
+/* ── Design Order helpers (delivery fields) ── */
+export async function addDesignOrderDelivery(orderId: string, deliveryMethod: string, deliveryConfig: any, shippingCost: number): Promise<void> {
+  await pool.query(
+    `UPDATE website_design_orders SET delivery_method=$1, delivery_config=$2::jsonb, shipping_cost=$3 WHERE id=$4`,
+    [deliveryMethod, JSON.stringify(deliveryConfig), shippingCost, orderId]
+  );
+}
+
+/* ── Analytics event tracking ── */
+export interface ProductEvent {
+  eventType: string; productId?: string; productName?: string; category?: string;
+  brandId?: string; brandName?: string; size?: string; color?: string;
+  sessionId: string; userId?: string; price?: number; quantity?: number;
+}
+
+export async function insertProductEvent(e: ProductEvent): Promise<void> {
+  const { v4: uuidv4 } = await import('uuid');
+  await pool.query(
+    `INSERT INTO website_product_events
+       (id, event_type, product_id, product_name, category, brand_id, brand_name,
+        size, color, session_id, user_id, price, quantity, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())`,
+    [uuidv4(), e.eventType, e.productId||null, e.productName||null, e.category||null,
+     e.brandId||null, e.brandName||null, e.size||null, e.color||null,
+     e.sessionId, e.userId||null, e.price||null, e.quantity||1]
+  );
+}
+
+export async function getAdvancedAnalytics(from: string, to: string, groupBy: 'day'|'week'|'month' = 'day') {
+  const dateTrunc = groupBy === 'week' ? 'week' : groupBy === 'month' ? 'month' : 'day';
+
+  const [
+    revenueRows, mostViewedRows, mostAddedRows, brandRows, sizeRows,
+    funnelRows, categoryRevenueRows, designCustomRows, productPerfRows,
+  ] = await Promise.all([
+    // Revenue timeline
+    pool.query(`
+      SELECT DATE_TRUNC($3, created_at) as period,
+             SUM(total) as revenue, COUNT(*) as orders
+      FROM (
+        SELECT total, created_at FROM website_orders WHERE status != 'cancelled' AND created_at BETWEEN $1 AND $2
+        UNION ALL
+        SELECT total, created_at FROM website_design_orders WHERE status != 'cancelled' AND created_at BETWEEN $1 AND $2
+      ) t GROUP BY period ORDER BY period
+    `, [from, to, dateTrunc]),
+
+    // Most viewed products
+    pool.query(`
+      SELECT product_id, MAX(product_name) as product_name, MAX(category) as category,
+             COUNT(*) as views
+      FROM website_product_events
+      WHERE event_type='view' AND created_at BETWEEN $1 AND $2 AND product_id IS NOT NULL
+      GROUP BY product_id ORDER BY views DESC LIMIT 10
+    `, [from, to]),
+
+    // Most added-to-cart
+    pool.query(`
+      SELECT product_id, MAX(product_name) as product_name,
+             COUNT(*) as add_count, SUM(quantity) as total_qty
+      FROM website_product_events
+      WHERE event_type='add_to_cart' AND created_at BETWEEN $1 AND $2 AND product_id IS NOT NULL
+      GROUP BY product_id ORDER BY add_count DESC LIMIT 10
+    `, [from, to]),
+
+    // Most selected brands
+    pool.query(`
+      SELECT brand_id, MAX(brand_name) as brand_name, COUNT(*) as select_count
+      FROM website_product_events
+      WHERE event_type='add_to_cart' AND created_at BETWEEN $1 AND $2 AND brand_id IS NOT NULL
+      GROUP BY brand_id ORDER BY select_count DESC LIMIT 10
+    `, [from, to]),
+
+    // Most selected sizes
+    pool.query(`
+      SELECT size, COUNT(*) as select_count
+      FROM website_product_events
+      WHERE event_type='add_to_cart' AND created_at BETWEEN $1 AND $2 AND size IS NOT NULL AND size != ''
+      GROUP BY size ORDER BY select_count DESC LIMIT 12
+    `, [from, to]),
+
+    // Conversion funnel counts
+    pool.query(`
+      SELECT event_type, COUNT(DISTINCT session_id) as sessions
+      FROM website_product_events
+      WHERE event_type IN ('view','add_to_cart','checkout_start','purchase')
+        AND created_at BETWEEN $1 AND $2
+      GROUP BY event_type
+    `, [from, to]),
+
+    // Revenue by category (from orders)
+    pool.query(`
+      SELECT (item->>'category') as category,
+             SUM((item->>'price')::numeric * (item->>'quantity')::int) as revenue,
+             COUNT(*) as orders
+      FROM website_orders, jsonb_array_elements(items) as item
+      WHERE status != 'cancelled' AND created_at BETWEEN $1 AND $2
+        AND (item->>'category') IS NOT NULL
+      GROUP BY category ORDER BY revenue DESC LIMIT 8
+    `, [from, to]),
+
+    // Most customized products (from design orders)
+    pool.query(`
+      SELECT product_type, COUNT(*) as count, SUM(total) as revenue
+      FROM website_design_orders
+      WHERE status != 'cancelled' AND created_at BETWEEN $1 AND $2
+      GROUP BY product_type ORDER BY count DESC LIMIT 10
+    `, [from, to]),
+
+    // Product performance: views + add_to_cart + purchases merged
+    pool.query(`
+      SELECT
+        e.product_id,
+        MAX(e.product_name) as product_name,
+        MAX(e.category) as category,
+        COUNT(*) FILTER (WHERE e.event_type = 'view') as views,
+        COUNT(*) FILTER (WHERE e.event_type = 'add_to_cart') as add_to_cart,
+        COUNT(*) FILTER (WHERE e.event_type = 'purchase') as purchases
+      FROM website_product_events e
+      WHERE e.created_at BETWEEN $1 AND $2 AND e.product_id IS NOT NULL
+      GROUP BY e.product_id ORDER BY views DESC LIMIT 20
+    `, [from, to]),
+  ]);
+
+  // Revenue from orders table for KPIs
+  const [orderKpiRes, userCountRes] = await Promise.all([
+    pool.query(`
+      SELECT
+        COALESCE(SUM(total),0) as revenue,
+        COUNT(*) as orders,
+        COALESCE(AVG(total),0) as aov
+      FROM (
+        SELECT total FROM website_orders WHERE status!='cancelled' AND created_at BETWEEN $1 AND $2
+        UNION ALL
+        SELECT total FROM website_design_orders WHERE status!='cancelled' AND created_at BETWEEN $1 AND $2
+      ) t
+    `, [from, to]),
+    pool.query(`SELECT COUNT(DISTINCT user_id) as visitors FROM website_product_events WHERE created_at BETWEEN $1 AND $2`, [from, to]),
+  ]);
+
+  // Build funnel map
+  const funnelMap: Record<string,number> = {};
+  for (const r of funnelRows.rows) funnelMap[r.event_type] = parseInt(r.sessions)||0;
+  const funnelViews    = funnelMap['view'] || 0;
+  const funnelCart     = funnelMap['add_to_cart'] || 0;
+  const funnelCheckout = funnelMap['checkout_start'] || 0;
+  const funnelPurchase = funnelMap['purchase'] || 0;
+
+  // Conversion rate: unique sessions with purchase / sessions with view
+  const conversionRate = funnelViews > 0 ? ((funnelPurchase / funnelViews) * 100) : 0;
+
+  // Cart abandonment: checkout_start sessions that didn't purchase
+  const cartAbandonmentRate = funnelCheckout > 0
+    ? (((funnelCheckout - funnelPurchase) / funnelCheckout) * 100) : 0;
+
+  // Product performance with conversion
+  const productPerf = productPerfRows.rows.map((r: any) => ({
+    productId: r.product_id,
+    name: r.product_name || r.product_id,
+    category: r.category || '',
+    views: parseInt(r.views)||0,
+    addToCart: parseInt(r.add_to_cart)||0,
+    purchases: parseInt(r.purchases)||0,
+    conversionRate: (parseInt(r.views)||0) > 0
+      ? (((parseInt(r.purchases)||0) / (parseInt(r.views)||0)) * 100).toFixed(1)
+      : '0.0',
+  }));
+
+  return {
+    // KPIs
+    totalRevenue: parseFloat(orderKpiRes.rows[0]?.revenue || '0'),
+    totalOrders: parseInt(orderKpiRes.rows[0]?.orders || '0'),
+    avgOrderValue: parseFloat(orderKpiRes.rows[0]?.aov || '0'),
+    uniqueVisitors: parseInt(userCountRes.rows[0]?.visitors || '0'),
+    conversionRate: parseFloat(conversionRate.toFixed(2)),
+    cartAbandonmentRate: parseFloat(cartAbandonmentRate.toFixed(2)),
+
+    // Timeline
+    revenueTimeline: revenueRows.rows.map((r: any) => ({
+      date: r.period, revenue: parseFloat(r.revenue), orders: parseInt(r.orders),
+    })),
+
+    // Product analytics
+    mostViewedProducts: mostViewedRows.rows.map((r: any) => ({
+      productId: r.product_id, name: r.product_name||r.product_id,
+      category: r.category||'', views: parseInt(r.views),
+    })),
+    mostAddedToCart: mostAddedRows.rows.map((r: any) => ({
+      productId: r.product_id, name: r.product_name||r.product_id,
+      addCount: parseInt(r.add_count), totalQty: parseInt(r.total_qty)||0,
+    })),
+
+    // Behavior
+    mostSelectedBrands: brandRows.rows.map((r: any) => ({
+      brandId: r.brand_id, brandName: r.brand_name||r.brand_id,
+      selectCount: parseInt(r.select_count),
+    })),
+    mostSelectedSizes: sizeRows.rows.map((r: any) => ({
+      size: r.size, selectCount: parseInt(r.select_count),
+    })),
+
+    // Funnel
+    funnel: {
+      views: funnelViews, addedToCart: funnelCart,
+      checkoutStarted: funnelCheckout, purchased: funnelPurchase,
+    },
+
+    // Revenue breakdown
+    categoryRevenue: categoryRevenueRows.rows.map((r: any) => ({
+      category: r.category||'Other', revenue: parseFloat(r.revenue), orders: parseInt(r.orders),
+    })),
+    mostCustomizedProducts: designCustomRows.rows.map((r: any) => ({
+      productType: r.product_type, count: parseInt(r.count), revenue: parseFloat(r.revenue)||0,
+    })),
+
+    // Product performance table
+    productPerformance: productPerf,
+  };
 }

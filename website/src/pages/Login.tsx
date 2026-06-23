@@ -1,107 +1,228 @@
-import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, ArrowRight, RotateCcw, Sparkles, Shield, Truck, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
+const ADMIN_ROLES = ['admin', 'super_admin', 'product_manager', 'order_manager'];
+
 export default function Login() {
-  const { login } = useAuth();
+  const { sendOtp, verifyOtp, login } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const redirect = params.get('redirect') || '/';
 
-  const ADMIN_ROLES = ['admin', 'super_admin', 'product_manager', 'order_manager'];
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [phone, setPhone] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) { toast.error('Please fill all fields'); return; }
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const cleaned = phone.replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleaned)) {
+      toast.error('Enter a valid 10-digit Indian mobile number');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await login(email, password);
-      if (res.requires2FA) {
-        navigate(`/2fa-verify?tempToken=${res.tempToken}&redirect=${encodeURIComponent(redirect)}`);
+      const res = await sendOtp(cleaned);
+      setSessionId(res.sessionId);
+      setPhone(cleaned);
+      setStep('otp');
+      setResendCooldown(30);
+      toast.success('OTP sent to +91 ' + cleaned);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (idx: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...otp];
+    next[idx] = digit;
+    setOtp(next);
+    if (digit && idx < 5) otpRefs.current[idx + 1]?.focus();
+  };
+
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (digits.length === 6) {
+      setOtp(digits.split(''));
+      otpRefs.current[5]?.focus();
+      e.preventDefault();
+    }
+  };
+
+  const handleVerify = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const code = otp.join('');
+    if (code.length !== 6) { toast.error('Enter the 6-digit OTP'); return; }
+    setLoading(true);
+    try {
+      const res = await verifyOtp(sessionId, code);
+      if (res.isNewUser) toast.success('Welcome to TheFramedWall!');
+      else toast.success('Welcome back!');
+      if (res.role && ADMIN_ROLES.includes(res.role)) {
+        navigate('/admin', { replace: true });
       } else {
-        toast.success('Welcome back!');
-        if (res.role && ADMIN_ROLES.includes(res.role)) {
-          navigate('/admin', { replace: true });
-        } else {
-          navigate(redirect);
-        }
+        navigate(redirect, { replace: true });
       }
     } catch (err: any) {
-      toast.error(err.message || 'Login failed');
-    } finally { setLoading(false); }
+      toast.error(err.message || 'Incorrect OTP');
+      setOtp(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    setLoading(true);
+    try {
+      const res = await sendOtp(phone);
+      setSessionId(res.sessionId);
+      setOtp(['', '', '', '', '', '']);
+      setResendCooldown(30);
+      toast.success('New OTP sent');
+      otpRefs.current[0]?.focus();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resend OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="auth-page">
       <div className="auth-split">
-        {/* Left panel - decorative */}
-        <motion.div className="auth-panel" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
+        {/* Left decorative panel */}
+        <motion.div className="auth-panel" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.55 }}>
           <div className="auth-panel-content">
             <div className="auth-panel-brand">
               <div className="brand-icon">T</div>
               <span>TheFramedWall</span>
             </div>
-            <h2>Welcome back to your creative studio</h2>
+            <h2>Your creative studio awaits</h2>
             <p>Design custom products, manage your orders, and bring your ideas to life with premium quality printing.</p>
             <div className="auth-panel-features">
-              <div className="auth-feature"><Sparkles size={18} /> <span>Custom design tools</span></div>
-              <div className="auth-feature"><Sparkles size={18} /> <span>Premium quality prints</span></div>
-              <div className="auth-feature"><Sparkles size={18} /> <span>Fast worldwide shipping</span></div>
+              <div className="auth-feature"><Sparkles size={18} /> <span>Live design preview</span></div>
+              <div className="auth-feature"><Shield size={18} /> <span>Secure OTP login — no passwords</span></div>
+              <div className="auth-feature"><Truck size={18} /> <span>Pan-India delivery</span></div>
             </div>
           </div>
         </motion.div>
 
-        {/* Right panel - form */}
-        <motion.div className="auth-form-panel" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
+        {/* Right form panel */}
+        <motion.div className="auth-form-panel" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.55, delay: 0.1 }}>
           <div className="auth-form-container">
-            <div className="auth-header">
-              <h1>Sign In</h1>
-              <p>Enter your credentials to access your account</p>
-            </div>
+            <AnimatePresence mode="wait">
+              {step === 'phone' ? (
+                <motion.div key="phone" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.25 }}>
+                  <div className="auth-header">
+                    <div className="auth-otp-icon"><Phone size={28} /></div>
+                    <h1>Sign In</h1>
+                    <p>Enter your mobile number to receive a one-time password</p>
+                  </div>
 
-            <form onSubmit={handleSubmit} className="auth-form">
-              <div className="form-group">
-                <label htmlFor="email">Email Address</label>
-                <div className="input-wrapper">
-                  <Mail size={18} className="input-icon" />
-                  <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoFocus />
-                </div>
-              </div>
+                  <form onSubmit={handleSendOtp} className="auth-form">
+                    <div className="form-group">
+                      <label htmlFor="phone">Mobile Number</label>
+                      <div className="input-wrapper">
+                        <span className="input-prefix">+91</span>
+                        <input
+                          id="phone"
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
+                          value={phone}
+                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="98765 43210"
+                          autoFocus
+                          className="phone-input"
+                        />
+                      </div>
+                    </div>
+                    <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading || phone.replace(/\D/g, '').length !== 10}>
+                      {loading ? <div className="spinner-sm" /> : <>Get OTP <ArrowRight size={18} /></>}
+                    </button>
+                  </form>
 
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <div className="input-wrapper">
-                  <Lock size={18} className="input-icon" />
-                  <input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" />
-                  <button type="button" className="toggle-pw" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
+                  <p className="auth-footer" style={{ marginTop: 24 }}>
+                    By continuing, you agree to our <a href="/terms" target="_blank">Terms</a> &amp; <a href="/privacy" target="_blank">Privacy Policy</a>
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.div key="otp" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.25 }}>
+                  <div className="auth-header">
+                    <div className="auth-otp-icon" style={{ background: 'var(--primary-50)', color: 'var(--primary)' }}>
+                      <Shield size={28} />
+                    </div>
+                    <h1>Enter OTP</h1>
+                    <p>
+                      Sent to <strong>+91 {phone}</strong>{' '}
+                      <button type="button" className="change-phone-btn" onClick={() => { setStep('phone'); setOtp(['', '', '', '', '', '']); }}>
+                        Change
+                      </button>
+                    </p>
+                  </div>
 
-              <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading}>
-                {loading ? <div className="spinner-sm" /> : <>Sign In <ArrowRight size={18} /></>}
-              </button>
-            </form>
+                  <form onSubmit={handleVerify} className="auth-form">
+                    <div className="otp-boxes" onPaste={handleOtpPaste}>
+                      {otp.map((digit, i) => (
+                        <input
+                          key={i}
+                          ref={el => { otpRefs.current[i] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={e => handleOtpChange(i, e.target.value)}
+                          onKeyDown={e => handleOtpKeyDown(i, e)}
+                          className="otp-box"
+                          autoComplete="one-time-code"
+                        />
+                      ))}
+                    </div>
 
-            <div className="auth-divider"><span>or</span></div>
+                    <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={loading || otp.join('').length !== 6}>
+                      {loading ? <div className="spinner-sm" /> : <>Verify &amp; Continue <ArrowRight size={18} /></>}
+                    </button>
+                  </form>
 
-            <a href="/api/auth/google" className="btn btn-google btn-block">
-              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-              Sign in with Google
-            </a>
-
-            <p className="auth-footer">
-              Don&apos;t have an account? <Link to="/register">Create a free account</Link>
-            </p>
+                  <div className="resend-row">
+                    {resendCooldown > 0 ? (
+                      <span className="resend-timer">Resend OTP in {resendCooldown}s</span>
+                    ) : (
+                      <button type="button" className="resend-btn" onClick={handleResend} disabled={loading}>
+                        <RotateCcw size={14} /> Resend OTP
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
       </div>

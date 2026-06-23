@@ -8,6 +8,16 @@ import rateLimit from 'express-rate-limit';
 import { initDB, pool } from './database.js';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
+import collectionRoutes from './routes/collections.js';
+import settingsRoutes from './routes/settings.js';
+import leadsRoutes from './routes/leads.js';
+import inventoryRoutes from './routes/inventory.js';
+import backInStockRoutes from './routes/backInStock.js';
+import brandsRoutes from './routes/brands.js';
+import bannersRoutes from './routes/banners.js';
+import shippingRoutes from './routes/shipping.js';
+import deliveryRoutes from './routes/delivery.js';
+import analyticsRoutes from './routes/analytics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,9 +38,10 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, server-to-server)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    // Allow any localhost port in development
+    if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -53,6 +64,16 @@ app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')))
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/collections', collectionRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/leads', leadsRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/back-in-stock', backInStockRoutes);
+app.use('/api/brands', brandsRoutes);
+app.use('/api/banners', bannersRoutes);
+app.use('/api/shipping', shippingRoutes);
+app.use('/api/delivery', deliveryRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {

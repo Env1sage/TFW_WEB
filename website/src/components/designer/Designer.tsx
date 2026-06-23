@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Palette, Layers as LayersIcon, Eye, ShoppingCart } from 'lucide-react';
 import * as fabric from 'fabric';
 import { compressImage } from '../../utils/imageCompression';
 import {
@@ -38,6 +39,7 @@ interface PriceResult {
 export default function Designer() {
   const navigate = useNavigate();
   const { id: productRouteId } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
   const { addDesignItem } = useCart();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fcRef = useRef<fabric.Canvas | null>(null);
@@ -55,12 +57,15 @@ export default function Designer() {
   const [selectedLayoutIds, setSelectedLayoutIds] = useState<string[]>([]);
   const [activeEditingLayoutId, setActiveEditingLayoutId] = useState<string | null>(null);
   const layoutClipRefs = useRef<Record<string, fabric.Rect>>({});
-  const [activeColorHex, setActiveColorHex] = useState('#ffffff');
-  const [activeColorName, setActiveColorName] = useState('White');
+  const [activeColorHex, setActiveColorHex] = useState(() => searchParams.get('color') || '#ffffff');
+  const [activeColorName, setActiveColorName] = useState(() => searchParams.get('colorName') || 'White');
   const [activeProductType, setActiveProductType] = useState('');
+  const [productMockupKey, setProductMockupKey] = useState<string | null>(null);
+  const [productName, setProductName] = useState<string | undefined>(undefined);
   const [allTemplates, setAllTemplates] = useState<Record<string, MockupTemplate>>({});
   const [quantity, setQuantity] = useState(1);
   const [price, setPrice] = useState<PriceResult | null>(null);
+  const [productBasePrice, setProductBasePrice] = useState(0);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [selectedObj, setSelectedObj] = useState<fabric.FabricObject | null>(null);
   const [layerList, setLayerList] = useState<fabric.FabricObject[]>([]);
@@ -69,6 +74,7 @@ export default function Designer() {
   const [previewUrls, setPreviewUrls] = useState<Partial<Record<PrintSide, string>>>({});
   const [previewSide, setPreviewSide] = useState<PrintSide>('FRONT');
   const [mobilePanel, setMobilePanel] = useState<'tools' | 'layers' | null>(null);
+  const [uploadEnabled, setUploadEnabled] = useState(true);
 
   const colors = COLORS.map(c => ({ name: c.name, hex: c.hex }));
 
@@ -123,6 +129,9 @@ export default function Designer() {
   }, [getUserObjects]);
 
   const [hasUserContent, setHasUserContent] = useState(false);
+  const [sideThumbnails, setSideThumbnails] = useState<Partial<Record<PrintSide, string>>>({});
+  const [hoverSnapshot, setHoverSnapshot] = useState<string | null>(null);
+  const [canvasHover, setCanvasHover] = useState<{ bgX: number; bgY: number; left: number; top: number } | null>(null);
 
   /* ── Shadow overlay ── */
   const loadShadowOverlay = useCallback((fc: fabric.Canvas, tmpl: { shadowUrls?: Partial<Record<string, string>> }, side: PrintSide) => {
@@ -382,6 +391,27 @@ export default function Designer() {
     });
   }, []);
 
+  /* ── Thumbnail capture for bottom bar previews ── */
+  const captureThumbnail = useCallback(() => {
+    const fc = fcRef.current; if (!fc) return;
+    const decorGuides = fc.getObjects().filter(o => {
+      const name = (o as any).name as string | undefined;
+      return name && name.startsWith('__') && name !== '__shadow';
+    });
+    decorGuides.forEach(o => { o.visible = false; });
+    const savedVT = fc.viewportTransform ? [...fc.viewportTransform] : [1, 0, 0, 1, 0, 0];
+    fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    fc.renderAll();
+    const smallThumb = fc.toDataURL({ format: 'jpeg', quality: 0.55, multiplier: 0.32 });
+    const hoverThumb = fc.toDataURL({ format: 'jpeg', quality: 0.78, multiplier: 0.65 });
+    fc.setViewportTransform(savedVT as [number, number, number, number, number, number]);
+    decorGuides.forEach(o => { o.visible = true; });
+    fc.renderAll();
+    const side = activeSideRef.current;
+    setSideThumbnails(prev => ({ ...prev, [side]: smallThumb }));
+    setHoverSnapshot(hoverThumb);
+  }, []);
+
   /* ── Auto-save (local) ── */
   const scheduleAutoSave = useCallback(() => {
     setSaveStatus('saving');
@@ -392,8 +422,9 @@ export default function Designer() {
       if (!fc) return;
       sideStateRef.current[sideAtCallTime].json = fc.toObject(['name', 'customId', 'layerName', 'printZone']);
       setSaveStatus('saved');
+      captureThumbnail();
     }, 500);
-  }, []);  // no deps — uses activeSideRef.current snapshot
+  }, [captureThumbnail]);  // stable: captureThumbnail only uses refs
 
   /* ── Canvas auto-scale ── */
   const autoScale = useCallback(() => {
@@ -428,7 +459,8 @@ export default function Designer() {
     sideStateRef.current.FRONT.history.push(json);
 
     fc.on('object:added', (e: any) => {
-      if (!isLoadingRef.current && !isGuide(e.target)) { saveHistory(); scheduleAutoSave(); }
+      if (isGuide(e.target)) return;
+      if (!isLoadingRef.current) { saveHistory(); scheduleAutoSave(); }
       const shadow = fc.getObjects().find(o => (o as any).name === '__shadow');
       if (shadow && e.target !== shadow) fc.bringObjectToFront(shadow);
       refreshLayers();
@@ -437,12 +469,12 @@ export default function Designer() {
       if (!isLoadingRef.current && !isGuide(e.target)) { saveHistory(); scheduleAutoSave(); }
       forceUpdate(n => n + 1);
     });
-    fc.on('object:removed', () => {
+    fc.on('object:removed', (e: any) => {
+      if (isGuide(e.target)) return;
+      saveHistory(); scheduleAutoSave();
       refreshLayers();
       const remaining = fc.getObjects().filter(o => !isGuide(o));
-      // Remove layout from selectedLayoutIds if all its objects were deleted
       setSelectedLayoutIds(prev => prev.filter(id => remaining.some(o => (o as any).printZone === id)));
-      // Remove this side from selectedSides if no user designs remain on it
       if (remaining.length === 0) {
         setSelectedSides(prev => prev.filter(s => s !== activeSideRef.current));
       }
@@ -459,13 +491,6 @@ export default function Designer() {
       if (Math.abs(ox - cx) < 10) obj.set({ left: cx - obj.getScaledWidth() / 2 });
       if (Math.abs(oy - cy) < 10) obj.set({ top: cy - obj.getScaledHeight() / 2 });
     });
-    fc.on('mouse:wheel', (opt: any) => {
-      let z = fc.getZoom() * (0.999 ** opt.e.deltaY);
-      z = Math.min(3, Math.max(0.3, z));
-      fc.zoomToPoint(new fabric.Point(opt.e.offsetX, opt.e.offsetY), z);
-      opt.e.preventDefault(); opt.e.stopPropagation();
-    });
-
     // ── Pinch-to-zoom (touch) ──
     let lastDist = 0;
     const canvasEl = fc.upperCanvasEl || fc.lowerCanvasEl;
@@ -523,6 +548,10 @@ export default function Designer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    api.getSetting('upload_enabled').then(r => setUploadEnabled(r.value !== 'false')).catch(() => {});
+  }, []);
+
   useEffect(() => { loadMockup(); }, [loadMockup]);
   useEffect(() => {
     preloadMockupImages().then(() => setImgReady(true));
@@ -545,7 +574,11 @@ export default function Designer() {
       if (productRouteId) {
         api.getProduct(productRouteId).then((product: any) => {
           if (product?.mockupId && newTemplates[`db_${product.mockupId}`]) {
-            setActiveProductType(`db_${product.mockupId}`);
+            const key = `db_${product.mockupId}`;
+            setActiveProductType(key);
+            setProductMockupKey(key);
+            if (product.name) setProductName(product.name);
+            setProductBasePrice(product.price || 0);
           } else {
             setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
           }
@@ -618,6 +651,26 @@ export default function Designer() {
     if (first) { setActiveEditingLayoutId(first.id); setSelectedLayoutIds([]); }
   }, [activeProductType, allTemplates]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Auto-capture thumbnail when mockup/color/side changes ── */
+  useEffect(() => {
+    if (!activeProductType) return;
+    const t = setTimeout(captureThumbnail, 400);
+    return () => clearTimeout(t);
+  }, [activeProductType, activeColorHex, activeSide, captureThumbnail]);
+
+  /* ── Canvas hover zoom handler ── */
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!hoverSnapshot) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const bgX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const bgY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const POPUP_W = 320, POPUP_H = 400;
+    let left = rect.right + 14;
+    if (left + POPUP_W > window.innerWidth - 8) left = rect.left - POPUP_W - 14;
+    let top = Math.max(8, Math.min(window.innerHeight - POPUP_H - 8, e.clientY - POPUP_H / 2));
+    setCanvasHover({ bgX, bgY, left, top });
+  }, [hoverSnapshot]);
+
   /* ── Local price calculation ── */
   useEffect(() => {
     const tmpl = allTemplates[activeProductType];
@@ -632,8 +685,9 @@ export default function Designer() {
       if (fc) {
         fc.getObjects().filter(o => !isGuide(o)).forEach(o => allSideObjects.push({ printZone: (o as any).printZone || '' }));
       }
-      // Objects saved from other sides
-      Object.entries(sideStateRef.current).forEach(([, ss]) => {
+      // Objects from OTHER sides saved in sideStateRef (skip current side — canvas is authoritative)
+      Object.entries(sideStateRef.current).forEach(([side, ss]) => {
+        if (side === activeSideRef.current) return;
         if (ss.json) {
           const objs: any[] = (ss.json as any).objects || [];
           objs.filter(o => o.name == null || !String(o.name).startsWith('__')).forEach(o => allSideObjects.push({ printZone: o.printZone || '' }));
@@ -655,23 +709,32 @@ export default function Designer() {
     }
 
     const discount = quantity >= 10 ? 15 : quantity >= 5 ? 10 : quantity >= 3 ? 5 : 0;
-    const productBase = (tmpl?.basePrice || 0) * quantity;
+    const productBase = (productBasePrice || tmpl?.basePrice || 0) * quantity;
     const finalPrice = Math.round((originalPrice + productBase) * (1 - discount / 100));
     setPrice({ originalPrice: originalPrice + productBase, finalPrice, discountPercent: discount });
-  }, [selectedSides, quantity, activePrintSize, pocketPrintEnabled, activeProductType, allTemplates, layerList]); // layerList changes when objects are added/removed → re-evaluate price
+  }, [selectedSides, quantity, activePrintSize, pocketPrintEnabled, activeProductType, allTemplates, layerList, productBasePrice]);
 
   /* ── Actions ── */
   const handleAddText = useCallback(() => {
     const fc = fcRef.current; if (!fc) return;
-    const pa = getActiveArea();
     const tmpl = getTemplate();
-    const isLayoutMode = !!(tmpl?.layouts?.length && activeEditingLayoutId);
+    // Auto-activate first layout if template has layouts but none is selected
+    let effectiveLayoutId = activeEditingLayoutId;
+    if (!effectiveLayoutId && tmpl?.layouts?.length) {
+      const auto = (tmpl.layouts as PrintLayout[]).find((l: PrintLayout) => l.side === activeSideRef.current) || (tmpl.layouts[0] as PrintLayout);
+      effectiveLayoutId = auto.id;
+      setActiveEditingLayoutId(auto.id);
+      setSelectedLayoutIds(prev => prev.includes(auto.id) ? prev : [...prev, auto.id]);
+    }
+    const isLayoutMode = !!(tmpl?.layouts?.length && effectiveLayoutId);
     const clip = isLayoutMode
-      ? (layoutClipRefs.current[activeEditingLayoutId!] ?? clipRef.current)
+      ? (layoutClipRefs.current[effectiveLayoutId!] ?? clipRef.current)
       : (editingPocket ? pocketClipRef.current : clipRef.current);
     if (!clip) return;
-    const zone = isLayoutMode ? activeEditingLayoutId! : (editingPocket ? 'pocket' : 'body');
-    const activeLayout = isLayoutMode ? tmpl!.layouts!.find((l: PrintLayout) => l.id === activeEditingLayoutId) : null;
+    const zone = isLayoutMode ? effectiveLayoutId! : (editingPocket ? 'pocket' : 'body');
+    const activeLayout = isLayoutMode ? (tmpl!.layouts as PrintLayout[]).find((l: PrintLayout) => l.id === effectiveLayoutId) : null;
+    // Use layout area if in layout mode, otherwise fall back to getActiveArea
+    const pa = activeLayout ? { x: activeLayout.x, y: activeLayout.y, w: activeLayout.w, h: activeLayout.h } : getActiveArea();
     const text = new fabric.IText('Your Text', {
       left: pa.x + pa.w / 2, top: pa.y + pa.h / 2,
       originX: 'center', originY: 'center',
@@ -682,20 +745,26 @@ export default function Designer() {
     (text as any).layerName = activeLayout ? `${activeLayout.name} Text` : (editingPocket ? 'Pocket Text' : 'Text');
     (text as any).printZone = zone;
     fc.add(text); fc.setActiveObject(text); fc.renderAll();
-    // Auto-add this layout to selectedLayoutIds so it's priced
-    if (isLayoutMode && activeEditingLayoutId) {
-      setSelectedLayoutIds(prev => prev.includes(activeEditingLayoutId) ? prev : [...prev, activeEditingLayoutId]);
+    if (isLayoutMode && effectiveLayoutId) {
+      setSelectedLayoutIds(prev => prev.includes(effectiveLayoutId!) ? prev : [...prev, effectiveLayoutId!]);
     }
-    // Auto-add this side to selectedSides so it's included in the order
     setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
   }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
 
   const handleAddImage = useCallback(async (file: File) => {
     const fc = fcRef.current; if (!fc) return;
     const tmpl = getTemplate();
-    const isLayoutMode = !!(tmpl?.layouts?.length && activeEditingLayoutId);
+    // Auto-activate first layout if template has layouts but none is selected
+    let effectiveLayoutId = activeEditingLayoutId;
+    if (!effectiveLayoutId && tmpl?.layouts?.length) {
+      const auto = (tmpl.layouts as PrintLayout[]).find((l: PrintLayout) => l.side === activeSideRef.current) || (tmpl.layouts[0] as PrintLayout);
+      effectiveLayoutId = auto.id;
+      setActiveEditingLayoutId(auto.id);
+      setSelectedLayoutIds(prev => prev.includes(auto.id) ? prev : [...prev, auto.id]);
+    }
+    const isLayoutMode = !!(tmpl?.layouts?.length && effectiveLayoutId);
     const clip = isLayoutMode
-      ? (layoutClipRefs.current[activeEditingLayoutId!] ?? clipRef.current)
+      ? (layoutClipRefs.current[effectiveLayoutId!] ?? clipRef.current)
       : (editingPocket ? pocketClipRef.current : clipRef.current);
     if (!clip) return;
     if (file.size > 10 * 1024 * 1024) return;
@@ -703,13 +772,13 @@ export default function Designer() {
     if (file.size > 500 * 1024) {
       try { blob = await compressImage(file, { maxWidth: 2048, maxHeight: 2048, quality: 0.85 }); } catch { blob = file; }
     }
-    const zone = isLayoutMode ? activeEditingLayoutId! : (editingPocket ? 'pocket' : 'body');
-    const activeLayout = isLayoutMode ? tmpl!.layouts!.find((l: PrintLayout) => l.id === activeEditingLayoutId) : null;
+    const zone = isLayoutMode ? effectiveLayoutId! : (editingPocket ? 'pocket' : 'body');
+    const activeLayout = isLayoutMode ? (tmpl!.layouts as PrintLayout[]).find((l: PrintLayout) => l.id === effectiveLayoutId) : null;
     const reader = new FileReader();
     reader.onload = () => {
       const imgEl = new Image();
       imgEl.onload = () => {
-        const pa = getActiveArea();
+        const pa = activeLayout ? { x: activeLayout.x, y: activeLayout.y, w: activeLayout.w, h: activeLayout.h } : getActiveArea();
         const fImg = new fabric.FabricImage(imgEl);
         const fitScale = Math.min((pa.w * 0.8) / fImg.width, (pa.h * 0.8) / fImg.height);
         fImg.set({ left: pa.x + pa.w / 2, top: pa.y + pa.h / 2, originX: 'center', originY: 'center', scaleX: fitScale, scaleY: fitScale, clipPath: clip });
@@ -717,16 +786,56 @@ export default function Designer() {
         (fImg as any).layerName = activeLayout ? `${activeLayout.name} Image` : (editingPocket ? 'Pocket Image' : 'Image');
         (fImg as any).printZone = zone;
         fc.add(fImg); fc.setActiveObject(fImg); fc.renderAll();
-        // Auto-add this layout to selectedLayoutIds so it's priced
-        if (isLayoutMode && activeEditingLayoutId) {
-          setSelectedLayoutIds(prev => prev.includes(activeEditingLayoutId) ? prev : [...prev, activeEditingLayoutId]);
+        if (isLayoutMode && effectiveLayoutId) {
+          setSelectedLayoutIds(prev => prev.includes(effectiveLayoutId!) ? prev : [...prev, effectiveLayoutId!]);
         }
-        // Auto-add this side to selectedSides so it's included in the order
         setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
       };
       imgEl.src = reader.result as string;
     };
     reader.readAsDataURL(blob);
+  }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
+
+  const handleAddShape = useCallback((type: 'rect' | 'circle' | 'triangle' | 'line') => {
+    const fc = fcRef.current; if (!fc) return;
+    const tmpl = getTemplate();
+    // Auto-activate first layout if template has layouts but none is selected
+    let effectiveLayoutId = activeEditingLayoutId;
+    if (!effectiveLayoutId && tmpl?.layouts?.length) {
+      const auto = (tmpl.layouts as PrintLayout[]).find((l: PrintLayout) => l.side === activeSideRef.current) || (tmpl.layouts[0] as PrintLayout);
+      effectiveLayoutId = auto.id;
+      setActiveEditingLayoutId(auto.id);
+      setSelectedLayoutIds(prev => prev.includes(auto.id) ? prev : [...prev, auto.id]);
+    }
+    const isLayoutMode = !!(tmpl?.layouts?.length && effectiveLayoutId);
+    const clip = isLayoutMode
+      ? (layoutClipRefs.current[effectiveLayoutId!] ?? clipRef.current)
+      : (editingPocket ? pocketClipRef.current : clipRef.current);
+    if (!clip) return;
+    const zone = isLayoutMode ? effectiveLayoutId! : (editingPocket ? 'pocket' : 'body');
+    const activeLayout = isLayoutMode ? (tmpl!.layouts as PrintLayout[]).find((l: PrintLayout) => l.id === effectiveLayoutId) : null;
+    const pa = activeLayout ? { x: activeLayout.x, y: activeLayout.y, w: activeLayout.w, h: activeLayout.h } : getActiveArea();
+    const cx = pa.x + pa.w / 2;
+    const cy = pa.y + pa.h / 2;
+    const fill = '#0E7C61';
+    let obj: fabric.FabricObject;
+    if (type === 'rect') {
+      obj = new fabric.Rect({ left: cx - 50, top: cy - 50, width: 100, height: 100, fill, clipPath: clip });
+    } else if (type === 'circle') {
+      obj = new fabric.Circle({ left: cx - 50, top: cy - 50, radius: 50, fill, clipPath: clip });
+    } else if (type === 'triangle') {
+      obj = new fabric.Triangle({ left: cx - 50, top: cy - 50, width: 100, height: 100, fill, clipPath: clip });
+    } else {
+      obj = new fabric.Line([0, 0, 100, 0], { left: cx - 50, top: cy, stroke: fill, strokeWidth: 3, fill: '', clipPath: clip });
+    }
+    (obj as any).customId = crypto.randomUUID();
+    (obj as any).layerName = type.charAt(0).toUpperCase() + type.slice(1);
+    (obj as any).printZone = zone;
+    if (isLayoutMode && effectiveLayoutId) {
+      setSelectedLayoutIds(prev => prev.includes(effectiveLayoutId!) ? prev : [...prev, effectiveLayoutId!]);
+    }
+    fc.add(obj); fc.setActiveObject(obj); fc.renderAll();
+    setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
   }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
 
   const handleDelete = useCallback(() => {
@@ -818,7 +927,13 @@ export default function Designer() {
     const savedVT = fc.viewportTransform ? [...fc.viewportTransform] : [1, 0, 0, 1, 0, 0];
     fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
     fc.renderAll();
-    sideStateRef.current[activeSide].thumbnail = fc.toDataURL({ format: 'png', multiplier: 1 });
+    const fullThumb = fc.toDataURL({ format: 'png', multiplier: 1 });
+    sideStateRef.current[activeSide].thumbnail = fullThumb;
+    // Also update thumbnails for bottom bar and hover zoom
+    const smallThumb = fc.toDataURL({ format: 'jpeg', quality: 0.55, multiplier: 0.32 });
+    const hoverThumb = fc.toDataURL({ format: 'jpeg', quality: 0.78, multiplier: 0.65 });
+    setSideThumbnails(prev => ({ ...prev, [activeSide]: smallThumb }));
+    setHoverSnapshot(hoverThumb);
     fc.setViewportTransform(savedVT as [number, number, number, number, number, number]);
     const ns = sideStateRef.current[newSide];
     if (ns.json) {
@@ -985,6 +1100,16 @@ export default function Designer() {
   const templateLayouts = currentTemplate?.layouts ?? [];
   const sideLayouts = templateLayouts.filter((l: PrintLayout) => l.side === activeSide);
 
+  // When arriving via /design-studio/customize/:productId, always restrict to one template.
+  const visibleTemplates = (() => {
+    if (!productRouteId) return allTemplates;
+    if (productMockupKey && allTemplates[productMockupKey])
+      return { [productMockupKey]: allTemplates[productMockupKey] };
+    if (activeProductType && allTemplates[activeProductType])
+      return { [activeProductType]: allTemplates[activeProductType] };
+    return {};
+  })();
+
   return (
     <div className="designer">
       <TopBar
@@ -1014,6 +1139,7 @@ export default function Designer() {
         selectedLayoutIds={selectedLayoutIds}
         activeEditingLayoutId={activeEditingLayoutId}
         allowMultipleLayouts={currentTemplate?.allowMultipleLayouts ?? false}
+        productName={productName}
         onToggleLayout={(id) => {
           const tmpl = getTemplate();
           setSelectedLayoutIds(prev => {
@@ -1041,9 +1167,11 @@ export default function Designer() {
         <LeftPanel
           activeProductType={activeProductType}
           onSwitchType={setActiveProductType}
-          templates={allTemplates}
+          templates={visibleTemplates}
+          productName={productName}
           onAddText={handleAddText}
           onAddImage={handleAddImage}
+          onAddShape={handleAddShape}
           onDelete={handleDelete}
           onDuplicate={handleDuplicate}
           onCenter={handleCenter}
@@ -1054,11 +1182,21 @@ export default function Designer() {
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onResetView={handleResetView}
-          onPreview={handlePreview}
+          layers={layerList}
+          selectedObj={selectedObj}
+          onSelectLayer={handleSelectLayer}
+          onRemoveLayer={handleRemoveLayer}
+          onToggleVisibility={handleToggleVisibility}
           extraClassName={mobilePanel === 'tools' ? 'open' : ''}
+          uploadEnabled={uploadEnabled}
         />
         <div className="canvas-area">
-          <div className="canvas-wrap" style={{ position: 'relative' }}>
+          <div
+            className="canvas-wrap"
+            style={{ position: 'relative' }}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseLeave={() => setCanvasHover(null)}
+          >
             <canvas ref={canvasRef} width={CW} height={CH} />
             {!hasUserContent && (
               <button
@@ -1085,15 +1223,49 @@ export default function Designer() {
               }}
             />
           </div>
+
+          {/* ── Film strip: side thumbnails floating in canvas ── */}
+          <div className="ds-film-strip">
+            {SIDES.map(side => (
+              <button
+                key={side}
+                className={`ds-film-card${activeSide === side ? ' active' : ''}${selectedSides.includes(side) ? ' has-design' : ''}`}
+                onClick={() => handleToggleSide(side)}
+                title={`${side} — click to switch`}
+              >
+                <div className="ds-film-card-img">
+                  {sideThumbnails[side]
+                    ? <img src={sideThumbnails[side]} alt={side} draggable={false} />
+                    : <span className="ds-film-empty-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      </span>
+                  }
+                </div>
+                <span className="ds-film-label">{side}</span>
+                {selectedSides.includes(side) && <span className="ds-film-check" />}
+              </button>
+            ))}
+          </div>
         </div>
         <RightPanel
           selectedObj={selectedObj}
-          layers={layerList}
           onUpdateProp={handleUpdateObj}
-          onSelectLayer={handleSelectLayer}
-          onRemoveLayer={handleRemoveLayer}
-          onToggleVisibility={handleToggleVisibility}
           canvas={fcRef.current}
+          productName={productName}
+          colors={colors}
+          activeColorHex={activeColorHex}
+          activeColorName={activeColorName}
+          onSwitchColor={(hex, name) => { setActiveColorHex(hex); setActiveColorName(name); }}
+          selectedSize={searchParams.get('size') || undefined}
+          quantity={quantity}
+          onQuantityChange={setQuantity}
+          price={price}
+          productBasePrice={productBasePrice}
+          onAddToCart={handleAddToCart}
+          onPreview={handlePreview}
+          selectedSides={selectedSides}
+          pocketPrintEnabled={pocketPrintEnabled}
+          activePrintSize={activePrintSize}
           extraClassName={mobilePanel === 'layers' ? 'open' : ''}
         />
       </div>
@@ -1101,6 +1273,7 @@ export default function Designer() {
         selectedSides={selectedSides}
         quantity={quantity}
         price={price}
+        productBasePrice={productBasePrice}
         onQuantityChange={setQuantity}
         onAddToCart={handleAddToCart}
         onPreview={handlePreview}
@@ -1109,34 +1282,48 @@ export default function Designer() {
         pocketPrintEnabled={pocketPrintEnabled}
       />
 
+      {/* ── Canvas Hover Zoom Popup ── */}
+      {canvasHover && hoverSnapshot && (
+        <div
+          className="ds-canvas-zoom-popup"
+          style={{
+            left: canvasHover.left,
+            top: canvasHover.top,
+            backgroundImage: `url(${hoverSnapshot})`,
+            backgroundSize: '380%',
+            backgroundPosition: `${canvasHover.bgX}% ${canvasHover.bgY}%`,
+          }}
+        />
+      )}
+
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="mobile-bottom-nav">
         <button
           className={`mobile-nav-btn${mobilePanel === 'tools' ? ' active' : ''}`}
           onClick={() => setMobilePanel(p => p === 'tools' ? null : 'tools')}
         >
-          <span className="nav-icon">🎨</span>
+          <Palette size={20} />
           Tools
         </button>
         <button
           className={`mobile-nav-btn${mobilePanel === 'layers' ? ' active' : ''}`}
           onClick={() => setMobilePanel(p => p === 'layers' ? null : 'layers')}
         >
-          <span className="nav-icon">📋</span>
+          <LayersIcon size={20} />
           Layers
         </button>
         <button
           className="mobile-nav-btn"
           onClick={handlePreview}
         >
-          <span className="nav-icon">👁</span>
+          <Eye size={20} />
           Preview
         </button>
         <button
           className="mobile-nav-btn"
           onClick={handleAddToCart}
         >
-          <span className="nav-icon">🛒</span>
+          <ShoppingCart size={20} />
           Cart
         </button>
       </nav>
