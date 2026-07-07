@@ -8,66 +8,170 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api';
 import type { Coupon } from '../types';
 
-const MEGA_GROUPS: { heading: string; icon: LucideIcon; items: string[] }[] = [
+const MEGA_GROUPS: { heading: string; icon: LucideIcon; items: { label: string; category: string }[] }[] = [
   {
     heading: 'T-Shirts & Polo',
     icon: Shirt,
-    items: ["Men's T-Shirts","Women's T-Shirts","Oversized T-Shirts","Oversized Classic T-Shirt","Acid Wash Oversized Tee","Terry Oversized Tee","Full Sleeve T-Shirts","Round Neck T-Shirts","V-Neck T-Shirts","Dry Fit T-Shirts","Printed T-Shirts","Men's Polo T-Shirts","Scott Polo T-Shirts","Branded Polo T-Shirts"],
+    items: [
+      { label: 'Plain White T-Shirt',          category: 'T-Shirts' },
+      { label: 'Plain Black T-Shirt',          category: 'T-Shirts' },
+      { label: 'Oversized Drop-Shoulder Tee',  category: 'T-Shirts' },
+      { label: 'Acid Wash Oversized Tee',      category: 'T-Shirts' },
+      { label: 'Galaxy Print Oversized Tee',   category: 'T-Shirts' },
+      { label: 'Dry-Fit Performance T-Shirt',  category: 'T-Shirts' },
+      { label: 'Full-Sleeve Printed T-Shirt',  category: 'T-Shirts' },
+      { label: 'Classic White Polo',           category: 'Polo T-Shirts' },
+      { label: 'Navy Blue Corporate Polo',     category: 'Polo T-Shirts' },
+      { label: 'Dry-Fit Sports Polo',          category: 'Polo T-Shirts' },
+      { label: 'Premium Pima Cotton Polo',     category: 'Polo T-Shirts' },
+      { label: 'Long-Sleeve Polo Shirt',       category: 'Polo T-Shirts' },
+    ],
   },
   {
     heading: 'Shirts, Hoodies & Jackets',
     icon: Layers,
-    items: ["Custom Office Shirts","Embroidered Dress Shirts","Corporate Shirts","Unisex Hoodie","Zipper Hoodie","Sweatshirts","Varsity Jacket","Bomber Jacket","Windcheaters","Fleece Jackets","Pullover Hoodies"],
+    items: [
+      { label: 'White Formal Shirt',           category: 'Shirts' },
+      { label: 'Embroidered Corporate Shirt',  category: 'Shirts' },
+      { label: 'Oxford Weave Shirt',           category: 'Shirts' },
+      { label: 'Linen Blend Summer Shirt',     category: 'Shirts' },
+      { label: 'Classic Grey Pullover Hoodie', category: 'Hoodies' },
+      { label: 'Black Zip-Up Hoodie',          category: 'Hoodies' },
+      { label: 'Oversized Pullover Hoodie',    category: 'Hoodies' },
+      { label: 'Embroidered Chest Hoodie',     category: 'Hoodies' },
+      { label: 'Black Bomber Jacket',          category: 'Jackets' },
+      { label: 'Varsity Letterman Jacket',     category: 'Jackets' },
+      { label: 'Softshell Outdoor Jacket',     category: 'Jackets' },
+      { label: 'Windbreaker Jacket',           category: 'Jackets' },
+    ],
   },
   {
     heading: 'Kids, Workwear & Headwear',
     icon: HardHat,
-    items: ["Kids T-Shirts","Kids Hoodies","Reflective Safety Vest","Lab Coats","Aprons","Custom Caps","Baseball Caps","Snapback Caps","Dad Caps","Bucket Hats","Beanies","Balaclava","Headbands","Branded Bands"],
+    items: [
+      { label: 'Kids Plain White T-Shirt',     category: 'Kids Clothing' },
+      { label: 'Kids Cartoon Print Tee',       category: 'Kids Clothing' },
+      { label: 'Kids Pullover Hoodie',         category: 'Kids Clothing' },
+      { label: 'Kids Sports Jersey',           category: 'Kids Clothing' },
+      { label: 'Corporate Uniform Shirt',      category: 'Workwear' },
+      { label: 'Safety / Event Vest',          category: 'Workwear' },
+      { label: 'Chef Coat / Kitchen Jacket',   category: 'Workwear' },
+      { label: 'Classic Baseball Cap',         category: 'Headwear' },
+      { label: 'Snapback Cap',                 category: 'Headwear' },
+      { label: 'Bucket Hat',                   category: 'Headwear' },
+      { label: 'Knit Beanie',                  category: 'Headwear' },
+      { label: 'Flat Brim Embroidered Cap',    category: 'Headwear' },
+    ],
   },
   {
     heading: 'Visiting Cards',
     icon: CreditCard,
-    items: ["Standard Visiting Cards","Classic Visiting Cards","Rounded Corner Visiting Cards","Square Visiting Cards","Leaf Visiting Cards","Oval Visiting Cards","Circle Visiting Cards","QR Code Visiting Cards","NFC Visiting Cards","Spot UV Visiting Cards","Raised Foil Visiting Cards","Glossy Visiting Cards","Matte Visiting Cards","Bulk Visiting Cards","Magnetic Visiting Cards","Transparent Visiting Cards","Premium Plus Visiting Cards","Non-Tearable Visiting Cards","Velvet Touch Visiting Cards","Pearl Visiting Cards","Kraft Visiting Cards","Diamond Visiting Cards"],
+    items: [
+      { label: 'Standard Visiting Card',       category: 'Visiting Cards' },
+      { label: 'Premium Matte Visiting Card',  category: 'Visiting Cards' },
+      { label: 'Spot UV Visiting Card',        category: 'Visiting Cards' },
+      { label: 'Raised Gold Foil Card',        category: 'Visiting Cards' },
+      { label: 'Transparent PVC Card',         category: 'Visiting Cards' },
+      { label: 'NFC Smart Business Card',      category: 'Visiting Cards' },
+      { label: 'Rounded Corner Card',          category: 'Visiting Cards' },
+      { label: 'Velvet Soft-Touch Card',       category: 'Visiting Cards' },
+      { label: 'Eco Kraft Visiting Card',      category: 'Visiting Cards' },
+      { label: 'Square Format Card',           category: 'Visiting Cards' },
+    ],
   },
   {
-    heading: 'Stickers',
+    heading: 'Stickers & Phone Cases',
     icon: Sticker,
-    items: ["Sheet Stickers","Custom Shape Stickers","Sticker Singles","UV Ink Transfer Stickers","Window Stickers","Car Stickers","Floor Stickers","QR Code Stickers"],
+    items: [
+      { label: 'Custom Die-Cut Sticker',       category: 'Stickers' },
+      { label: 'Holographic Sticker',          category: 'Stickers' },
+      { label: 'QR Code Sticker',              category: 'Stickers' },
+      { label: 'Sticker Sheet (A5)',           category: 'Stickers' },
+      { label: 'Clear Transparent Sticker',    category: 'Stickers' },
+      { label: 'Glow-in-the-Dark Sticker',     category: 'Stickers' },
+      { label: 'iPhone Hard Case',             category: 'Phone Cases' },
+      { label: 'Samsung Hard Case',            category: 'Phone Cases' },
+      { label: 'Tough Dual-Layer Case',        category: 'Phone Cases' },
+      { label: 'MagSafe Compatible Case',      category: 'Phone Cases' },
+      { label: 'Flip Wallet Phone Case',       category: 'Phone Cases' },
+      { label: 'Clear Printed Phone Case',     category: 'Phone Cases' },
+    ],
   },
   {
-    heading: 'Labels & Tags',
-    icon: Tags,
-    items: ["Product Labels","Packaging Labels","Shipping Labels","Return Address Labels","Transparent Labels","Industrial Labels","Iron-on Labels","Hang Tags","Folded Hang Tags","Name Tags","Baggage Tags","Neck Labels","Brand Inserts"],
-  },
-  {
-    heading: 'Bags & Carry',
+    heading: 'Bags & Totes',
     icon: ShoppingBag,
-    items: ["Tote Bags","Laptop Bags","Office Bags","Harissons Bags","Printed Carry Bags","Paper Bags","Designer Shopping Bags","Premium Gift Bags","Potli Bags"],
+    items: [
+      { label: 'Natural Canvas Tote Bag',      category: 'Tote Bags' },
+      { label: 'Zipped Canvas Tote Bag',       category: 'Tote Bags' },
+      { label: 'Vegan Leather Tote',           category: 'Tote Bags' },
+      { label: 'Jute Tote Bag',               category: 'Tote Bags' },
+      { label: 'Black Laptop Backpack',        category: 'Bags' },
+      { label: 'Sling / Crossbody Bag',        category: 'Bags' },
+      { label: 'Duffel / Gym Bag',             category: 'Bags' },
+      { label: 'Premium Gift Bag',             category: 'Bags' },
+      { label: 'Kraft Paper Carry Bag',        category: 'Bags' },
+      { label: 'Canvas Messenger Bag',         category: 'Bags' },
+    ],
   },
   {
     heading: 'Signs & Displays',
     icon: Monitor,
-    items: ["Banners","Posters","Bulk Posters","Foam Boards","Acrylic Signs","Standees","Tabletop Standees","Tabletop Signs","Mouse Pads","Bookmarks","Keychains","Pin Badges","Tablecloths","Table Runners","Table Mats","Car Door Decals"],
-  },
-  {
-    heading: 'Print & Marketing',
-    icon: Printer,
-    items: ["Brochures","Bulk Brochures","Booklets","Bulk Booklets","Postcards","Raised Foil Postcards","Menu Cards","Rate Cards","Loyalty Cards","Gift Certificates","Custom Packaging"],
+    items: [
+      { label: 'Roll-Up Banner Stand',         category: 'Signs & Displays' },
+      { label: 'Flex Vinyl Banner',            category: 'Signs & Displays' },
+      { label: 'Acrylic Name Sign',            category: 'Signs & Displays' },
+      { label: 'LED Acrylic Light Sign',       category: 'Signs & Displays' },
+      { label: 'Life-Size Cardboard Standee',  category: 'Signs & Displays' },
+      { label: 'Foam Board Cutout',            category: 'Signs & Displays' },
+      { label: 'Table Tent / Menu Card',       category: 'Signs & Displays' },
+      { label: 'Pavement A-Board Sign',        category: 'Signs & Displays' },
+    ],
   },
   {
     heading: 'Stationery & Stamps',
     icon: BookOpen,
-    items: ["Letterheads","Diaries","Notebooks","Calendars","Wall Calendars","Pens","Personalised Pens","ID Cards","Office Supplies","Self Inking Stamps","Rubber Stamps","Stamp Ink"],
+    items: [
+      { label: 'Custom A5 Notebook',           category: 'Stationery' },
+      { label: 'Undated Premium Diary',        category: 'Stationery' },
+      { label: 'Custom Metal Pen',             category: 'Stationery' },
+      { label: 'Pen + Notebook Gift Set',      category: 'Stationery' },
+      { label: 'Custom Desk Calendar',         category: 'Stationery' },
+      { label: 'Tri-Fold Brochure',            category: 'Stationery' },
+      { label: 'Custom Desk Mousepad',         category: 'Stationery' },
+    ],
   },
   {
-    heading: 'Drinkware & Gifts',
+    heading: 'Drinkware',
     icon: Coffee,
-    items: ["Personalised Mugs","Ceramic Mugs","Magic Mugs","Water Bottles","Tumbler Bottles","Sipper Bottles","Coffee Tumblers","Steel Bottles","Photo Albums","Canvas Prints","Photo Gifts","Gift Hampers","Magnets"],
+    items: [
+      { label: 'Classic White Ceramic Mug',    category: 'Mugs' },
+      { label: 'Magic Colour-Changing Mug',    category: 'Mugs' },
+      { label: 'Photo Print Mug',              category: 'Mugs' },
+      { label: 'Large 450ml Jumbo Mug',        category: 'Mugs' },
+      { label: 'Stainless Steel Bottle 750ml', category: 'Bottles' },
+      { label: 'Copper Water Bottle',          category: 'Bottles' },
+      { label: 'Fruit Infuser Bottle',         category: 'Bottles' },
+      { label: 'Insulated Tumbler 400ml',      category: 'Bottles' },
+      { label: 'Sipper Water Bottle',          category: 'Bottles' },
+    ],
   },
   {
-    heading: 'Home, Living & Rainwear',
+    heading: 'Canvas, Posters & Gifts',
     icon: Home,
-    items: ["Framed Posters","Cushion Covers","Pillow Covers","Wall Decor","Acrylic Frames","Umbrellas","Single Fold Umbrellas","Raincoats"],
+    items: [
+      { label: 'Canvas Print 12×16"',          category: 'Canvas' },
+      { label: 'Canvas Print 18×24"',          category: 'Canvas' },
+      { label: '3-Panel Triptych Canvas Set',  category: 'Canvas' },
+      { label: 'HD Photo Collage Canvas',      category: 'Canvas' },
+      { label: 'A2 Large Format Poster',       category: 'Posters' },
+      { label: 'Framed Poster A3',             category: 'Posters' },
+      { label: 'Motivational Quote Poster',    category: 'Posters' },
+      { label: 'Premium Gift Box',             category: 'Gifts' },
+      { label: 'Custom Photo Album',           category: 'Gifts' },
+      { label: 'Corporate Gift Hamper',        category: 'Gifts' },
+      { label: 'Custom Photo Cushion',         category: 'Gifts' },
+      { label: '2-Fold Compact Umbrella',      category: 'Rainwear' },
+    ],
   },
 ];
 
@@ -302,14 +406,14 @@ export default function Navbar() {
                   <div key={group.heading} className="mega-group">
                     <p className="mega-group-heading"><group.icon size={11} strokeWidth={2.5} />{group.heading}</p>
                     <div className="mega-group-items">
-                      {group.items.map(name => (
+                      {group.items.map(item => (
                         <Link
-                          key={name}
-                          to={`/products?category=${encodeURIComponent(name)}`}
+                          key={item.label}
+                          to={`/products?category=${encodeURIComponent(item.category)}`}
                           className="mega-sku-item"
                           onClick={() => { setMegaOpen(false); setMobileOpen(false); }}
                         >
-                          {name}
+                          {item.label}
                         </Link>
                       ))}
                     </div>
