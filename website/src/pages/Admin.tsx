@@ -1951,6 +1951,18 @@ export default function Admin() {
                 }}>
                   <Download size={14} /> Seed / Sync Catalog
                 </button>
+                <button className="btn btn-sm" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', fontWeight: 700 }} onClick={async () => {
+                  if (!confirm('⚠️ DELETE ALL products and categories? This cannot be undone.')) return;
+                  if (!confirm('Are you absolutely sure? Type OK in the next prompt to confirm.')) return;
+                  try {
+                    toast.loading('Deleting all products…', { id: 'delall' });
+                    await api.deleteAllProducts();
+                    toast.success('All products deleted', { id: 'delall' });
+                    setProducts([]);
+                  } catch (e: any) { toast.error(e.message || 'Delete failed', { id: 'delall' }); }
+                }}>
+                  <Trash2 size={14} /> Delete All
+                </button>
                 <button className="btn btn-primary" onClick={openNewProduct}><Plus size={16} /> Add Product</button>
               </div>
             </div>

@@ -102,6 +102,12 @@ export const api = {
   deleteProduct: (id: string) =>
     request<any>(`/products/${id}`, { method: 'DELETE' }),
 
+  seedCatalog: () =>
+    request<{ inserted: number; skipped: number; categories: number }>('/products/seed-catalog', { method: 'POST' }),
+
+  deleteAllProducts: () =>
+    request<{ ok: boolean; message: string }>('/products/all', { method: 'DELETE' }),
+
   patchProductStock: (id: string, stock: number) =>
     request<any>(`/products/${id}/stock`, { method: 'PATCH', body: JSON.stringify({ stock }) }),
 

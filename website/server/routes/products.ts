@@ -1567,6 +1567,17 @@ router.put('/corporate-inquiries/:id', authMiddleware, requireRole('admin', 'ord
   }
 });
 
+// ─── Admin: Delete ALL products + categories ─────────────────────────────────
+router.delete('/all', authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
+  try {
+    await db.pool.query('DELETE FROM website_products');
+    await db.pool.query('DELETE FROM website_categories');
+    res.json({ ok: true, message: 'All products and categories deleted' });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Admin: Test SMS / SMS Config ────────────────────────────────────────────
 router.post('/test-sms', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
