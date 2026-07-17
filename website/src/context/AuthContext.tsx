@@ -5,7 +5,7 @@ import type { User } from '../types';
 interface AuthState {
   user: User | null;
   loading: boolean;
-  sendOtp: (phone: string) => Promise<{ sessionId: string }>;
+  sendOtp: (phone: string) => Promise<{ sessionId: string; bypassOtp?: string }>;
   verifyOtp: (sessionId: string, otp: string) => Promise<{ isNewUser: boolean; role?: string }>;
   login: (email: string, password: string) => Promise<{ role?: string }>;
   logout: () => void;

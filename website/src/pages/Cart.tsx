@@ -43,6 +43,7 @@ function CartLoginGate() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [bypassOtp, setBypassOtp] = useState<string | null>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -60,8 +61,14 @@ function CartLoginGate() {
       const res = await sendOtp(cleaned);
       setSessionId(res.sessionId); setPhone(cleaned);
       setOtpStep('otp'); setCooldown(30);
-      toast.success('OTP sent to +91 ' + cleaned);
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      if (res.bypassOtp) {
+        setBypassOtp(res.bypassOtp);
+        setOtp(res.bypassOtp.split(''));
+        toast.success('Use OTP: ' + res.bypassOtp + ' (test mode)');
+      } else {
+        toast.success('OTP sent to +91 ' + cleaned);
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      }
     } catch (err: any) { toast.error(err.message || 'Failed to send OTP'); }
     finally { setLoading(false); }
   };
@@ -113,6 +120,11 @@ function CartLoginGate() {
           <>
             <h2>Enter OTP</h2>
             <p>Sent to <strong>+91 {phone}</strong> <button className="change-phone-btn" onClick={() => { setOtpStep('phone'); setOtp(['', '', '', '', '', '']); }}>Change</button></p>
+            {bypassOtp && (
+              <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: '#854d0e' }}>
+                Test mode — OTP auto-filled: <strong>{bypassOtp}</strong>
+              </div>
+            )}
             <form onSubmit={handleVerify}>
               <div className="otp-boxes">
                 {otp.map((d, i) => (

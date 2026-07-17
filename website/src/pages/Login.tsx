@@ -19,6 +19,7 @@ export default function Login() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [bypassOtp, setBypassOtp] = useState<string | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -42,8 +43,14 @@ export default function Login() {
       setPhone(cleaned);
       setStep('otp');
       setResendCooldown(30);
-      toast.success('OTP sent to +91 ' + cleaned);
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      if (res.bypassOtp) {
+        setBypassOtp(res.bypassOtp);
+        setOtp(res.bypassOtp.split(''));
+        toast.success('Use OTP: ' + res.bypassOtp + ' (test mode)');
+      } else {
+        toast.success('OTP sent to +91 ' + cleaned);
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to send OTP');
     } finally {
@@ -103,10 +110,16 @@ export default function Login() {
     try {
       const res = await sendOtp(phone);
       setSessionId(res.sessionId);
-      setOtp(['', '', '', '', '', '']);
       setResendCooldown(30);
-      toast.success('New OTP sent');
-      otpRefs.current[0]?.focus();
+      if (res.bypassOtp) {
+        setBypassOtp(res.bypassOtp);
+        setOtp(res.bypassOtp.split(''));
+        toast.success('Use OTP: ' + res.bypassOtp + ' (test mode)');
+      } else {
+        setOtp(['', '', '', '', '', '']);
+        toast.success('New OTP sent');
+        otpRefs.current[0]?.focus();
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to resend OTP');
     } finally {
@@ -187,6 +200,12 @@ export default function Login() {
                       </button>
                     </p>
                   </div>
+
+                  {bypassOtp && (
+                    <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#854d0e', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Lock size={14} /> Test mode — OTP auto-filled: <strong>{bypassOtp}</strong>
+                    </div>
+                  )}
 
                   <form onSubmit={handleVerify} className="auth-form">
                     <div className="otp-boxes" onPaste={handleOtpPaste}>

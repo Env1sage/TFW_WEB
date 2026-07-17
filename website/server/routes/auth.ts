@@ -19,14 +19,15 @@ router.post('/send-otp', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number' });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const bypass = process.env.OTP_BYPASS === 'true';
+    const otp = bypass ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
     const sessionId = uuid();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     await db.createOtpSession(sessionId, phone, otp, expiresAt);
-    await sendOtpSMS(phone, otp);
+    if (!bypass) await sendOtpSMS(phone, otp);
 
-    res.json({ sessionId, message: 'OTP sent' });
+    res.json({ sessionId, message: 'OTP sent', ...(bypass && { bypassOtp: otp }) });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to send OTP' });
   }
