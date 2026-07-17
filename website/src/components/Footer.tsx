@@ -19,19 +19,19 @@ export default function Footer() {
             </p>
             <div className="social-links" style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
               <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="social-link-anim sl-instagram">
-                <Instagram size={17} />
+                <Instagram size={20} />
               </a>
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="social-link-anim sl-facebook">
-                <Facebook size={17} />
+                <Facebook size={20} />
               </a>
               <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="social-link-anim sl-youtube">
-                <Youtube size={17} />
+                <Youtube size={20} />
               </a>
               <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="social-link-anim sl-twitter">
-                <Twitter size={17} />
+                <Twitter size={20} />
               </a>
               <a href="mailto:hello@theframedwall.com" aria-label="Email" className="social-link-anim sl-mail">
-                <Mail size={17} />
+                <Mail size={20} />
               </a>
             </div>
           </div>
