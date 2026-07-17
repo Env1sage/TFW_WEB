@@ -309,9 +309,10 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
 // Get all products (public)
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const { category, search, featured, sort, minPrice, maxPrice, brand, model } = _req.query;
+    const { category, subcategory, search, featured, sort, minPrice, maxPrice, brand, model } = _req.query;
     const products = await db.getProducts({
       category: category as string,
+      subcategory: subcategory as string | undefined,
       search: search as string,
       featured: featured === 'true' ? true : undefined,
       sort: sort as string,
@@ -1728,17 +1729,17 @@ router.post('/test-email', authMiddleware, adminMiddleware, async (req: Request,
 // ─── Admin: Seed Full Product Catalog ────────────────
 router.post('/seed-catalog', authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
   try {
-    const { CATALOG_PRODUCTS, CATALOG_CATEGORIES } = await import('../data/productCatalog.js');
+    const { CATALOG_PRODUCTS, CATALOG_CATEGORIES, CATALOG_SUBCATEGORIES } = await import('../data/productCatalog.js');
 
-    // 1. Ensure all catalog categories exist
+    // 1. Ensure all parent categories exist
     const catRows: Record<string, string> = {};
     for (const catName of CATALOG_CATEGORIES) {
       const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      let existing = (await db.pool.query('SELECT id FROM website_categories WHERE LOWER(name) = LOWER($1)', [catName])).rows[0];
+      let existing = (await db.pool.query('SELECT id FROM website_categories WHERE LOWER(name) = LOWER($1) AND parent_id IS NULL', [catName])).rows[0];
       if (!existing) {
         const newId = uuid();
         await db.pool.query(
-          'INSERT INTO website_categories (id, name, slug, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+          'INSERT INTO website_categories (id, name, slug, parent_id, created_at) VALUES ($1, $2, $3, NULL, NOW()) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id',
           [newId, catName, slug]
         );
         existing = { id: newId };
@@ -1746,15 +1747,42 @@ router.post('/seed-catalog', authMiddleware, adminMiddleware, async (_req: Reque
       catRows[catName.toLowerCase()] = existing.id;
     }
 
-    // 2. Insert products (skip duplicates by id)
+    // 2. Ensure all subcategories exist (with parent_id)
+    const subCatRows: Record<string, string> = {};
+    for (const { parent, children } of (CATALOG_SUBCATEGORIES || [])) {
+      const parentId = catRows[parent.toLowerCase()];
+      if (!parentId) continue;
+      for (const childName of children) {
+        const slug = childName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        let existing = (await db.pool.query('SELECT id FROM website_categories WHERE LOWER(name) = LOWER($1) AND parent_id = $2', [childName, parentId])).rows[0];
+        if (!existing) {
+          const newId = uuid();
+          try {
+            await db.pool.query(
+              'INSERT INTO website_categories (id, name, slug, parent_id, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id',
+              [newId, childName, slug, parentId]
+            );
+            existing = { id: newId };
+          } catch {
+            // Slug conflict — fetch existing by slug
+            existing = (await db.pool.query('SELECT id FROM website_categories WHERE slug = $1', [slug])).rows[0];
+            if (!existing) { existing = { id: newId }; }
+          }
+        }
+        subCatRows[childName.toLowerCase()] = existing.id;
+      }
+    }
+
+    // 3. Insert/update products
     let added = 0;
     let skipped = 0;
     for (const p of CATALOG_PRODUCTS) {
       const catId = catRows[p.category.toLowerCase()];
+      const sub: string = (p as any).subcategory || '';
       const { rowCount } = await db.pool.query(
         `INSERT INTO website_products
-           (id, name, description, price, category, category_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'[]',$8,$9,$10,$11,$12,$13,$14,NOW())
+           (id, name, description, price, category, category_id, subcategory, image, images, customizable, colors, sizes, stock, rating, review_count, featured, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'[]',$9,$10,$11,$12,$13,$14,$15,NOW())
          ON CONFLICT (id) DO UPDATE SET
            image = EXCLUDED.image,
            name = EXCLUDED.name,
@@ -1762,15 +1790,16 @@ router.post('/seed-catalog', authMiddleware, adminMiddleware, async (_req: Reque
            price = EXCLUDED.price,
            colors = EXCLUDED.colors,
            sizes = EXCLUDED.sizes,
-           featured = EXCLUDED.featured`,
-        [p.id, p.name, p.description, p.price, p.category, catId || null,
+           featured = EXCLUDED.featured,
+           subcategory = EXCLUDED.subcategory`,
+        [p.id, p.name, p.description, p.price, p.category, catId || null, sub,
          p.image, p.customizable, JSON.stringify(p.colors), JSON.stringify(p.sizes),
          p.stock, p.rating, p.reviewCount, p.featured]
       );
       if ((rowCount ?? 0) > 0) added++; else skipped++;
     }
 
-    res.json({ success: true, added, skipped, total: CATALOG_PRODUCTS.length });
+    res.json({ success: true, added, skipped, total: CATALOG_PRODUCTS.length, subcategories: Object.keys(subCatRows).length });
   } catch (e: any) {
     console.error('Seed catalog error:', e);
     res.status(500).json({ error: e.message });

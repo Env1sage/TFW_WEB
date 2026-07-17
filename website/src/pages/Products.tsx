@@ -30,29 +30,39 @@ function getCategoryIcon(name: string): React.ReactNode {
   return <SlidersHorizontal size={16} />;
 }
 
+type CategoryInfo = { id: string; name: string; slug: string; createdAt: string; parentId?: string | null };
+
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('grid');
 
   const category = searchParams.get('category') || 'all';
+  const subcategory = searchParams.get('subcategory') || '';
   const sort = searchParams.get('sort') || 'newest';
   const search = searchParams.get('search') || '';
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
 
+  const parentCategories = allCategories.filter(c => !c.parentId);
+  const activeParent = parentCategories.find(c => c.name === category);
+  const subcategories = activeParent
+    ? allCategories.filter(c => c.parentId === activeParent.id)
+    : [];
+
   useEffect(() => {
-    api.getCategories().then(cats => setCategories(cats.map(c => c.name))).catch(console.error);
+    api.getCategories().then(cats => setAllCategories(cats)).catch(console.error);
   }, []);
 
   useEffect(() => {
     setLoading(true);
     const params: Record<string, string> = {};
     if (category !== 'all') params.category = category;
+    if (subcategory) params.subcategory = subcategory;
     if (sort) params.sort = sort;
     if (search) params.search = search;
     if (minPrice) params.minPrice = minPrice;
@@ -65,11 +75,24 @@ export default function Products() {
       console.error('Failed to load products:', err);
       setError(err.message || 'Failed to load products');
     }).finally(() => setLoading(false));
-  }, [category, sort, search, minPrice, maxPrice]);
+  }, [category, subcategory, sort, search, minPrice, maxPrice]);
 
   const setParam = (key: string, value: string) => {
     const p = new URLSearchParams(searchParams);
     if (value && value !== 'all') p.set(key, value); else p.delete(key);
+    setSearchParams(p);
+  };
+
+  const selectCategory = (cat: string) => {
+    const p = new URLSearchParams(searchParams);
+    if (cat && cat !== 'all') p.set('category', cat); else p.delete('category');
+    p.delete('subcategory');
+    setSearchParams(p);
+  };
+
+  const selectSubcategory = (sub: string) => {
+    const p = new URLSearchParams(searchParams);
+    if (sub) p.set('subcategory', sub); else p.delete('subcategory');
     setSearchParams(p);
   };
 
@@ -94,9 +117,9 @@ export default function Products() {
         {showFilters && <div className="products-toolbar">
           <div className="filter-group">
             <Filter size={16} />
-            <select value={category} onChange={e => setParam('category', e.target.value)}>
+            <select value={category} onChange={e => selectCategory(e.target.value)}>
               <option value="all">All Categories</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              {parentCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div className="filter-group">
@@ -135,22 +158,43 @@ export default function Products() {
         </div>}
 
         {/* Category pill buttons */}
-        {categories.length > 0 && (
+        {parentCategories.length > 0 && (
           <div className="category-pills">
             <button
               className={`category-pill ${category === 'all' ? 'active' : ''}`}
-              onClick={() => setParam('category', 'all')}
+              onClick={() => selectCategory('all')}
             >
               All
             </button>
-            {categories.map(c => (
+            {parentCategories.map(c => (
               <button
-                key={c}
-                className={`category-pill ${category === c ? 'active' : ''}`}
-                onClick={() => setParam('category', c)}
+                key={c.id}
+                className={`category-pill ${category === c.name ? 'active' : ''}`}
+                onClick={() => selectCategory(c.name)}
               >
-                {categoryIcons[c] || getCategoryIcon(c)}
-                {c}
+                {categoryIcons[c.name] || getCategoryIcon(c.name)}
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Subcategory pills — shown when a parent category is selected */}
+        {subcategories.length > 0 && (
+          <div className="category-pills subcategory-pills">
+            <button
+              className={`category-pill subcategory-pill ${!subcategory ? 'active' : ''}`}
+              onClick={() => selectSubcategory('')}
+            >
+              All {category}
+            </button>
+            {subcategories.map(s => (
+              <button
+                key={s.id}
+                className={`category-pill subcategory-pill ${subcategory === s.name ? 'active' : ''}`}
+                onClick={() => selectSubcategory(s.name)}
+              >
+                {s.name}
               </button>
             ))}
           </div>

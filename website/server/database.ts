@@ -245,6 +245,16 @@ export async function initDB() {
       ALTER TABLE website_shipping_zones ADD COLUMN IF NOT EXISTS estimated_days TEXT NOT NULL DEFAULT '5-7 days';
     `);
 
+    // Hierarchical categories — parent_id for subcategories
+    await client.query(`
+      ALTER TABLE website_categories ADD COLUMN IF NOT EXISTS parent_id TEXT REFERENCES website_categories(id) ON DELETE SET NULL;
+    `);
+
+    // Subcategory field on products
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT '';
+    `);
+
     // Ensure unique constraints exist on categories (safe to run repeatedly)
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug ON website_categories(slug);
@@ -764,10 +774,11 @@ function rowToProduct(row: any): DBProduct {
   return product;
 }
 
-export async function getProducts(opts?: { category?: string; search?: string; featured?: boolean; sort?: string; minPrice?: number; maxPrice?: number; brandSlug?: string; modelSlug?: string }): Promise<DBProduct[]> {
+export async function getProducts(opts?: { category?: string; subcategory?: string; search?: string; featured?: boolean; sort?: string; minPrice?: number; maxPrice?: number; brandSlug?: string; modelSlug?: string }): Promise<DBProduct[]> {
   let where = ''; const params: any[] = []; let idx = 1;
   const conditions: string[] = [];
   if (opts?.category && opts.category !== 'all') { conditions.push(`p.category = $${idx}`); params.push(opts.category); idx++; }
+  if (opts?.subcategory) { conditions.push(`p.subcategory = $${idx}`); params.push(opts.subcategory); idx++; }
   if (opts?.search) {
     // Split into words for wildcard matching — each word must appear in name or description
     const words = opts.search.toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -818,11 +829,11 @@ export async function getProductById(id: string): Promise<DBProduct | null> {
 
 /* ── Category queries ── */
 export interface DBCategory {
-  id: string; name: string; slug: string; createdAt: string;
+  id: string; name: string; slug: string; createdAt: string; parentId?: string | null;
 }
 
 function rowToCategory(row: any): DBCategory {
-  return { id: row.id, name: row.name, slug: row.slug, createdAt: row.created_at };
+  return { id: row.id, name: row.name, slug: row.slug, createdAt: row.created_at, parentId: row.parent_id ?? null };
 }
 
 export async function getCategories(): Promise<DBCategory[]> {
@@ -835,10 +846,10 @@ export async function getCategoryById(id: string): Promise<DBCategory | null> {
   return rows.length ? rowToCategory(rows[0]) : null;
 }
 
-export async function addCategory(c: { id: string; name: string; slug: string }): Promise<DBCategory> {
+export async function addCategory(c: { id: string; name: string; slug: string; parentId?: string | null }): Promise<DBCategory> {
   const { rows } = await pool.query(
-    `INSERT INTO website_categories (id, name, slug, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *`,
-    [c.id, c.name, c.slug]
+    `INSERT INTO website_categories (id, name, slug, parent_id, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *`,
+    [c.id, c.name, c.slug, c.parentId ?? null]
   );
   return rowToCategory(rows[0]);
 }
