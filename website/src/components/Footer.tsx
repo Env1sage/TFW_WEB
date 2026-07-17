@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-col">
             <div className="footer-brand footer-brand-link">
-              <div className="brand-icon">T</div>
+              <img src="/logo.svg" alt="TheFramedWall" className="footer-logo" />
               <span>TheFramedWall</span>
             </div>
             <p className="footer-motto">

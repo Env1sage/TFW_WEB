@@ -492,8 +492,8 @@ html.dark .footer { background: #0A0C10; }
 .footer-brand {
   display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;
 }
-.footer-brand .brand-icon {
-  width: 30px; height: 30px; font-size: 0.85rem;
+.footer-logo {
+  width: 36px; height: 36px; object-fit: contain;
 }
 .footer-brand span {
   font-size: 1.1rem; font-weight: 700; color: #fff;
@@ -6342,7 +6342,7 @@ html.dark .glass-card {
 .social-link-anim {
   display: inline-flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%;
-  color: var(--text-2); background: var(--surface-2);
+  color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.1);
   transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), color 0.2s;
   position: relative; overflow: hidden;
 }
