@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ShoppingCart, Minus, Plus, ArrowLeft, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Shirt, Droplets, Wind, Sun, Scissors } from 'lucide-react';
+import { Star, ShoppingCart, Minus, Plus, ArrowLeft, Check, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors } from 'lucide-react';
 import { api, getSessionId } from '../api';
 import { useCart } from '../context/CartContext';
 import type { Product } from '../types';
-import MockupPreview from '../components/MockupPreview';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
 
@@ -215,7 +214,7 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [activeImage, setActiveImage] = useState<'mockup' | 'design' | number>('mockup');
+  const [activeImage, setActiveImage] = useState(0);
 
   // Accordions
   const [openSection, setOpenSection] = useState<string | null>('size-chart');
@@ -322,45 +321,29 @@ export default function ProductDetail() {
         <div className="pd-grid">
           {/* ── LEFT: Gallery ── */}
           <div className="pd-gallery">
-            <div className="pd-gallery-main">
-              {activeImage === 'mockup' ? (
-                <MockupPreview
-                  category={product.category}
-                  designImage={product.image}
-                  color={selectedColor || product.colors?.[0]}
-                  mockup={product.mockup}
-                />
-              ) : activeImage === 'design' ? (
-                <img src={product.image} alt={product.name} className="pd-design-img" />
-              ) : (
-                <img src={product.images[activeImage as number]} alt={`${product.name} view ${(activeImage as number) + 1}`} className="pd-design-img" />
-              )}
-              {product.customizable && (
-                <Link to={`/design-studio/product/${product.id}`} className="pd-studio-badge">
-                  <Palette size={14} /> Open Design Studio
-                </Link>
-              )}
-            </div>
-            <div className="pd-thumbs">
-              <button className={`pd-thumb ${activeImage === 'mockup' ? 'active' : ''}`} onClick={() => setActiveImage('mockup')}>
-                <Shirt size={18} />
-                <span>Mockup</span>
-              </button>
-              {product.images?.length > 0 && product.images.map((img, idx) => (
-                <button
-                  key={idx}
-                  className={`pd-thumb pd-img-thumb ${activeImage === idx ? 'active' : ''}`}
-                  onClick={() => setActiveImage(idx)}
-                  title={`View ${idx + 1}`}
-                >
-                  <img src={img} alt={`View ${idx + 1}`} />
-                </button>
-              ))}
-              <button className={`pd-thumb ${activeImage === 'design' ? 'active' : ''}`} onClick={() => setActiveImage('design')}>
-                <Palette size={18} />
-                <span>Design</span>
-              </button>
-            </div>
+            {(() => {
+              const allImages = [product.image, ...(product.images || [])];
+              return (
+                <>
+                  <div className="pd-gallery-main">
+                    <img src={allImages[activeImage]} alt={product.name} className="pd-design-img" />
+                  </div>
+                  {allImages.length > 1 && (
+                    <div className="pd-thumbs">
+                      {allImages.map((img, idx) => (
+                        <button
+                          key={idx}
+                          className={`pd-thumb ${activeImage === idx ? 'active' : ''}`}
+                          onClick={() => setActiveImage(idx)}
+                        >
+                          <img src={img} alt={`${product.name} view ${idx + 1}`} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* ── RIGHT: Info ── */}
