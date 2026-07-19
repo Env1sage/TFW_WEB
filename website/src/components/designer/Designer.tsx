@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Palette, Layers as LayersIcon, Eye, ShoppingCart } from 'lucide-react';
+import { Package, Layers as LayersIcon, Upload, Type, Smile, ShoppingCart } from 'lucide-react';
 import * as fabric from 'fabric';
+import type { TabId } from './LeftPanel';
 import { compressImage } from '../../utils/imageCompression';
 import {
   COLORS, PRINT_SIZES, CW, CH,
@@ -73,7 +74,7 @@ export default function Designer() {
   const [imgReady, setImgReady] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Partial<Record<PrintSide, string>>>({});
   const [previewSide, setPreviewSide] = useState<PrintSide>('FRONT');
-  const [mobilePanel, setMobilePanel] = useState<'tools' | 'layers' | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId | null>('product');
   const [uploadEnabled, setUploadEnabled] = useState(true);
 
   const colors = COLORS.map(c => ({ name: c.name, hex: c.hex }));
@@ -1110,17 +1111,29 @@ export default function Designer() {
     return {};
   })();
 
+  const toggleLayout = useCallback((id: string) => {
+    const tmpl = getTemplate();
+    setSelectedLayoutIds(prev => {
+      if (prev.includes(id)) return prev.length > 1 ? prev.filter(x => x !== id) : prev;
+      if (prev.length === 0) return [id];
+      const target = tmpl?.layouts?.find((l: PrintLayout) => l.id === id);
+      const canAdd = prev.every(selId => {
+        const sel = tmpl?.layouts?.find((l: PrintLayout) => l.id === selId);
+        return (sel?.compatibleWith ?? []).includes(id) && (target?.compatibleWith ?? []).includes(selId);
+      });
+      return canAdd ? [...prev, id] : [id];
+    });
+    setActiveEditingLayoutId(id);
+  }, [getTemplate]);
+
   return (
     <div className="designer">
       <TopBar
         activeSide={activeSide}
         selectedSides={selectedSides}
         sides={SIDES}
-        colors={colors}
-        activeColorHex={activeColorHex}
         saveStatus={saveStatus}
         onToggleSide={handleToggleSide}
-        onSwitchColor={(hex, name) => { setActiveColorHex(hex); setActiveColorName(name); }}
         onUndo={handleUndo}
         onRedo={handleRedo}
         activePrintSize={activePrintSize}
@@ -1140,35 +1153,31 @@ export default function Designer() {
         activeEditingLayoutId={activeEditingLayoutId}
         allowMultipleLayouts={currentTemplate?.allowMultipleLayouts ?? false}
         productName={productName}
-        onToggleLayout={(id) => {
-          const tmpl = getTemplate();
-          setSelectedLayoutIds(prev => {
-            if (prev.includes(id)) {
-              // Deselect — keep at least one
-              return prev.length > 1 ? prev.filter(x => x !== id) : prev;
-            }
-            if (prev.length === 0) return [id];
-            // Check if this layout is compatible with ALL currently selected layouts
-            const target = tmpl?.layouts?.find((l: PrintLayout) => l.id === id);
-            const canAdd = prev.every(selId => {
-              const sel = tmpl?.layouts?.find((l: PrintLayout) => l.id === selId);
-              return (sel?.compatibleWith ?? []).includes(id) && (target?.compatibleWith ?? []).includes(selId);
-            });
-            return canAdd ? [...prev, id] : [id];
-          });
-          setActiveEditingLayoutId(id);
-        }}
+        onToggleLayout={toggleLayout}
+        onPreview={handlePreview}
+        onAddToCart={handleAddToCart}
       />
       <div className="main-area">
-        {/* Mobile overlay — closes panels when tapped */}
-        {mobilePanel && (
-          <div className="mobile-panel-overlay visible" onClick={() => setMobilePanel(null)} />
+        {activeTab && (
+          <div className="mobile-panel-overlay visible" onClick={() => setActiveTab(null)} />
         )}
         <LeftPanel
-          activeProductType={activeProductType}
-          onSwitchType={setActiveProductType}
-          templates={visibleTemplates}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           productName={productName}
+          colors={colors}
+          activeColorHex={activeColorHex}
+          onSwitchColor={(hex, name) => { setActiveColorHex(hex); setActiveColorName(name); }}
+          selectedSize={searchParams.get('size') || undefined}
+          quantity={quantity}
+          onQuantityChange={setQuantity}
+          price={price}
+          productBasePrice={productBasePrice}
+          onAddToCart={handleAddToCart}
+          onPreview={handlePreview}
+          selectedSides={selectedSides}
+          pocketPrintEnabled={pocketPrintEnabled}
+          activePrintSize={activePrintSize}
           onAddText={handleAddText}
           onAddImage={handleAddImage}
           onAddShape={handleAddShape}
@@ -1187,8 +1196,13 @@ export default function Designer() {
           onSelectLayer={handleSelectLayer}
           onRemoveLayer={handleRemoveLayer}
           onToggleVisibility={handleToggleVisibility}
-          extraClassName={mobilePanel === 'tools' ? 'open' : ''}
+          canvas={fcRef.current}
+          onUpdateProp={handleUpdateObj}
+          templates={visibleTemplates}
+          activeProductType={activeProductType}
+          onSwitchType={setActiveProductType}
           uploadEnabled={uploadEnabled}
+          extraClassName={activeTab ? 'open' : ''}
         />
         <div className="canvas-area">
           <div
@@ -1251,35 +1265,23 @@ export default function Designer() {
           selectedObj={selectedObj}
           onUpdateProp={handleUpdateObj}
           canvas={fcRef.current}
-          productName={productName}
-          colors={colors}
-          activeColorHex={activeColorHex}
-          activeColorName={activeColorName}
-          onSwitchColor={(hex, name) => { setActiveColorHex(hex); setActiveColorName(name); }}
-          selectedSize={searchParams.get('size') || undefined}
-          quantity={quantity}
-          onQuantityChange={setQuantity}
-          price={price}
-          productBasePrice={productBasePrice}
-          onAddToCart={handleAddToCart}
-          onPreview={handlePreview}
-          selectedSides={selectedSides}
-          pocketPrintEnabled={pocketPrintEnabled}
-          activePrintSize={activePrintSize}
-          extraClassName={mobilePanel === 'layers' ? 'open' : ''}
         />
       </div>
       <BottomBar
+        activeSide={activeSide}
+        sides={SIDES}
         selectedSides={selectedSides}
+        onToggleSide={handleToggleSide}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetView={handleResetView}
         quantity={quantity}
         price={price}
         productBasePrice={productBasePrice}
-        onQuantityChange={setQuantity}
         onAddToCart={handleAddToCart}
         onPreview={handlePreview}
-        activeColorName={activeColorName}
-        activePrintSize={activePrintSize}
         pocketPrintEnabled={pocketPrintEnabled}
+        activePrintSize={activePrintSize}
       />
 
       {/* ── Canvas Hover Zoom Popup ── */}
@@ -1298,32 +1300,24 @@ export default function Designer() {
 
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="mobile-bottom-nav">
-        <button
-          className={`mobile-nav-btn${mobilePanel === 'tools' ? ' active' : ''}`}
-          onClick={() => setMobilePanel(p => p === 'tools' ? null : 'tools')}
-        >
-          <Palette size={20} />
-          Tools
-        </button>
-        <button
-          className={`mobile-nav-btn${mobilePanel === 'layers' ? ' active' : ''}`}
-          onClick={() => setMobilePanel(p => p === 'layers' ? null : 'layers')}
-        >
-          <LayersIcon size={20} />
-          Layers
-        </button>
-        <button
-          className="mobile-nav-btn"
-          onClick={handlePreview}
-        >
-          <Eye size={20} />
-          Preview
-        </button>
-        <button
-          className="mobile-nav-btn"
-          onClick={handleAddToCart}
-        >
-          <ShoppingCart size={20} />
+        {([
+          { id: 'product',  Icon: Package,    label: 'Product'  },
+          { id: 'uploads',  Icon: Upload,     label: 'Uploads'  },
+          { id: 'text',     Icon: Type,       label: 'Text'     },
+          { id: 'graphics', Icon: Smile,      label: 'Graphics' },
+          { id: 'layers',   Icon: LayersIcon, label: 'Layers'   },
+        ] as const).map(({ id, Icon, label }) => (
+          <button
+            key={id}
+            className={`mobile-nav-btn${activeTab === id ? ' active' : ''}`}
+            onClick={() => setActiveTab(prev => prev === id ? null : id)}
+          >
+            <Icon size={18} />
+            {label}
+          </button>
+        ))}
+        <button className="mobile-nav-btn" onClick={handleAddToCart}>
+          <ShoppingCart size={18} />
           Cart
         </button>
       </nav>

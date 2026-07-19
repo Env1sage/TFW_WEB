@@ -1,16 +1,13 @@
 import { Link } from 'react-router-dom';
-import { Undo2, Redo2, ChevronLeft } from 'lucide-react';
+import { Undo2, Redo2, ChevronLeft, Eye, ShoppingCart } from 'lucide-react';
 import type { PrintSide, PrintSize, PrintSizeOption, PrintLayout } from '../../mockups';
 
 interface TopBarProps {
   activeSide: PrintSide;
   selectedSides: PrintSide[];
   sides: PrintSide[];
-  colors: { name: string; hex: string }[];
-  activeColorHex: string;
   saveStatus: 'saved' | 'saving' | 'error';
   onToggleSide: (side: PrintSide) => void;
-  onSwitchColor: (hex: string, name: string) => void;
   onUndo: () => void;
   onRedo: () => void;
   activePrintSize: PrintSize;
@@ -27,50 +24,34 @@ interface TopBarProps {
   allowMultipleLayouts?: boolean;
   onToggleLayout?: (id: string) => void;
   productName?: string;
+  onPreview: () => void;
+  onAddToCart: () => void;
 }
 
-const LAYOUT_COLORS = ['#0E7C61', '#C6A75E', '#0A9B7A', '#E07B30', '#16A34A', '#0891B2', '#9A7C3A', '#2D8A6E'];
+const LAYOUT_COLORS = ['#0E7C61','#C6A75E','#0A9B7A','#E07B30','#16A34A','#0891B2','#9A7C3A','#2D8A6E'];
 
 export default function TopBar({
-  activeSide, selectedSides, sides, colors, activeColorHex,
-  saveStatus, onToggleSide, onSwitchColor, onUndo, onRedo,
+  activeSide, selectedSides, sides, saveStatus,
+  onToggleSide, onUndo, onRedo,
   activePrintSize, printSizes, onSwitchPrintSize,
   pocketPrintEnabled, onTogglePocketPrint, editingPocket, onDisablePocket, showPocketToggle,
   layouts = [], selectedLayoutIds = [], activeEditingLayoutId, allowMultipleLayouts, onToggleLayout,
-  productName,
+  productName, onPreview, onAddToCart,
 }: TopBarProps) {
   const hasLayouts = layouts.length > 0;
 
   return (
     <div className="topbar">
-      {/* Left: back + logo */}
+      {/* Left: back + product name */}
       <div className="ds-topbar-left">
-        <Link to="/design-studio" className="ds-back-btn" title="Back to Design Studio">
+        <Link to="/design-studio" className="ds-back-btn" title="Back">
           <ChevronLeft size={18} />
         </Link>
-        <Link to="/" className="ds-logo" style={{ textDecoration: 'none' }}>
-          <span className="ds-logo-badge">TFW</span>
-          <span className="ds-logo-text">Studio</span>
-        </Link>
+        {productName && <span className="ds-product-label">{productName}</span>}
       </div>
 
-      {/* Center */}
+      {/* Center: print zone / layout pills */}
       <div className="topbar-center">
-        {productName && (
-          <span className="ds-product-label">{productName}</span>
-        )}
-
-        {/* Side pills */}
-        <div className="pill-group">
-          {sides.map(s => (
-            <button key={s} className={`pill${activeSide === s ? ' active' : ''}`} onClick={() => onToggleSide(s)}>
-              {selectedSides.includes(s) && <span className="check">&#10003;</span>}
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {/* Print zone pills */}
         <div className="pill-group">
           {hasLayouts ? (
             <>
@@ -84,23 +65,25 @@ export default function TopBar({
                     className={`pill layout-pill${isEditing ? ' active' : isSelected ? ' enabled' : ''}`}
                     style={isEditing ? { borderColor: color } : isSelected ? { borderColor: color + '88' } : undefined}
                     onClick={() => onToggleLayout?.(layout.id)}
-                    title={allowMultipleLayouts ? 'Click to select · multiple zones allowed' : 'Click to edit this print zone'}
+                    title={layout.name}
                   >
                     <span className="layout-pill-dot" style={{ background: color }} />
-                    {isSelected && <span className="check">&#10003;</span>}
+                    {isSelected && <span className="check">✓</span>}
                     {layout.name}
                   </button>
                 );
               })}
-              {allowMultipleLayouts && (
-                <span className="pill-hint" title="Multiple layouts per order are allowed">multi</span>
-              )}
+              {allowMultipleLayouts && <span className="pill-hint">multi</span>}
             </>
           ) : (
             <>
               {printSizes.map(ps => (
-                <button key={ps.id} className={`pill${activePrintSize === ps.id && !editingPocket ? ' active' : ''}`}
-                  onClick={() => onSwitchPrintSize(ps.id)} title={ps.inchLabel}>
+                <button
+                  key={ps.id}
+                  className={`pill${activePrintSize === ps.id && !editingPocket ? ' active' : ''}`}
+                  onClick={() => onSwitchPrintSize(ps.id)}
+                  title={ps.inchLabel}
+                >
                   {ps.label}
                 </button>
               ))}
@@ -108,12 +91,10 @@ export default function TopBar({
                 <button
                   className={`pill${pocketPrintEnabled ? (editingPocket ? ' active' : ' enabled') : ''}`}
                   onClick={onTogglePocketPrint}
-                  onContextMenu={(e) => { e.preventDefault(); if (pocketPrintEnabled) onDisablePocket(); }}
-                  title={pocketPrintEnabled
-                    ? (editingPocket ? 'Click body size to switch back · Right-click to remove pocket' : 'Click to edit pocket area · Right-click to remove')
-                    : '3 × 3 in — add a pocket print alongside body print'}
+                  onContextMenu={e => { e.preventDefault(); if (pocketPrintEnabled) onDisablePocket(); }}
+                  title="Pocket print"
                 >
-                  {pocketPrintEnabled && <span className="check">&#10003;</span>}
+                  {pocketPrintEnabled && <span className="check">✓</span>}
                   Pocket
                 </button>
               )}
@@ -122,31 +103,21 @@ export default function TopBar({
         </div>
       </div>
 
-      {/* Right: colors + undo/redo + save */}
+      {/* Right: undo/redo + save dot + preview + cart */}
       <div className="ds-topbar-right">
-        <div className="color-row">
-          {colors.map(c => (
-            <div
-              key={c.hex}
-              className={`ds-color-sw${activeColorHex === c.hex ? ' active' : ''}`}
-              style={{ background: c.hex, border: c.hex === '#ffffff' ? '2px solid #ddd' : undefined }}
-              title={c.name}
-              onClick={() => onSwitchColor(c.hex, c.name)}
-            />
-          ))}
-        </div>
         <div className="topbar-actions">
-          <button className="icon-btn" onClick={onUndo} title="Undo (Ctrl+Z)">
-            <Undo2 size={15} />
-          </button>
-          <button className="icon-btn" onClick={onRedo} title="Redo (Ctrl+Y)">
-            <Redo2 size={15} />
-          </button>
-          <div className="save-indicator">
-            <span className={`save-dot ${saveStatus}`} />
-            {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving…' : 'Error'}
-          </div>
+          <button className="icon-btn" onClick={onUndo} title="Undo (Ctrl+Z)"><Undo2 size={15} /></button>
+          <button className="icon-btn" onClick={onRedo} title="Redo (Ctrl+Y)"><Redo2 size={15} /></button>
+          <span className={`save-dot ${saveStatus}`} title={saveStatus} />
         </div>
+        <button className="ds-tb-preview-btn" onClick={onPreview} title="Preview">
+          <Eye size={15} />
+          <span>Preview</span>
+        </button>
+        <button className="ds-tb-cart-btn" onClick={onAddToCart}>
+          <ShoppingCart size={15} />
+          <span>Add to Cart</span>
+        </button>
       </div>
     </div>
   );

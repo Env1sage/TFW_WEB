@@ -1,4 +1,4 @@
-import { Eye, ShoppingCart } from 'lucide-react';
+import { ShoppingCart, ZoomIn, ZoomOut, RefreshCcw } from 'lucide-react';
 import type { PrintSide, PrintSize } from '../../mockups';
 
 interface PriceResult {
@@ -8,67 +8,69 @@ interface PriceResult {
 }
 
 interface BottomBarProps {
+  // Side navigation
+  activeSide: PrintSide;
+  sides: PrintSide[];
   selectedSides: PrintSide[];
+  onToggleSide: (side: PrintSide) => void;
+  // Zoom
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onResetView: () => void;
+  // Order
   quantity: number;
   price: PriceResult | null;
   productBasePrice?: number;
-  onQuantityChange: (q: number) => void;
   onAddToCart: () => void;
   onPreview: () => void;
-  activeColorName: string;
-  activePrintSize: PrintSize;
   pocketPrintEnabled: boolean;
+  activePrintSize: PrintSize;
 }
 
 export default function BottomBar({
-  selectedSides, quantity, price, productBasePrice = 0, onQuantityChange,
-  onAddToCart, onPreview, activeColorName, activePrintSize, pocketPrintEnabled,
+  activeSide, sides, selectedSides, onToggleSide,
+  onZoomIn, onZoomOut, onResetView,
+  quantity, price, productBasePrice = 0, onAddToCart, onPreview,
+  pocketPrintEnabled, activePrintSize,
 }: BottomBarProps) {
   const displayPrice = price ?? (productBasePrice > 0
     ? { finalPrice: productBasePrice * quantity, originalPrice: productBasePrice * quantity, discountPercent: 0 }
     : null);
+
   return (
     <div className="bottom-bar">
-      <div className="bottom-left">
-        <div className="bottom-info">
-          <strong>{selectedSides.length > 0 ? selectedSides.join(' + ') : 'No print'}</strong>
-          <span className="dot-sep" />
-          <span>{activeColorName}</span>
-          <span className="dot-sep" />
-          <span style={{ textTransform: 'capitalize' }}>{activePrintSize}{pocketPrintEnabled ? ' + Pocket' : ''}</span>
-        </div>
+      {/* Left: side tabs */}
+      <div className="bb-sides">
+        {sides.map(side => (
+          <button
+            key={side}
+            className={`bb-side-tab${activeSide === side ? ' active' : ''}${selectedSides.includes(side) ? ' has-design' : ''}`}
+            onClick={() => onToggleSide(side)}
+          >
+            {selectedSides.includes(side) && <span className="bb-side-dot" />}
+            {side}
+          </button>
+        ))}
       </div>
 
-      <div className="bottom-center">
-        <span className="qty-label">QTY</span>
-        <button className="qty-btn" onClick={() => onQuantityChange(Math.max(1, quantity - 1))}>−</button>
-        <input
-          className="qty-input"
-          type="number"
-          min={1}
-          max={999}
-          value={quantity}
-          onChange={e => onQuantityChange(Math.max(1, +e.target.value || 1))}
-        />
-        <button className="qty-btn" onClick={() => onQuantityChange(Math.min(999, quantity + 1))}>+</button>
+      {/* Center: zoom controls */}
+      <div className="bb-zoom">
+        <button className="bb-zoom-btn" onClick={onZoomOut} title="Zoom Out"><ZoomOut size={14} /></button>
+        <button className="bb-zoom-btn" onClick={onResetView} title="Reset"><RefreshCcw size={14} /></button>
+        <button className="bb-zoom-btn" onClick={onZoomIn} title="Zoom In"><ZoomIn size={14} /></button>
       </div>
 
-      <div className="bottom-right">
+      {/* Right: price + cart */}
+      <div className="bb-right">
         {displayPrice && (
-          <div className="price-display">
-            <span className="price-final">₹{displayPrice.finalPrice.toLocaleString()}</span>
+          <div className="bb-price">
+            <span className="bb-price-label">Total Price:</span>
+            <span className="bb-price-val">₹{displayPrice.finalPrice.toLocaleString()}</span>
             {displayPrice.discountPercent > 0 && (
-              <>
-                <span className="price-original">₹{displayPrice.originalPrice.toLocaleString()}</span>
-                <span className="price-discount">-{displayPrice.discountPercent}%</span>
-              </>
+              <span className="bb-price-discount">-{displayPrice.discountPercent}%</span>
             )}
           </div>
         )}
-        <button className="ds-preview-btn" onClick={onPreview} title="Preview">
-          <Eye size={15} />
-          Preview
-        </button>
         <button className="ds-cart-btn" onClick={onAddToCart}>
           <ShoppingCart size={16} />
           Add to Cart
