@@ -215,7 +215,7 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [activeImage, setActiveImage] = useState<'mockup' | 'design'>('mockup');
+  const [activeImage, setActiveImage] = useState<'mockup' | 'design' | number>('mockup');
 
   // Accordions
   const [openSection, setOpenSection] = useState<string | null>('size-chart');
@@ -330,8 +330,10 @@ export default function ProductDetail() {
                   color={selectedColor || product.colors?.[0]}
                   mockup={product.mockup}
                 />
-              ) : (
+              ) : activeImage === 'design' ? (
                 <img src={product.image} alt={product.name} className="pd-design-img" />
+              ) : (
+                <img src={product.images[activeImage as number]} alt={`${product.name} view ${(activeImage as number) + 1}`} className="pd-design-img" />
               )}
               {product.customizable && (
                 <Link to={`/design-studio/product/${product.id}`} className="pd-studio-badge">
@@ -344,6 +346,16 @@ export default function ProductDetail() {
                 <Shirt size={18} />
                 <span>Mockup</span>
               </button>
+              {product.images?.length > 0 && product.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  className={`pd-thumb pd-img-thumb ${activeImage === idx ? 'active' : ''}`}
+                  onClick={() => setActiveImage(idx)}
+                  title={`View ${idx + 1}`}
+                >
+                  <img src={img} alt={`View ${idx + 1}`} />
+                </button>
+              ))}
               <button className={`pd-thumb ${activeImage === 'design' ? 'active' : ''}`} onClick={() => setActiveImage('design')}>
                 <Palette size={18} />
                 <span>Design</span>

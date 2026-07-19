@@ -6,28 +6,46 @@ export interface CatalogProduct {
 }
 
 export const CATALOG_SUBCATEGORIES: { parent: string; children: string[] }[] = [
-  { parent: 'T-Shirts',        children: ["Men's T-Shirts", "Women's T-Shirts", "Oversized T-Shirts", "Sports T-Shirts"] },
-  { parent: 'Polo T-Shirts',   children: ["Men's Polo", "Women's Polo", "Sports Polo"] },
-  { parent: 'Shirts',          children: ["Formal Shirts", "Casual Shirts"] },
-  { parent: 'Hoodies',         children: ["Pullover Hoodies", "Zip Hoodies", "Women's Hoodies"] },
-  { parent: 'Jackets',         children: ["Bomber Jackets", "Winter Jackets", "Sports Jackets"] },
+  // Clothing & Apparel
+  { parent: 'T-Shirts',        children: ["Men's T-Shirts", "Women's T-Shirts", "Oversized T-Shirts", "Full Sleeve T-Shirts", "Round Neck T-Shirts", "V-Neck T-Shirts", "Dry Fit T-Shirts", "Printed T-Shirts", "Sports T-Shirts"] },
+  { parent: 'Polo T-Shirts',   children: ["Men's Polo", "Women's Polo", "Sports Polo", "Scott Polo", "Branded Polo"] },
+  { parent: 'Shirts',          children: ["Formal Shirts", "Casual Shirts", "Embroidered Shirts", "Corporate Shirts"] },
+  { parent: 'Hoodies',         children: ["Pullover Hoodies", "Zip Hoodies", "Sweatshirts", "French Terry Hoodies", "Women's Hoodies"] },
+  { parent: 'Jackets',         children: ["Bomber Jackets", "Varsity Jacket", "Windcheaters", "Fleece Jackets", "Winter Jackets", "Sports Jackets"] },
   { parent: 'Kids Clothing',   children: ["Kids T-Shirts", "Kids Hoodies", "Kids Sportswear"] },
-  { parent: 'Headwear',        children: ["Caps & Hats", "Beanies"] },
-  { parent: 'Bags',            children: ["Backpacks", "Messenger & Portfolio Bags", "Gift & Paper Bags"] },
-  { parent: 'Tote Bags',       children: ["Canvas Totes", "Jute Totes", "Leather Totes"] },
-  { parent: 'Mugs',            children: ["Ceramic Mugs", "Magic Mugs", "Travel Mugs"] },
-  { parent: 'Bottles',         children: ["Steel Bottles", "Sports Bottles", "Tumblers"] },
-  { parent: 'Stickers',        children: ["Vinyl Stickers", "Specialty Stickers"] },
+  { parent: 'Workwear',        children: ["Uniform Shirts & Polos", "Aprons & Coats", "Safety Wear", "Lab Coats"] },
+  { parent: 'Headwear',        children: ["Baseball Caps", "Snapback Caps", "Dad Caps", "Bucket Hats", "Trucker Caps", "Beanies", "Balaclava", "Headbands & Branded Bands"] },
+  // Bags & Carry
+  { parent: 'Bags',            children: ["Backpacks", "Laptop Bags", "Office Bags", "Messenger & Portfolio Bags", "Printed Carry Bags", "Designer Shopping Bags", "Premium Gift Bags", "Potli Bags"] },
+  { parent: 'Tote Bags',       children: ["Canvas Totes", "Jute Totes", "Leather Totes", "Paper Bags"] },
+  // Stickers, Labels & Packaging
+  { parent: 'Stickers',        children: ["Sheet Stickers", "Custom Shape Stickers", "UV Ink Transfer Stickers", "Window Stickers", "Car Stickers", "Floor Stickers", "QR Code Stickers", "Vinyl Stickers", "Specialty Stickers"] },
+  { parent: 'Labels',          children: ["Product Labels", "Packaging Labels", "Shipping Labels", "Return Address Labels", "Transparent Labels", "Industrial Labels", "Iron-on Labels"] },
+  { parent: 'Tags',            children: ["Hang Tags", "Folded Hang Tags", "Name Tags", "Baggage Tags"] },
+  // Drinkware
+  { parent: 'Mugs',            children: ["Ceramic Mugs", "Magic Mugs", "Travel Mugs", "Photo Mugs", "Coffee Tumblers"] },
+  { parent: 'Bottles',         children: ["Steel Bottles", "Copper Bottles", "Sipper Bottles", "Sports Bottles", "Tumblers", "Tumbler Bottles"] },
+  // Print / Art
   { parent: 'Canvas',          children: ["Canvas Prints", "Framed Canvas"] },
-  { parent: 'Posters',         children: ["Posters", "Framed Posters"] },
+  { parent: 'Posters',         children: ["Posters", "Framed Posters", "Bulk Posters"] },
+  // Tech
   { parent: 'Phone Cases',     children: ["iPhone Cases", "Android Cases"] },
-  { parent: 'Visiting Cards',  children: ["Standard Cards", "Premium Cards"] },
-  { parent: 'Stationery',      children: ["Notebooks & Diaries", "Calendars", "Desk Accessories"] },
-  { parent: 'Gifts',           children: ["Gift Boxes & Sets", "Photo Gifts", "Keychains & Magnets"] },
-  { parent: 'Workwear',        children: ["Uniform Shirts & Polos", "Aprons & Coats", "Safety Wear"] },
-  { parent: 'Signs & Displays',children: ["Banners & Roll-ups", "Acrylic Signs", "Boards & Tablecloths"] },
-  { parent: 'Rainwear',        children: ["Umbrellas", "Rain Ponchos"] },
+  // Cards
+  { parent: 'Visiting Cards',  children: ["Standard Visiting Cards", "Classic Visiting Cards", "Rounded Corner Cards", "Square Visiting Cards", "Leaf / Oval / Circle Cards", "QR Code Visiting Cards", "NFC Visiting Cards", "Spot UV Cards", "Raised Foil Cards", "Glossy Cards", "Matte Cards", "Bulk Visiting Cards", "Magnetic Cards", "Transparent Cards", "Premium Plus Cards", "Non-Tearable Cards", "Velvet Touch Cards", "Pearl Cards", "Kraft Cards", "Diamond Cards"] },
+  // Office / Print
+  { parent: 'Stationery',      children: ["Notebooks & Diaries", "Letterheads", "Calendars", "Pens & Personalised Pens", "ID Cards", "Office Supplies", "Brochures & Booklets", "Postcards & Rate Cards", "Loyalty Cards & Gift Certificates", "Mouse Pads", "Bookmarks", "Keychains", "Pin Badges", "Tablecloths & Table Runners", "Car Door Decals"] },
+  { parent: 'Stamps & Ink',    children: ["Self Inking Stamps", "Rubber Stamps", "Stamp Ink"] },
+  // Gifts & Home
+  { parent: 'Gifts',           children: ["Gift Boxes & Sets", "Photo Gifts", "Keychains & Magnets", "Photo Albums", "Gift Hampers"] },
+  { parent: 'Home & Living',   children: ["Wall Posters", "Framed Posters", "Canvas Prints", "Cushion Covers", "Pillow Covers", "Wall Decor", "Acrylic Frames"] },
+  // Displays
+  { parent: 'Signs & Displays',children: ["Banners & Roll-ups", "Foam Boards", "Acrylic Signs", "Standees", "Tabletop Standees", "Tabletop Signs", "Boards & Tablecloths"] },
+  // Branding
   { parent: 'Branding',        children: ["Corporate Kits", "Packaging", "Printed Materials"] },
+  { parent: 'Branding Add-ons',children: ["Neck Labels", "Hang Tags", "Custom Packaging", "Brand Inserts"] },
+  { parent: 'Design Services', children: ["Logo Design", "QR Code Generator", "Brand Identity", "Custom Design"] },
+  // Rainwear
+  { parent: 'Rainwear',        children: ["Umbrellas", "Single Fold Umbrellas", "Rain Ponchos", "Raincoats"] },
 ];
 
 const p = (f: string) => `/products/${f}`;
@@ -38,11 +56,33 @@ const HOODIE_COLORS = ['#ffffff','#1a1a1a','#36454f','#6b4c3b','#2d5a3d'];
 const NONE: string[] = [];
 
 export const CATALOG_CATEGORIES = [
+  // Clothing & Apparel
   'T-Shirts','Polo T-Shirts','Shirts','Hoodies','Jackets',
-  'Kids Clothing','Headwear','Bags','Tote Bags','Mugs',
-  'Bottles','Stickers','Canvas','Posters','Phone Cases',
-  'Visiting Cards','Stationery','Gifts','Workwear',
-  'Signs & Displays','Rainwear','Branding',
+  'Kids Clothing','Workwear','Headwear',
+  // Bags & Carry
+  'Bags','Tote Bags',
+  // Stickers, Labels & Packaging
+  'Stickers','Labels','Tags',
+  // Drinkware
+  'Mugs','Bottles',
+  // Print / Art
+  'Canvas','Posters',
+  // Tech
+  'Phone Cases',
+  // Cards
+  'Visiting Cards',
+  // Office
+  'Stationery','Stamps & Ink',
+  // Gifts & Home
+  'Gifts','Home & Living',
+  // Displays
+  'Signs & Displays',
+  // Branding
+  'Branding','Branding Add-ons',
+  // Services
+  'Design Services',
+  // Rainwear
+  'Rainwear',
 ];
 
 export const CATALOG_PRODUCTS: CatalogProduct[] = [
@@ -298,6 +338,59 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
   { id:'rain_poncho',      name:'Disposable Rain Poncho (Pack of 5)',description:'Lightweight EVA disposable ponchos in branded pouch. Great bulk giveaway for marathons, treks, and monsoon events.', price:299, category:'Rainwear', subcategory:'Rain Ponchos', image:p('umbrella-2.jpg'), customizable:true, colors:['#ffffff','#f5e6d3'],                    sizes:NONE, stock:300, rating:4.3, reviewCount:76,  featured:false },
   { id:'rain_promo',       name:'Budget Promotional Umbrella',        description:'21-inch promotional umbrella with custom canopy. Cost-effective for large-quantity event giveaways. MOQ 50.',     price:449,  category:'Rainwear', subcategory:'Umbrellas',    image:p('rainwear-2.jpg'), customizable:true, colors:['#1a1a1a','#c0392b','#1b2a4a'],          sizes:NONE, stock:300, rating:4.3, reviewCount:167, featured:false },
   { id:'rain_telescopic',  name:'Telescopic Auto-Open Umbrella',     description:'3-fold telescopic umbrella with auto-open/close. Compact 25cm when folded. Sleek executive look.',                price:899,  category:'Rainwear', subcategory:'Umbrellas',    image:p('umbrella.jpg'),   customizable:true, colors:['#1a1a1a','#9e9e9e'],                    sizes:NONE, stock:150, rating:4.7, reviewCount:143, featured:false },
+
+  // ── LABELS ─────────────────────────────────────────────────────────────────
+  { id:'label_product',    name:'Custom Product Label Roll (250)',  description:'250 labels on roll. Gloss or matte vinyl, full-colour print. Round, oval, or rectangular. Waterproof coating.',       price:599,  category:'Labels', subcategory:'Product Labels',      image:p('sticker.jpg'),     customizable:true, colors:NONE, sizes:NONE, stock:999, rating:4.6, reviewCount:187, featured:false },
+  { id:'label_packaging',  name:'Packaging Label (500 pcs)',        description:'500 custom packaging labels on matte white stock. Consistent colour, adhesive backing. Ideal for small businesses.',   price:899,  category:'Labels', subcategory:'Packaging Labels',    image:p('sticker-2.jpg'),   customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.5, reviewCount:143, featured:false },
+  { id:'label_shipping',   name:'Shipping Address Label Roll',      description:'Thermal-compatible shipping labels on roll. 100mm×150mm. Print addresses and barcodes. Compatible with Zebra printers.', price:799, category:'Labels', subcategory:'Shipping Labels',     image:p('sticker-qr.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:999, rating:4.7, reviewCount:234, featured:true  },
+  { id:'label_return',     name:'Return Address Label (250)',       description:'Small return address labels on sheet. Custom text, logo, or QR code. Avery-compatible sheet format.',                   price:349,  category:'Labels', subcategory:'Return Address Labels', image:p('sticker.jpg'),    customizable:true, colors:NONE, sizes:NONE, stock:999, rating:4.4, reviewCount:89,  featured:false },
+  { id:'label_transparent',name:'Transparent No-Label Look (100)', description:'Crystal-clear adhesive labels for glass jars and packaging. Premium no-label look with full-colour print.',             price:699,  category:'Labels', subcategory:'Transparent Labels',  image:p('sticker-2.jpg'),   customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.7, reviewCount:112, featured:false },
+  { id:'label_iron_on',    name:'Iron-On Fabric Label (50 pcs)',   description:'Heat-transfer iron-on labels for garments. Custom text, logo, size info. Washable up to 60°C. Soft on skin.',          price:499,  category:'Labels', subcategory:'Iron-on Labels',      image:p('sticker-4.jpg'),   customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.6, reviewCount:76,  featured:false },
+  { id:'label_industrial', name:'Industrial Barcode Label (500)',  description:'500 durable industrial labels. Polyester stock, UV and chemical resistant. Compatible with barcode scanners.',           price:1299, category:'Labels', subcategory:'Industrial Labels',   image:p('sticker-qr.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:200, rating:4.6, reviewCount:65,  featured:false },
+  { id:'label_holo_seal',  name:'Holographic Security Seal (100)', description:'Tamper-evident holographic seal labels. Shows VOID pattern when removed. Product authentication and anti-counterfeiting.', price:899, category:'Labels', subcategory:'Packaging Labels',   image:p('sticker-2.jpg'),   customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.7, reviewCount:54,  featured:false },
+  { id:'label_qr',         name:'QR Code Product Label (100)',     description:'QR code labels linked to your product page, menu, or video. Scan-to-reveal. Gloss vinyl, indoor/outdoor rated.',          price:449,  category:'Labels', subcategory:'Product Labels',      image:p('sticker-qr.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.5, reviewCount:98,  featured:false },
+  { id:'label_satin',      name:'Premium Satin Woven Label (100)', description:'Woven satin fabric labels — name, size, care symbols, or logo. Soft and premium. Ideal for garments and accessories.',   price:799,  category:'Labels', subcategory:'Iron-on Labels',      image:p('sticker.jpg'),     customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.8, reviewCount:87,  featured:false },
+
+  // ── TAGS ───────────────────────────────────────────────────────────────────
+  { id:'tag_hang',         name:'Custom Hang Tag (100 pcs)',       description:'350 GSM hang tags with custom print. Round, die-cut, or rectangular. String or ribbon attached. MOQ 100 pcs.',          price:699,  category:'Tags', subcategory:'Hang Tags',         image:p('vc-1.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.6, reviewCount:134, featured:false },
+  { id:'tag_folded',       name:'Folded Hang Tag (100 pcs)',       description:'Folded double-sided hang tag. Inside panel for care or sizing info. 350 GSM with spot UV or foil option.',               price:899,  category:'Tags', subcategory:'Folded Hang Tags',  image:p('vc-2.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.7, reviewCount:89,  featured:false },
+  { id:'tag_name',         name:'Name Tag / ID Badge (50 pcs)',    description:'Rigid PVC or paper name badge with lanyard hole. Magnetic back or pin back. Custom print with name, title, logo.',        price:599,  category:'Tags', subcategory:'Name Tags',         image:p('vc-3.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:200, rating:4.5, reviewCount:76,  featured:false },
+  { id:'tag_luggage',      name:'Baggage / Luggage Tag (25 pcs)',  description:'PVC baggage tag with clear window and loop strap. Custom printed inserts. Great for travel brands and corporate gifting.', price:499, category:'Tags', subcategory:'Baggage Tags',     image:p('vc-4.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:200, rating:4.5, reviewCount:54,  featured:false },
+  { id:'tag_kraft_hang',   name:'Eco Kraft Hang Tag (100 pcs)',    description:'Natural kraft paper hang tag — eco and artisan look. Custom print, punched hole, cotton string. Pairs with kraft bags.',  price:599,  category:'Tags', subcategory:'Hang Tags',         image:p('vc-5.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.6, reviewCount:67,  featured:false },
+  { id:'tag_foil_hang',    name:'Gold Foil Hang Tag (50 pcs)',     description:'Luxury 400 GSM hang tag with gold or silver foil stamping. Premium feel for jewellery, fashion, and lifestyle brands.',    price:1299, category:'Tags', subcategory:'Hang Tags',         image:p('vc-1.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:100, rating:4.8, reviewCount:45,  featured:true  },
+
+  // ── STAMPS & INK ───────────────────────────────────────────────────────────
+  { id:'stamp_self_ink',   name:'Self-Inking Stamp (Custom)',      description:'Pre-inked stamp — 1000+ impressions before re-inking. Custom logo, text, or address. 5 ink colour options. 38×14mm.',   price:499,  category:'Stamps & Ink', subcategory:'Self Inking Stamps', image:p('stamp.jpg'), customizable:true, colors:['#1a1a1a','#c0392b','#1b2a4a','#2d5a3d','#9e9e9e'], sizes:NONE, stock:300, rating:4.6, reviewCount:198, featured:true  },
+  { id:'stamp_rubber',     name:'Traditional Rubber Stamp',        description:'Classic wooden-handle rubber stamp with your logo or text. Use with any ink pad. 50×30mm print area.',                   price:299,  category:'Stamps & Ink', subcategory:'Rubber Stamps',     image:p('stamp.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.4, reviewCount:134, featured:false },
+  { id:'stamp_flash',      name:'Flash Self-Inking Stamp (Large)', description:'Large 50×30mm flash stamp. 5000+ impressions. Ideal for high-volume office and logistics use. Red, blue, or black ink.',  price:799,  category:'Stamps & Ink', subcategory:'Self Inking Stamps', image:p('stamp.jpg'), customizable:true, colors:['#c0392b','#1b2a4a','#1a1a1a'], sizes:NONE, stock:200, rating:4.7, reviewCount:89,  featured:false },
+  { id:'stamp_date',       name:'Date Stamp / Date-Numberer',      description:'Adjustable date-band self-inking stamp. Prints current date automatically. Perfect for invoices and documents.',          price:699,  category:'Stamps & Ink', subcategory:'Self Inking Stamps', image:p('stamp.jpg'), customizable:true, colors:['#1a1a1a','#c0392b'], sizes:NONE, stock:150, rating:4.5, reviewCount:76,  featured:false },
+  { id:'stamp_ink_pad',    name:'Stamp Ink Pad (Re-fill)',         description:'Premium dye-based ink pad. Refillable. Available in 8 colours. Works with all rubber and self-inking stamps.',            price:199,  category:'Stamps & Ink', subcategory:'Stamp Ink',          image:p('stamp.jpg'), customizable:false, colors:['#1a1a1a','#c0392b','#1b2a4a','#2d5a3d','#9e9e9e','#f5a623','#9c27b0','#e91e63'], sizes:NONE, stock:500, rating:4.5, reviewCount:112, featured:false },
+  { id:'stamp_address',    name:'Custom Address Stamp',            description:'Self-inking return address stamp with name, address, logo. 4 lines of text. 47×18mm. Great for small businesses.',       price:599,  category:'Stamps & Ink', subcategory:'Self Inking Stamps', image:p('stamp.jpg'), customizable:true, colors:['#1a1a1a','#c0392b'], sizes:NONE, stock:300, rating:4.7, reviewCount:167, featured:false },
+
+  // ── HOME & LIVING ──────────────────────────────────────────────────────────
+  { id:'home_poster_a2',   name:'Home Decor Poster (A2)',          description:'A2 fine-art poster on 300 GSM coated paper. Custom photo, quote, or illustration. Perfect for home and office walls.',   price:449,  category:'Home & Living', subcategory:'Wall Posters',     image:p('poster.jpg'),      customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.7, reviewCount:198, featured:false },
+  { id:'home_framed',      name:'Framed Art Print (A3)',           description:'A3 art print in white or black frame. Custom photo or artwork. Ready to hang. Perfect gift for home or office.',         price:1299, category:'Home & Living', subcategory:'Framed Posters',   image:p('framed-poster.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:100, rating:4.8, reviewCount:143, featured:true  },
+  { id:'home_canvas',      name:'Home Canvas Print (16×20 inch)', description:'Gallery-wrap canvas on 380 GSM cotton. Custom photo, family portrait, or art. Kiln-dried frame. Hangs ready.',          price:1299, category:'Home & Living', subcategory:'Canvas Prints',    image:p('canvas.jpg'),        customizable:true, colors:NONE, sizes:NONE, stock:150, rating:4.8, reviewCount:267, featured:true  },
+  { id:'home_cushion',     name:'Personalised Cushion Cover (16×16)', description:'Sublimation-printed 16×16 inch cushion cover. 200 GSM polyester satin, zipper closure. Insert not included.',    price:599,  category:'Home & Living', subcategory:'Cushion Covers',   image:p('cushion.jpg'),       customizable:true, colors:NONE, sizes:NONE, stock:200, rating:4.7, reviewCount:187, featured:false },
+  { id:'home_pillow',      name:'Custom Pillow Cover (12×18 inch)',description:'Rectangular pillow cover with full sublimation print. 200 GSM satin, zip closure. Great for gifting and home styling.',price:649,  category:'Home & Living', subcategory:'Pillow Covers',    image:p('cushion.jpg'),       customizable:true, colors:NONE, sizes:NONE, stock:150, rating:4.6, reviewCount:112, featured:false },
+  { id:'home_wall_decal',  name:'Custom Wall Decal / Sticker',    description:'Removable vinyl wall decal. Custom quote, illustration, or design. No damage to walls. Available in multiple sizes.',    price:799,  category:'Home & Living', subcategory:'Wall Decor',       image:p('sticker-2.jpg'),     customizable:true, colors:NONE, sizes:NONE, stock:200, rating:4.7, reviewCount:134, featured:false },
+  { id:'home_acrylic_frame',name:'Acrylic Photo Frame (5×7 inch)',description:'Borderless floating acrylic photo frame. UV-printed with your photo. Stands on desk or mounts on wall. Modern and sleek.', price:999, category:'Home & Living', subcategory:'Acrylic Frames', image:p('acrylic-frame.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:100, rating:4.8, reviewCount:89,  featured:false },
+  { id:'home_triptych',    name:'3-Panel Wall Art Set',            description:'3-panel canvas or poster set. Panoramic split image across panels. Total 90cm wide. Stunning focal point for any room.',  price:2499, category:'Home & Living', subcategory:'Wall Decor',       image:p('canvas.jpg'),        customizable:true, colors:NONE, sizes:NONE, stock:60,  rating:4.9, reviewCount:76,  featured:false },
+  { id:'home_led_neon',    name:'Custom LED Neon Sign',            description:'Flexible LED neon light with your text or logo. Wall-mounted, USB powered. Perfect for rooms, cafes, and studios.',      price:3499, category:'Home & Living', subcategory:'Wall Decor',       image:p('acrylic-sign.jpg'),  customizable:true, colors:NONE, sizes:NONE, stock:30,  rating:4.9, reviewCount:65,  featured:true  },
+  { id:'home_clock',       name:'Custom Photo Wall Clock',         description:'Custom-printed dial wall clock. 30cm diameter, quartz movement. Your photo, logo, or artwork on the face.',               price:899,  category:'Home & Living', subcategory:'Wall Decor',       image:p('gift-3.jpg'),        customizable:true, colors:NONE, sizes:NONE, stock:100, rating:4.6, reviewCount:112, featured:false },
+
+  // ── BRANDING ADD-ONS ───────────────────────────────────────────────────────
+  { id:'addon_neck_label', name:'Custom Neck Label (100 pcs)',     description:'Woven or printed custom neck labels for garments. Brand name, size, care symbols. Heat-press or sew-in. MOQ 100.',        price:1299, category:'Branding Add-ons', subcategory:'Neck Labels',       image:p('branding.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.7, reviewCount:89,  featured:false },
+  { id:'addon_hang_tag',   name:'Brand Hang Tag (100 pcs)',        description:'350 GSM custom hang tags with your logo, price, barcode, and brand message. String included. MOQ 100 pcs.',               price:799,  category:'Branding Add-ons', subcategory:'Hang Tags',         image:p('branding-2.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.6, reviewCount:112, featured:false },
+  { id:'addon_packaging',  name:'Custom Brand Packaging (50 pcs)', description:'50 branded mailer boxes, poly bags, or rigid boxes. Custom print. Sustainable options available. Elevate your unboxing.',  price:2999, category:'Branding Add-ons', subcategory:'Custom Packaging',  image:p('packaging.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:100, rating:4.8, reviewCount:76,  featured:true  },
+  { id:'addon_insert',     name:'Brand Insert Cards (100 pcs)',    description:'100 custom-printed insert cards for product packaging. Thank-you note, care guide, or discount coupon. 350 GSM.',          price:699,  category:'Branding Add-ons', subcategory:'Brand Inserts',     image:p('branding-3.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:300, rating:4.5, reviewCount:54,  featured:false },
+  { id:'addon_tissue',     name:'Branded Tissue Paper (100 sheets)',description:'Custom-printed tissue paper for packaging. One-colour or full-colour. 50 GSM MG tissue. Adds premium unboxing feel.',   price:899,  category:'Branding Add-ons', subcategory:'Custom Packaging',  image:p('packaging.jpg'), customizable:true, colors:NONE, sizes:NONE, stock:500, rating:4.6, reviewCount:43,  featured:false },
+
+  // ── DESIGN SERVICES ────────────────────────────────────────────────────────
+  { id:'svc_logo',         name:'Professional Logo Design',        description:'Custom logo design by expert designers. 3 concepts, unlimited revisions, vector files (AI, EPS, PNG, SVG). 3–5 days.',   price:4999, category:'Design Services', subcategory:'Logo Design',        image:p('branding.jpg'), customizable:false, colors:NONE, sizes:NONE, stock:999, rating:4.9, reviewCount:312, featured:true  },
+  { id:'svc_brand',        name:'Complete Brand Identity Package', description:'Logo + brand guide + stationery design. Colours, fonts, business card, letterhead, and social templates.',                 price:14999, category:'Design Services', subcategory:'Brand Identity',    image:p('branding-3.jpg'), customizable:false, colors:NONE, sizes:NONE, stock:999, rating:4.9, reviewCount:134, featured:true  },
+  { id:'svc_qr',           name:'Custom QR Code Design',           description:'Styled QR code with your brand colours and logo embedded. Scan-tested, high-resolution print-ready file.',                 price:999,  category:'Design Services', subcategory:'QR Code Generator', image:p('sticker-qr.jpg'), customizable:false, colors:NONE, sizes:NONE, stock:999, rating:4.7, reviewCount:89,  featured:false },
+  { id:'svc_custom_design',name:'Custom Artwork / Design Service', description:'Hire a TFW designer for custom artwork, illustrations, packaging, merch, or print layout. Per-project pricing.',           price:2499, category:'Design Services', subcategory:'Custom Design',      image:p('branding-2.jpg'), customizable:false, colors:NONE, sizes:NONE, stock:999, rating:4.8, reviewCount:67,  featured:false },
 
   // ── BRANDING ───────────────────────────────────────────────────────────────
   { id:'brand_brochure',   name:'Tri-Fold Brochure (250 pcs)',       description:'250-piece DL tri-fold brochure. 130 GSM gloss art paper, full-colour inside and outside. Ideal for product launches.', price:1999, category:'Branding', subcategory:'Printed Materials', image:p('brochure.jpg'),    customizable:true, colors:NONE, sizes:NONE, stock:100, rating:4.6, reviewCount:198, featured:false },
