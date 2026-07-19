@@ -1782,9 +1782,10 @@ router.post('/seed-catalog', authMiddleware, adminMiddleware, async (_req: Reque
       const { rowCount } = await db.pool.query(
         `INSERT INTO website_products
            (id, name, description, price, category, category_id, subcategory, image, images, customizable, colors, sizes, stock, rating, review_count, featured, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'[]',$9,$10,$11,$12,$13,$14,$15,NOW())
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW())
          ON CONFLICT (id) DO UPDATE SET
            image = EXCLUDED.image,
+           images = EXCLUDED.images,
            name = EXCLUDED.name,
            description = EXCLUDED.description,
            price = EXCLUDED.price,
@@ -1793,7 +1794,7 @@ router.post('/seed-catalog', authMiddleware, adminMiddleware, async (_req: Reque
            featured = EXCLUDED.featured,
            subcategory = EXCLUDED.subcategory`,
         [p.id, p.name, p.description, p.price, p.category, catId || null, sub,
-         p.image, p.customizable, JSON.stringify(p.colors), JSON.stringify(p.sizes),
+         p.image, JSON.stringify(p.images || []), p.customizable, JSON.stringify(p.colors), JSON.stringify(p.sizes),
          p.stock, p.rating, p.reviewCount, p.featured]
       );
       if ((rowCount ?? 0) > 0) added++; else skipped++;
