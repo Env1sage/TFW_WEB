@@ -212,7 +212,7 @@ html.dark .theme-toggle { color: var(--accent); }
    ANNOUNCEMENT BAR
    ================================================ */
 .announcement-bar {
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: rgba(255,255,255,0.97); font-size: 0.82rem;
   text-align: center; padding: 0.6rem 2.5rem 0.6rem 1rem; border-bottom: none;
   font-weight: 600; letter-spacing: 0.01em; position: relative; z-index: 101;
@@ -600,8 +600,7 @@ html.dark .footer { background: #0A0C10; }
   line-height: 1.08; margin-bottom: 1.25rem; color: var(--text); letter-spacing: -0.025em;
 }
 .gradient-text {
-  background: var(--brand-gradient);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  color: var(--primary);
 }
 .hero-content p {
   font-size: 1.05rem; color: var(--text-2); max-width: 490px; margin-bottom: 2.25rem; line-height: 1.75;
@@ -824,7 +823,7 @@ html.dark .footer { background: #0A0C10; }
 /* CTA */
 .cta-section { padding: 2rem 0 5rem; }
 .cta-banner {
-  background: var(--brand-gradient);
+  background: var(--primary);
   border-radius: var(--radius-2xl); padding: 5rem 2rem;
   text-align: center; color: #fff; position: relative; overflow: hidden;
   box-shadow: var(--clay-shadow-lg);
@@ -865,7 +864,7 @@ html.dark .footer { background: #0A0C10; }
    TRUST BAR
    ================================================ */
 .trust-bar {
-  background: var(--brand-gradient-h);
+  background: var(--primary);
   padding: 0;
 }
 .trust-items {
@@ -935,7 +934,7 @@ html.dark .footer { background: #0A0C10; }
 }
 .client-abbr {
   width: 30px; height: 30px;
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: #fff; border-radius: 8px;
   font-size: 0.65rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
@@ -1101,7 +1100,7 @@ html.dark .footer { background: #0A0C10; }
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: #fff;
   font-weight: 700;
   font-size: 0.85rem;
@@ -1172,7 +1171,7 @@ html.dark .footer { background: #0A0C10; }
   gap: 1.25rem;
   margin-top: 2rem;
   padding: 1.5rem 2rem;
-  background: var(--brand-gradient);
+  background: var(--primary);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   flex-wrap: wrap;
 }
@@ -1774,7 +1773,7 @@ html.dark .footer { background: #0A0C10; }
   display: grid; grid-template-columns: 1fr 1fr; width: 100%; min-height: calc(100vh - 66px);
 }
 .auth-panel {
-  background: var(--brand-gradient);
+  background: var(--primary);
   display: flex; align-items: center; justify-content: center;
   padding: 3rem 2.5rem; color: #fff;
 }
@@ -1939,7 +1938,7 @@ html.dark .footer { background: #0A0C10; }
 .verify-section label { font-weight: 600; display: block; margin-bottom: 0.5rem; }
 .auth-icon {
   width: 56px; height: 56px; border-radius: var(--radius);
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;
   box-shadow: var(--clay-shadow-sm);
 }
@@ -2117,7 +2116,7 @@ html.dark .footer { background: #0A0C10; }
 }
 .profile-avatar {
   width: 80px; height: 80px; border-radius: 50%;
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: #fff; display: flex; align-items: center; justify-content: center;
   margin: 0 auto 1rem; font-size: 1.5rem;
   box-shadow: var(--clay-shadow);
@@ -2952,9 +2951,9 @@ a.order-item-name:hover { color: var(--primary); }
 }
 .chart-bar {
   width: 100%; min-width: 6px; max-width: 24px; border-radius: 4px 4px 0 0;
-  background: var(--brand-gradient); transition: height 0.3s;
+  background: var(--primary); transition: height 0.3s;
 }
-.chart-bar-wrapper:hover .chart-bar { background: var(--brand-gradient); }
+.chart-bar-wrapper:hover .chart-bar { background: var(--primary); }
 .chart-label { font-size: 0.65rem; color: var(--text-2); margin-top: 4px; }
 
 /* ── Mockup Grid ── */
@@ -3617,7 +3616,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 /* ── Header / gift section ── */
 .cp-header {
   position: relative;
-  background: var(--brand-gradient);
+  background: var(--primary);
   padding: 2rem 1.5rem 1.5rem;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
@@ -3668,10 +3667,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
 .cp-discount-value {
   font-size: 3.25rem; font-weight: 900;
-  background: var(--brand-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--primary);
   line-height: 1;
   letter-spacing: -0.03em;
 }
@@ -3751,7 +3747,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
   padding: 0.8rem 1.5rem;
   font-size: 0.95rem; font-weight: 700;
   border: none; border-radius: 12px;
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: #fff; cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 4px 14px rgba(16,185,129,0.3);
@@ -4069,7 +4065,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 .about-step { text-align: center; padding: 0 1rem; }
 .about-step-number {
   width: 56px; height: 56px; border-radius: 50%;
-  background: var(--brand-gradient);
+  background: var(--primary);
   color: #fff; font-size: 1rem; font-weight: 900;
   display: inline-flex; align-items: center; justify-content: center;
   margin-bottom: 0.5rem; box-shadow: 0 4px 16px rgba(14,124,97,.3);
@@ -6268,12 +6264,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
 /* ── Animated gradient text ── */
 .text-gradient-animated {
-  background: linear-gradient(135deg, #8B1A2D 0%, #C82028 25%, #E85B1A 55%, #F5A01F 100%);
-  background-size: 300% 300%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient-shift 4s ease infinite;
+  color: var(--primary);
 }
 .text-holographic {
   background: linear-gradient(120deg, #667eea 0%, #764ba2 14%, #f64f59 28%, #c471ed 42%, #12c2e9 57%, #0E7C61 71%, #C6A75E 85%, #667eea 100%);
@@ -6363,7 +6354,7 @@ html.dark .glass-card {
 .social-link-anim.sl-facebook:hover::before  { background: #1877f2; }
 .social-link-anim.sl-youtube:hover::before   { background: #ff0000; }
 .social-link-anim.sl-twitter:hover::before   { background: #1da1f2; }
-.social-link-anim.sl-mail:hover::before      { background: var(--brand-gradient); }
+.social-link-anim.sl-mail:hover::before      { background: var(--primary); }
 
 /* ── WhatsApp floater ── */
 .whatsapp-floater {
@@ -6498,7 +6489,7 @@ html.dark .glass-card {
 
 /* ── Checkout stepper active glow ── */
 .checkout-stepper .step.active .step-num {
-  background: var(--brand-gradient);
+  background: var(--primary);
   box-shadow: 0 0 18px rgba(14,124,97,0.42);
   animation: glow-pulse 2.5s ease-in-out infinite;
 }
@@ -7050,7 +7041,7 @@ html.dark .hero-badge {
 .pd-gallery-main { background: var(--surface); border-radius: var(--radius-xl); box-shadow: var(--clay-shadow); overflow: hidden; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; }
 .pd-gallery-main img, .pd-gallery-main > * { width: 100%; height: 100%; object-fit: contain; }
 .pd-design-img { width: 100%; height: 100%; object-fit: contain; }
-.pd-studio-badge { position: absolute; bottom: 12px; right: 12px; background: var(--brand-gradient); color: #fff; border-radius: 20px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--clay-shadow-sm); text-decoration: none; }
+.pd-studio-badge { position: absolute; bottom: 12px; right: 12px; background: var(--primary); color: #fff; border-radius: 20px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--clay-shadow-sm); text-decoration: none; }
 .pd-thumbs { display: flex; gap: 10px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .pd-thumbs::-webkit-scrollbar { display: none; }
 .pd-thumb { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--surface); border: 2px solid transparent; border-radius: var(--radius); padding: 10px; color: var(--text-2); font-size: 0.75rem; font-weight: 500; transition: all var(--transition); box-shadow: var(--clay-shadow-sm); min-width: 70px; cursor: pointer; }
