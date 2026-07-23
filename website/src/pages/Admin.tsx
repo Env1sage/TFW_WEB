@@ -3189,51 +3189,6 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Shipping Zones Section */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, marginTop: 28 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <IndianRupee size={16} /> Shipping Zones &amp; Charges
-                </h3>
-                <button className="btn btn-primary btn-sm" onClick={openNewShippingZone} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Plus size={14} /> Add Zone
-                </button>
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
-                Zones are matched by pincode prefix, weight range, and delivery type. Specific pin-pattern zones are checked first; the catch-all handles the rest.
-              </p>
-              {shippingZones.length === 0 ? (
-                <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>No zones configured yet.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {shippingZones.map(z => {
-                    const typeLabel: Record<string, string> = { standard: 'Standard', express: 'Express', economy: 'Economy' };
-                    const weightLabel = (z.weightFromGrams === 0 && z.weightToGrams >= 99999)
-                      ? 'Any weight'
-                      : `${z.weightFromGrams}g – ${z.weightToGrams >= 99999 ? '∞' : z.weightToGrams + 'g'}`;
-                    return (
-                      <div key={z.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-2)', borderRadius: 8, border: `1px solid ${z.active ? 'var(--border)' : '#fca5a5'}` }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{z.label}</span>
-                            <span style={{ fontSize: '0.72rem', padding: '1px 7px', borderRadius: 10, background: z.deliveryType === 'express' ? '#fef9c3' : z.deliveryType === 'economy' ? '#f0fdf4' : '#eff6ff', color: z.deliveryType === 'express' ? '#854d0e' : z.deliveryType === 'economy' ? '#166534' : '#1e40af' }}>{typeLabel[z.deliveryType] || z.deliveryType}</span>
-                            {z.pinPatterns.length > 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Pins: {z.pinPatterns.join(', ')}</span>}
-                            {z.pinPatterns.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>(catch-all)</span>}
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-2)', marginTop: 3 }}>
-                            ₹{z.shippingCharge} · Free above ₹{z.freeAbove} · {weightLabel} · {z.estimatedDays} · {z.active ? '✅ Active' : '❌ Inactive'}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => openEditShippingZone(z)}><Edit3 size={14} /></button>
-                          <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDeleteShippingZone(z.id)}><Trash2 size={14} /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </motion.div>
         )}
 
@@ -5126,6 +5081,52 @@ MSG91_SENDER_ID=TFWALL`}
                 </div>
               </div>
             )}
+
+            {/* Shipping Zones Section */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, marginTop: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <IndianRupee size={16} /> Shipping Zones &amp; Charges
+                </h3>
+                <button className="btn btn-primary btn-sm" onClick={openNewShippingZone} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Plus size={14} /> Add Zone
+                </button>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', margin: '0 0 14px' }}>
+                Zones are matched by pincode prefix, weight range, and delivery type. Specific pin-pattern zones are checked first; the catch-all handles the rest.
+              </p>
+              {shippingZones.length === 0 ? (
+                <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>No zones configured yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {shippingZones.map(z => {
+                    const typeLabel: Record<string, string> = { standard: 'Standard', express: 'Express', economy: 'Economy' };
+                    const weightLabel = (z.weightFromGrams === 0 && z.weightToGrams >= 99999)
+                      ? 'Any weight'
+                      : `${z.weightFromGrams}g – ${z.weightToGrams >= 99999 ? '∞' : z.weightToGrams + 'g'}`;
+                    return (
+                      <div key={z.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-2)', borderRadius: 8, border: `1px solid ${z.active ? 'var(--border)' : '#fca5a5'}` }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{z.label}</span>
+                            <span style={{ fontSize: '0.72rem', padding: '1px 7px', borderRadius: 10, background: z.deliveryType === 'express' ? '#fef9c3' : z.deliveryType === 'economy' ? '#f0fdf4' : '#eff6ff', color: z.deliveryType === 'express' ? '#854d0e' : z.deliveryType === 'economy' ? '#166534' : '#1e40af' }}>{typeLabel[z.deliveryType] || z.deliveryType}</span>
+                            {z.pinPatterns.length > 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Pins: {z.pinPatterns.join(', ')}</span>}
+                            {z.pinPatterns.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>(catch-all)</span>}
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-2)', marginTop: 3 }}>
+                            ₹{z.shippingCharge} · Free above ₹{z.freeAbove} · {weightLabel} · {z.estimatedDays} · {z.active ? '✅ Active' : '❌ Inactive'}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openEditShippingZone(z)}><Edit3 size={14} /></button>
+                          <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleDeleteShippingZone(z.id)}><Trash2 size={14} /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 
@@ -5292,7 +5293,7 @@ MSG91_SENDER_ID=TFWALL`}
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 600 }}>Standard Shipping</span>
                     <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                      Always enabled. Rates and free-shipping thresholds are managed in the <strong>Shipping Zones</strong> tab (under the Shiprocket tab).
+                      Always enabled. Rates and free-shipping thresholds are managed in <strong>Shipping Rates → Shipping Zones & Charges</strong>.
                     </p>
                   </div>
                   <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#22c55e' }}>Always on</span>
