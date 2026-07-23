@@ -48,6 +48,24 @@ function shapeModel(r: any) {
   };
 }
 
+/* ──────────────────────── Admin Routes (before wildcards) ──────────────────────── */
+
+// Admin: list all brands (including inactive)
+router.get('/admin/all', authMiddleware, adminOnly, async (_req, res) => {
+  try {
+    const rows = await db.getAllBrands();
+    res.json(rows.map(shapeBrand));
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: list all models (including inactive)
+router.get('/admin/models', authMiddleware, adminOnly, async (_req, res) => {
+  try {
+    const rows = await db.getAllModels();
+    res.json(rows.map(shapeModel));
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 /* ──────────────────────── Public Routes ──────────────────────── */
 
 // GET /api/brands  — all brands, optionally filtered by ?categoryId= or ?categorySlug=
@@ -83,8 +101,6 @@ router.get('/by-category/:categorySlug', async (req, res) => {
 // GET /api/brands/:brandSlug  — brand detail
 router.get('/:brandSlug', async (req, res) => {
   try {
-    // Don't match "models" sub-path here — let the next route handle it
-    if (req.params.brandSlug === 'models') return res.status(404).json({ error: 'Not found' });
     const brand = await db.getBrandBySlug(req.params.brandSlug);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
     res.json(shapeBrand(brand));
@@ -107,24 +123,6 @@ router.get('/:brandSlug/models/:modelSlug', async (req, res) => {
     const model = await db.getModelBySlug(req.params.brandSlug, req.params.modelSlug);
     if (!model) return res.status(404).json({ error: 'Model not found' });
     res.json(shapeModel(model));
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-/* ──────────────────────── Admin Routes ──────────────────────── */
-
-// Admin: list all brands (including inactive)
-router.get('/admin/all', authMiddleware, adminOnly, async (_req, res) => {
-  try {
-    const rows = await db.getAllBrands();
-    res.json(rows.map(shapeBrand));
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-// Admin: list all models (including inactive)
-router.get('/admin/models', authMiddleware, adminOnly, async (_req, res) => {
-  try {
-    const rows = await db.getAllModels();
-    res.json(rows.map(shapeModel));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
