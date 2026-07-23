@@ -407,9 +407,9 @@ export const api = {
     request<any>(`/brands/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteBrand: (id: string) =>
     request<{ success: boolean }>(`/brands/${id}`, { method: 'DELETE' }),
-  createModel: (brandId: string, data: { name: string; displayName?: string; active?: boolean; sortOrder?: number }) =>
+  createModel: (brandId: string, data: { name: string; displayName?: string; active?: boolean; inStock?: boolean; sortOrder?: number }) =>
     request<any>(`/brands/${brandId}/models`, { method: 'POST', body: JSON.stringify(data) }),
-  updateModel: (modelId: string, data: { name?: string; displayName?: string; brandId?: string; active?: boolean; sortOrder?: number }) =>
+  updateModel: (modelId: string, data: { name?: string; displayName?: string; brandId?: string; active?: boolean; inStock?: boolean; sortOrder?: number }) =>
     request<any>(`/brands/models/${modelId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteModel: (modelId: string) =>
     request<{ success: boolean }>(`/brands/models/${modelId}`, { method: 'DELETE' }),

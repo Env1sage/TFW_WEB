@@ -7117,6 +7117,18 @@ html.dark .hero-badge {
 .pd-size:hover { border-color: var(--primary); color: var(--primary); }
 .pd-size.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: var(--clay-shadow-sm); }
 
+/* Brand / model selector */
+.pd-brand-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.pd-brand-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius-sm); background: var(--surface); border: 1.5px solid var(--border); color: var(--text); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all var(--transition); }
+.pd-brand-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pd-brand-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pd-model-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.pd-model-btn { padding: 5px 12px; border-radius: var(--radius-sm); background: var(--surface); border: 1.5px solid var(--border); color: var(--text); font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: all var(--transition); }
+.pd-model-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.pd-model-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pd-model-btn.oos, .pd-model-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pd-model-oos { font-size: 0.72rem; color: inherit; opacity: 0.8; }
+
 /* Quantity selector */
 .pd-qty { display: inline-flex; align-items: center; gap: 0; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; width: fit-content; }
 .pd-qty button { background: var(--surface); border: none; padding: 8px 14px; color: var(--text-2); display: flex; align-items: center; transition: background var(--transition); }

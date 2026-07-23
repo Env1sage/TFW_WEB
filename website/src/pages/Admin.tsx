@@ -14,7 +14,8 @@ interface Mockup {
   id: string; name: string; category: string;
   frontImage: string; backImage?: string;
   frontShadow?: string; backShadow?: string;
-  printArea: any; basePrice?: number; active: boolean; createdAt: string;
+  printArea: any; basePrice?: number; active: boolean;
+  colorFilter?: boolean; createdAt: string;
 }
 
 interface Analytics {
@@ -71,7 +72,7 @@ const defaultProduct: Partial<Product> = {
 
 const defaultMockup: Partial<Mockup> = {
   name: '', category: '', frontImage: '', backImage: '', frontShadow: '', backShadow: '',
-  printArea: { layouts: [], allowMultipleLayouts: false, allowBackPrint: true }, basePrice: 0, active: true,
+  printArea: { layouts: [], allowMultipleLayouts: false, allowBackPrint: true }, basePrice: 0, active: true, colorFilter: false,
 };
 
 // ── Print Area Editor constants ─────────────────────────────
@@ -85,7 +86,8 @@ const LAYOUT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#e879f9', '#ef4444', '#
 interface PrintLayout {
   id: string; name: string; side: 'FRONT' | 'BACK';
   x: number; y: number; w: number; h: number;
-  shape?: 'rect' | 'ellipse' | 'circle';
+  shape?: 'rect' | 'ellipse' | 'circle' | 'polygon';
+  points?: { x: number; y: number }[];
   price?: number;
   /** IDs of other layouts this can be ordered together with */
   compatibleWith?: string[];
@@ -135,7 +137,7 @@ export default function Admin() {
   const [brandLoading, setBrandLoading] = useState(false);
   const [brandForm, setBrandForm] = useState({ name: '', logo: '', categoryId: '', active: true, sortOrder: 0 });
   const [editingBrand, setEditingBrand] = useState<any | null>(null);
-  const [modelForm, setModelForm] = useState({ name: '', displayName: '', active: true, sortOrder: 0 });
+  const [modelForm, setModelForm] = useState({ name: '', displayName: '', active: true, inStock: true, sortOrder: 0 });
   const [editingModel, setEditingModel] = useState<any | null>(null);
   const [modelBrandId, setModelBrandId] = useState<string | null>(null);
   const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
@@ -300,6 +302,7 @@ export default function Admin() {
   const [showPaeAddForm, setShowPaeAddForm] = useState(false);
   const [paeNewLayoutName, setPaeNewLayoutName] = useState('');
   const [paeNewLayoutSide, setPaeNewLayoutSide] = useState<'FRONT' | 'BACK'>('FRONT');
+  const [paePolygonPoints, setPaePolygonPoints] = useState<{ x: number; y: number }[]>([]);
   const paeDragRef = useRef<{ startX: number; startY: number; dragging: boolean; mode: 'draw' | 'move'; offsetX: number; offsetY: number }>({ startX: 0, startY: 0, dragging: false, mode: 'draw', offsetX: 0, offsetY: 0 });
   const paeContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -883,13 +886,13 @@ export default function Admin() {
   };
 
   // Mockup CRUD
-  const openNewMockup = () => { setEditingMockup(null); setMockupForm({ ...defaultMockup }); setPaeDraft(null); setActiveLayoutId(null); setShowPaeAddForm(false); setPaeNewLayoutName(''); setShowMockupForm(true); };
+  const openNewMockup = () => { setEditingMockup(null); setMockupForm({ ...defaultMockup }); setPaeDraft(null); setPaePolygonPoints([]); setActiveLayoutId(null); setShowPaeAddForm(false); setPaeNewLayoutName(''); setShowMockupForm(true); };
   const openEditMockup = (m: Mockup) => {
     const normalized = normalizePrintArea(m.printArea);
-    setEditingMockup(m); setMockupForm({ ...m, printArea: normalized }); setPaeDraft(null);
+    setEditingMockup(m); setMockupForm({ ...m, printArea: normalized }); setPaeDraft(null); setPaePolygonPoints([]);
     setActiveLayoutId(normalized.layouts[0]?.id || null); setShowPaeAddForm(false); setPaeNewLayoutName(''); setShowMockupForm(true);
   };
-  const closeMockupForm = () => { setShowMockupForm(false); setEditingMockup(null); setPaeDraft(null); setActiveLayoutId(null); setShowPaeAddForm(false); setPaeNewLayoutName(''); };
+  const closeMockupForm = () => { setShowMockupForm(false); setEditingMockup(null); setPaeDraft(null); setPaePolygonPoints([]); setActiveLayoutId(null); setShowPaeAddForm(false); setPaeNewLayoutName(''); };
 
   // Print area editor handlers
   const paeLayouts: PrintLayout[] = (mockupForm.printArea as any)?.layouts || [];
@@ -928,6 +931,7 @@ export default function Admin() {
   };
   const handlePaeDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!paeCurrentImage || !activeLayout) return;
+    if (activeLayout.shape === 'polygon') return;
     const { x, y } = getRelativePaePos(e);
     if (activeLayout.w > 0) {
       const rx = activeLayout.x * PAE_SCALE, ry = activeLayout.y * PAE_SCALE;
@@ -994,6 +998,39 @@ export default function Admin() {
   };
   const updatePaeSetting = (key: string, value: any) => {
     setMockupForm(prev => ({ ...prev, printArea: { ...prev.printArea, [key]: value } }));
+  };
+
+  /** Polygon dot-marking click handler */
+  const handlePaePolygonClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!activeLayout || activeLayout.shape !== 'polygon' || !paeCurrentImage) return;
+    e.stopPropagation();
+    const { x, y } = getRelativePaePos(e);
+    const cx = Math.round(x / PAE_SCALE);
+    const cy = Math.round(y / PAE_SCALE);
+    // If ≥3 points and click is near the first point, close polygon
+    if (paePolygonPoints.length >= 3) {
+      const first = paePolygonPoints[0];
+      const dist = Math.sqrt((cx - first.x) ** 2 + (cy - first.y) ** 2);
+      if (dist < Math.round(12 / PAE_SCALE)) {
+        finalizePaePolygon();
+        return;
+      }
+    }
+    setPaePolygonPoints(prev => [...prev, { x: cx, y: cy }]);
+  };
+  const finalizePaePolygon = () => {
+    if (paePolygonPoints.length < 3) return;
+    const xs = paePolygonPoints.map(p => p.x);
+    const ys = paePolygonPoints.map(p => p.y);
+    const bx = Math.min(...xs), by = Math.min(...ys);
+    const bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+    updateActiveLayout({ x: bx, y: by, w: bw, h: bh, points: [...paePolygonPoints] });
+    setPaePolygonPoints([]);
+  };
+  const handlePaePolygonDblClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!activeLayout || activeLayout.shape !== 'polygon') return;
+    e.stopPropagation();
+    if (paePolygonPoints.length >= 3) finalizePaePolygon();
   };
 
   /** Toggle compatibility between two layouts — kept bidirectional */
@@ -3832,7 +3869,7 @@ MSG91_SENDER_ID=TFWALL`}
                     <button className="icon-btn" title="Add model" onClick={() => {
                       setModelBrandId(brand.id);
                       setEditingModel(null);
-                      setModelForm({ name: '', displayName: '', active: true, sortOrder: 0 });
+                      setModelForm({ name: '', displayName: '', active: true, inStock: true, sortOrder: 0 });
                       (document.getElementById('model-modal') as HTMLDialogElement)?.showModal?.();
                     }}>
                       <Plus size={15} />
@@ -3867,13 +3904,13 @@ MSG91_SENDER_ID=TFWALL`}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{model.displayName}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-2)' }}>/{model.slug}{!model.active && <span style={{ marginLeft: 6, color: '#ef4444' }}>Inactive</span>}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-2)' }}>/{model.slug}{!model.active && <span style={{ marginLeft: 6, color: '#ef4444' }}>Inactive</span>}{!model.inStock && <span style={{ marginLeft: 6, color: '#f59e0b' }}>Out of Stock</span>}</div>
                         </div>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="icon-btn" title="Edit model" onClick={() => {
                             setEditingModel(model);
                             setModelBrandId(brand.id);
-                            setModelForm({ name: model.name, displayName: model.displayName, active: model.active, sortOrder: model.sortOrder });
+                            setModelForm({ name: model.name, displayName: model.displayName, active: model.active, inStock: model.inStock ?? true, sortOrder: model.sortOrder });
                             (document.getElementById('model-modal') as HTMLDialogElement)?.showModal?.();
                           }}>
                             <Edit3 size={13} />
@@ -3971,10 +4008,14 @@ MSG91_SENDER_ID=TFWALL`}
                     <label>Sort Order</label>
                     <input type="number" min={0} value={modelForm.sortOrder} onChange={e => setModelForm({ ...modelForm, sortOrder: parseInt(e.target.value) || 0 })} />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
                       <input type="checkbox" checked={modelForm.active} onChange={e => setModelForm({ ...modelForm, active: e.target.checked })} />
                       Active
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
+                      <input type="checkbox" checked={modelForm.inStock} onChange={e => setModelForm({ ...modelForm, inStock: e.target.checked })} />
+                      In Stock
                     </label>
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -3983,10 +4024,10 @@ MSG91_SENDER_ID=TFWALL`}
                       if (!modelForm.name || !modelBrandId) return toast.error('Name is required');
                       try {
                         if (editingModel) {
-                          await api.updateModel(editingModel.id, { name: modelForm.name, displayName: modelForm.displayName || modelForm.name, active: modelForm.active, sortOrder: modelForm.sortOrder });
+                          await api.updateModel(editingModel.id, { name: modelForm.name, displayName: modelForm.displayName || modelForm.name, active: modelForm.active, inStock: modelForm.inStock, sortOrder: modelForm.sortOrder });
                           toast.success('Model updated');
                         } else {
-                          await api.createModel(modelBrandId, { name: modelForm.name, displayName: modelForm.displayName || modelForm.name, active: modelForm.active, sortOrder: modelForm.sortOrder });
+                          await api.createModel(modelBrandId, { name: modelForm.name, displayName: modelForm.displayName || modelForm.name, active: modelForm.active, inStock: modelForm.inStock, sortOrder: modelForm.sortOrder });
                           toast.success('Model created');
                         }
                         (document.getElementById('model-modal') as HTMLDialogElement)?.close();
@@ -4743,11 +4784,13 @@ MSG91_SENDER_ID=TFWALL`}
                         <div
                           ref={paeContainerRef}
                           className={'pae-canvas' + (!paeCurrentImage ? ' pae-canvas-empty' : '')}
-                          style={{ cursor: !paeCurrentImage || !activeLayout ? 'default' : paeIsHoverMove && !paeDraft ? 'move' : 'crosshair' }}
+                          style={{ cursor: !paeCurrentImage || !activeLayout ? 'default' : activeLayout.shape === 'polygon' ? 'crosshair' : paeIsHoverMove && !paeDraft ? 'move' : 'crosshair' }}
                           onMouseDown={e => { e.preventDefault(); handlePaeDragStart(e); }}
                           onMouseMove={handlePaeDragMove}
                           onMouseUp={handlePaeDragEnd}
                           onMouseLeave={() => { if (paeDragRef.current.dragging) handlePaeDragEnd(); setPaeIsHoverMove(false); }}
+                          onClick={handlePaePolygonClick}
+                          onDoubleClick={handlePaePolygonDblClick}
                         >
                           {paeCurrentImage
                             ? <img src={paeCurrentImage} alt="Mockup" className="pae-image" />
@@ -4763,7 +4806,13 @@ MSG91_SENDER_ID=TFWALL`}
                             .map(l => {
                               const realIdx = paeLayouts.findIndex(x => x.id === l.id);
                               const c = LAYOUT_COLORS[realIdx % LAYOUT_COLORS.length];
-                              return (
+                              return l.shape === 'polygon' && l.points && l.points.length >= 3 ? (
+                                <svg key={l.id} style={{ position: 'absolute', inset: 0, width: PAE_W, height: PAE_H, pointerEvents: 'none', overflow: 'visible' }}>
+                                  <polygon points={l.points.map(p => `${p.x * PAE_SCALE},${p.y * PAE_SCALE}`).join(' ')}
+                                    fill={c + '18'} stroke={c} strokeWidth="1" strokeDasharray="3 2" />
+                                  <text x={l.points[0].x * PAE_SCALE} y={Math.max(0, l.points[0].y * PAE_SCALE - 4)} fill={c} fontSize="9" fontFamily="sans-serif">{l.name}</text>
+                                </svg>
+                              ) : (
                                 <div key={l.id} className="pae-rect pae-rect-other"
                                   style={{ left: l.x * PAE_SCALE, top: l.y * PAE_SCALE, width: l.w * PAE_SCALE, height: l.h * PAE_SCALE, borderColor: c, borderRadius: (l.shape === 'ellipse' || l.shape === 'circle') ? '50%' : undefined }}>
                                   <span className="pae-rect-label" style={{ color: c }}>{l.name}</span>
@@ -4771,10 +4820,19 @@ MSG91_SENDER_ID=TFWALL`}
                               );
                             })}
                           {/* Active layout rect */}
-                          {!paeDraft && activeLayout && activeLayout.w > 0 && (() => {
+                          {!paeDraft && paePolygonPoints.length === 0 && activeLayout && activeLayout.w > 0 && (() => {
                             const activeIdx = paeLayouts.findIndex(l => l.id === activeLayoutId);
                             const c = LAYOUT_COLORS[activeIdx % LAYOUT_COLORS.length];
-                            return (
+                            return activeLayout.shape === 'polygon' && activeLayout.points && activeLayout.points.length >= 3 ? (
+                              <svg style={{ position: 'absolute', inset: 0, width: PAE_W, height: PAE_H, pointerEvents: 'none', overflow: 'visible' }}>
+                                <polygon points={activeLayout.points.map(p => `${p.x * PAE_SCALE},${p.y * PAE_SCALE}`).join(' ')}
+                                  fill={c + '28'} stroke={c} strokeWidth="1.5" strokeDasharray="6 3" />
+                                {activeLayout.points.map((pt, i) => (
+                                  <circle key={i} cx={pt.x * PAE_SCALE} cy={pt.y * PAE_SCALE} r={i === 0 ? 4 : 3} fill={c} />
+                                ))}
+                                <text x={activeLayout.points[0].x * PAE_SCALE} y={Math.max(8, activeLayout.points[0].y * PAE_SCALE - 4)} fill={c} fontSize="9" fontFamily="sans-serif" fontWeight="600">{activeLayout.name}</text>
+                              </svg>
+                            ) : (
                               <div className="pae-rect pae-rect-active"
                                 style={{ left: activeLayout.x * PAE_SCALE, top: activeLayout.y * PAE_SCALE, width: activeLayout.w * PAE_SCALE, height: activeLayout.h * PAE_SCALE, borderColor: c, background: c + '28', borderRadius: (activeLayout.shape === 'ellipse' || activeLayout.shape === 'circle') ? '50%' : undefined }}>
                                 <span className="pae-rect-label" style={{ color: c }}>{activeLayout.name}</span>
@@ -4792,8 +4850,28 @@ MSG91_SENDER_ID=TFWALL`}
                                 style={{ left: paeDraft.x * PAE_SCALE, top: paeDraft.y * PAE_SCALE, width: Math.max(2, paeDraft.w * PAE_SCALE), height: Math.max(2, paeDraft.h * PAE_SCALE), borderColor: c, background: c + '22', borderRadius: isRound ? '50%' : undefined }} />
                             );
                           })()}
+                          {/* In-progress polygon points */}
+                          {activeLayout?.shape === 'polygon' && paePolygonPoints.length > 0 && (() => {
+                            const activeIdx = paeLayouts.findIndex(l => l.id === activeLayoutId);
+                            const c = LAYOUT_COLORS[activeIdx % LAYOUT_COLORS.length];
+                            return (
+                              <svg style={{ position: 'absolute', inset: 0, width: PAE_W, height: PAE_H, pointerEvents: 'none', overflow: 'visible' }}>
+                                {paePolygonPoints.length >= 2 && (
+                                  <polyline points={paePolygonPoints.map(p => `${p.x * PAE_SCALE},${p.y * PAE_SCALE}`).join(' ')}
+                                    fill="none" stroke={c} strokeWidth="1.5" strokeDasharray="5 2" />
+                                )}
+                                {paePolygonPoints.map((pt, i) => (
+                                  <circle key={i} cx={pt.x * PAE_SCALE} cy={pt.y * PAE_SCALE} r={i === 0 ? 6 : 4}
+                                    fill={i === 0 ? c : '#fff'} stroke={c} strokeWidth="1.5" style={{ cursor: 'pointer' }} />
+                                ))}
+                                {paePolygonPoints.length >= 3 && (
+                                  <text x={paePolygonPoints[0].x * PAE_SCALE + 8} y={paePolygonPoints[0].y * PAE_SCALE - 4} fill={c} fontSize="8" fontFamily="sans-serif">close</text>
+                                )}
+                              </svg>
+                            );
+                          })()}
                         </div>
-                        <p className="pae-canvas-hint">{activeLayout ? 'Drag to draw print area · drag existing rect to reposition' : 'Select a layout first'} · Canvas: 800×1000 px</p>
+                        <p className="pae-canvas-hint">{activeLayout ? (activeLayout.shape === 'polygon' ? 'Click to place dots · double-click or click first dot to close polygon' : 'Drag to draw print area · drag existing rect to reposition') : 'Select a layout first'} · Canvas: 800×1000 px</p>
                       </div>
                       <div className="pae-controls-col">
                         {activeLayout ? (
@@ -4826,27 +4904,35 @@ MSG91_SENDER_ID=TFWALL`}
                             </div>
                             <div className="pae-control-section">
                               <div className="pae-control-label">Shape</div>
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                {(['rect','ellipse','circle'] as const).map(s => (
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {(['rect','ellipse','circle','polygon'] as const).map(s => (
                                   <button key={s} type="button"
                                     className={`btn btn-sm ${(activeLayout.shape ?? 'rect') === s ? 'btn-primary' : 'btn-ghost'}`}
                                     style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}
-                                    onClick={() => updateActiveLayout({ shape: s })}>
+                                    onClick={() => { updateActiveLayout({ shape: s, ...(s !== 'polygon' ? { points: undefined } : {}) }); setPaePolygonPoints([]); }}>
                                     {s === 'rect'
                                       ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                                       : s === 'ellipse'
                                       ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="7"/></svg>
-                                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/></svg>
+                                      : s === 'circle'
+                                      ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/></svg>
+                                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12,3 21,9 18,20 6,20 3,9"/></svg>
                                     }
-                                    {s === 'rect' ? 'Rectangle' : s === 'ellipse' ? 'Ellipse' : 'Circle'}
+                                    {s === 'rect' ? 'Rect' : s === 'ellipse' ? 'Ellipse' : s === 'circle' ? 'Circle' : 'Polygon'}
                                   </button>
                                 ))}
                               </div>
+                              {activeLayout.shape === 'polygon' && (
+                                <p style={{ fontSize: '0.72rem', color: 'var(--text-2)', marginTop: 6 }}>
+                                  Click on the canvas to place dots · double-click or click the first dot to close polygon
+                                  {paePolygonPoints.length > 0 && <button type="button" className="btn btn-sm btn-ghost" style={{ marginLeft: 8, padding: '0 6px', height: 20, fontSize: '0.68rem' }} onClick={() => setPaePolygonPoints([])}>✕ Reset</button>}
+                                </p>
+                              )}
                             </div>
                             <div className="pae-button-stack">
                               {activeLayout.w > 0 && (
                                 <button type="button" className="btn btn-sm btn-ghost pae-clear-btn"
-                                  onClick={() => updateActiveLayout({ x: 0, y: 0, w: 0, h: 0 })}>
+                                  onClick={() => { updateActiveLayout({ x: 0, y: 0, w: 0, h: 0, points: undefined }); setPaePolygonPoints([]); }}>
                                   ✕ Clear area for "{activeLayout.name}"
                                 </button>
                               )}
@@ -4912,6 +4998,11 @@ MSG91_SENDER_ID=TFWALL`}
                   </div>
                   <div className="form-row checkboxes">
                     <label className="checkbox-label"><input type="checkbox" checked={mockupForm.active ?? true} onChange={e => setMockupForm({ ...mockupForm, active: e.target.checked })} /> Active</label>
+                    <label className="checkbox-label" style={{ marginLeft: 16 }}>
+                      <input type="checkbox" checked={(mockupForm as any).colorFilter ?? false} onChange={e => setMockupForm({ ...mockupForm, colorFilter: e.target.checked } as any)} />
+                      Apply Color Filter
+                      <span style={{ marginLeft: 6, fontSize: '0.72rem', color: 'var(--text-3)' }}>(tints mockup to selected color — enable for apparel, disable for stickers/badges)</span>
+                    </label>
                   </div>
                   <div className="modal-actions">
                     <button type="button" className="btn btn-ghost" onClick={closeMockupForm}>Cancel</button>

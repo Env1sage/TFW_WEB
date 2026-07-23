@@ -279,7 +279,13 @@ export default function Designer() {
       const effectiveActiveId = activeLayout?.id ?? sideLayouts[0]?.id ?? null;
       const pa = activeLayout ?? (sideLayouts[0] ?? { x: 290, y: 200, w: 220, h: 320, shape: 'rect' as const });
       const oc = 'rgba(0,0,0,0.04)';
-      if ((pa as PrintLayout).shape === 'ellipse' || (pa as PrintLayout).shape === 'circle') {
+      if ((pa as PrintLayout).shape === 'polygon' && (pa as PrintLayout).points && (pa as PrintLayout).points!.length >= 3) {
+        const polyHole = new fabric.Polygon((pa as PrintLayout).points!.map(p => ({ x: p.x, y: p.y })), { absolutePositioned: true });
+        (polyHole as any).inverted = true;
+        const dimOverlay = new fabric.Rect({ left: 0, top: 0, width: CW, height: CH, fill: oc, selectable: false, evented: false, originX: 'left', originY: 'top', excludeFromExport: true, clipPath: polyHole });
+        (dimOverlay as any).name = '__oPolygon';
+        fc.add(dimOverlay);
+      } else if ((pa as PrintLayout).shape === 'ellipse' || (pa as PrintLayout).shape === 'circle') {
         // For ellipse: one full-canvas dim overlay clipped with an inverted ellipse
         const cx = pa.x + pa.w / 2, cy = pa.y + pa.h / 2;
         const ellipseHole = new fabric.Ellipse({ rx: pa.w / 2, ry: pa.h / 2, left: cx, top: cy, originX: 'center', originY: 'center', absolutePositioned: true });
@@ -312,7 +318,12 @@ export default function Designer() {
           opacity: isActive ? 1 : isSelected ? 0.7 : 0.35,
         };
         let border: fabric.Object;
-        if (layout.shape === 'ellipse' || layout.shape === 'circle') {
+        if (layout.shape === 'polygon' && layout.points && layout.points.length >= 3) {
+          border = new fabric.Polygon(
+            layout.points.map(p => ({ x: p.x, y: p.y })),
+            { ...borderProps }
+          );
+        } else if (layout.shape === 'ellipse' || layout.shape === 'circle') {
           border = new fabric.Ellipse({
             left: layout.x + layout.w / 2, top: layout.y + layout.h / 2,
             rx: layout.w / 2, ry: layout.h / 2,
@@ -647,10 +658,15 @@ export default function Designer() {
     const tmpl = getTemplate();
 
     if (tmpl?.layouts?.length) {
-      // Layout mode — build a clip shape per layout (rect or ellipse)
+      // Layout mode — build a clip shape per layout (rect, ellipse, or polygon)
       layoutClipRefs.current = {};
       tmpl.layouts.forEach((layout: PrintLayout) => {
-        if (layout.shape === 'ellipse' || layout.shape === 'circle') {
+        if (layout.shape === 'polygon' && layout.points && layout.points.length >= 3) {
+          layoutClipRefs.current[layout.id] = new fabric.Polygon(
+            layout.points.map(p => ({ x: p.x, y: p.y })),
+            { absolutePositioned: true }
+          );
+        } else if (layout.shape === 'ellipse' || layout.shape === 'circle') {
           layoutClipRefs.current[layout.id] = new fabric.Ellipse({
             left: layout.x + layout.w / 2, top: layout.y + layout.h / 2,
             rx: layout.w / 2, ry: layout.h / 2,
@@ -663,7 +679,12 @@ export default function Designer() {
       });
       // Body clip = first front layout or default
       const firstFront = tmpl.layouts.find((l: PrintLayout) => l.side === 'FRONT') ?? tmpl.layouts[0];
-      if (firstFront.shape === 'ellipse') {
+      if (firstFront.shape === 'polygon' && firstFront.points && firstFront.points.length >= 3) {
+        clipRef.current = new fabric.Polygon(
+          firstFront.points.map(p => ({ x: p.x, y: p.y })),
+          { absolutePositioned: true }
+        );
+      } else if (firstFront.shape === 'ellipse') {
         clipRef.current = new fabric.Ellipse({
           left: firstFront.x + firstFront.w / 2, top: firstFront.y + firstFront.h / 2,
           rx: firstFront.w / 2, ry: firstFront.h / 2,

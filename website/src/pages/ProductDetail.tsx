@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ShoppingCart, Minus, Plus, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors } from 'lucide-react';
 import { api, getSessionId } from '../api';
 import { useCart } from '../context/CartContext';
-import type { Product } from '../types';
+import type { Product, Brand, DeviceModel } from '../types';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
 import { COLORS } from '../mockups';
@@ -221,6 +221,14 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
 
+  // Phone brand/model selection
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [models, setModels] = useState<DeviceModel[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [modelsLoading, setModelsLoading] = useState(false);
+
   // Accordions
   const [openSection, setOpenSection] = useState<string | null>('size-chart');
   const toggleSection = (key: string) => setOpenSection(v => v === key ? null : key);
@@ -248,12 +256,21 @@ export default function ProductDetail() {
     if (!id) return;
     setLoading(true);
     setError(null);
+    setBrands([]); setModels([]); setSelectedBrand(null); setSelectedModel(null);
     api.getProduct(id).then(p => {
       if (!p) throw new Error('Product not found');
       setProduct(p);
       if (p.colors?.length) setSelectedColor(p.colors[0]);
       if (p.sizes?.length) setSelectedSize(p.sizes[0]);
       api.trackEvent({ type: 'view', productId: p.id, productName: p.name, category: p.category, brandId: p.brandId, price: p.price, sessionId: getSessionId() });
+      // Load brands for this category (for phone-case-style products)
+      if (p.category) {
+        setBrandsLoading(true);
+        api.getBrandsByCategory(p.category.toLowerCase().replace(/\s+/g, '-'))
+          .then(bs => { if (bs?.length) setBrands(bs as Brand[]); })
+          .catch(() => {})
+          .finally(() => setBrandsLoading(false));
+      }
       // Load related products
       return api.getProducts({ category: p.category });
     }).then(all => {
@@ -263,9 +280,19 @@ export default function ProductDetail() {
     }).finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!selectedBrand) { setModels([]); setSelectedModel(null); return; }
+    setModelsLoading(true);
+    setSelectedModel(null);
+    api.getModelsByBrand(selectedBrand.slug)
+      .then(ms => setModels((ms as DeviceModel[]).filter(m => m.active)))
+      .catch(() => setModels([]))
+      .finally(() => setModelsLoading(false));
+  }, [selectedBrand]);
+
   const handleAdd = () => {
     if (!product) return;
-    for (let i = 0; i < quantity; i++) addItem(product, { color: selectedColor, size: selectedSize });
+    for (let i = 0; i < quantity; i++) addItem(product, { color: selectedColor, size: selectedSize, phoneBrand: selectedBrand?.name, phoneModel: selectedModel?.displayName });
     toast.success('Added to cart!');
     api.trackEvent({ type: 'add_to_cart', productId: product.id, productName: product.name, category: product.category, size: selectedSize || undefined, color: selectedColor || undefined, price: product.price, quantity, sessionId: getSessionId() });
   };
@@ -459,6 +486,51 @@ export default function ProductDetail() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Phone brand/model selector */}
+            {brands.length > 0 && (
+              <>
+                <div className="pd-option-group">
+                  <label>Brand
+                    {brandsLoading && <span className="pd-option-value" style={{ fontSize: '0.72rem' }}> loading…</span>}
+                  </label>
+                  <div className="pd-brand-grid">
+                    {brands.map(b => (
+                      <button
+                        key={b.id}
+                        className={`pd-brand-btn ${selectedBrand?.id === b.id ? 'active' : ''}`}
+                        onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
+                      >
+                        {b.logo && <img src={b.logo} alt={b.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />}
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {selectedBrand && (
+                  <div className="pd-option-group">
+                    <label>Model
+                      {modelsLoading && <span className="pd-option-value" style={{ fontSize: '0.72rem' }}> loading…</span>}
+                      {selectedModel && <span className="pd-option-value">{selectedModel.displayName}</span>}
+                    </label>
+                    <div className="pd-model-grid">
+                      {models.map(m => (
+                        <button
+                          key={m.id}
+                          className={`pd-model-btn ${selectedModel?.id === m.id ? 'active' : ''} ${!m.inStock ? 'oos' : ''}`}
+                          disabled={!m.inStock}
+                          onClick={() => setSelectedModel(selectedModel?.id === m.id ? null : m)}
+                        >
+                          {m.displayName}
+                          {!m.inStock && <span className="pd-model-oos"> (Out of Stock)</span>}
+                        </button>
+                      ))}
+                      {!modelsLoading && models.length === 0 && <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>No models available</span>}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Quantity */}

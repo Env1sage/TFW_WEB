@@ -42,6 +42,7 @@ function shapeModel(r: any) {
     brandSlug: r.brand_slug || null,
     categorySlug: r.category_slug || null,
     active: r.active,
+    inStock: r.in_stock ?? true,
     sortOrder: r.sort_order,
     createdAt: r.created_at,
   };
@@ -173,14 +174,14 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
 // Admin: create model under a brand
 router.post('/:brandId/models', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { name, displayName, active, sortOrder } = req.body;
+    const { name, displayName, active, sortOrder, inStock } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
     const slug = slugify(name);
     const model = await db.createModel({
       id: uuid(), name, slug,
       displayName: displayName || name,
       brandId: req.params.brandId as string,
-      active: active !== false, sortOrder: sortOrder || 0,
+      active: active !== false, sortOrder: sortOrder || 0, inStock: inStock !== false,
     });
     res.status(201).json(shapeModel(model));
   } catch (e: any) {
@@ -192,10 +193,10 @@ router.post('/:brandId/models', authMiddleware, adminOnly, async (req, res) => {
 // Admin: update model
 router.put('/models/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { name, displayName, brandId, active, sortOrder } = req.body;
+    const { name, displayName, brandId, active, sortOrder, inStock } = req.body;
     const slug = name ? slugify(name) : undefined;
     const updated = await db.updateModel(req.params.id as string, {
-      name, slug, displayName, brandId, active, sortOrder,
+      name, slug, displayName, brandId, active, sortOrder, inStock,
     });
     if (!updated) return res.status(404).json({ error: 'Model not found' });
     res.json(shapeModel(updated));

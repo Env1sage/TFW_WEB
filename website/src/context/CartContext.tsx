@@ -22,7 +22,7 @@ export interface DesignCartItem {
 interface CartState {
   items: CartItem[];
   designItems: DesignCartItem[];
-  addItem: (product: Product, opts?: { color?: string; size?: string; customText?: string }) => void;
+  addItem: (product: Product, opts?: { color?: string; size?: string; customText?: string; phoneBrand?: string; phoneModel?: string }) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, qty: number) => void;
   addDesignItem: (item: Omit<DesignCartItem, 'id'>) => void;
@@ -64,9 +64,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(DESIGN_CART_KEY, JSON.stringify(designItems));
   }, [designItems]);
 
-  const addItem = useCallback((product: Product, opts?: { color?: string; size?: string; customText?: string }) => {
+  const addItem = useCallback((product: Product, opts?: { color?: string; size?: string; customText?: string; phoneBrand?: string; phoneModel?: string }) => {
     setItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id && i.color === opts?.color && i.size === opts?.size);
+      const existing = prev.find(i => i.product.id === product.id && i.color === opts?.color && i.size === opts?.size && i.phoneBrand === opts?.phoneBrand && i.phoneModel === opts?.phoneModel);
       if (existing) {
         toast.success('Updated quantity in cart');
         return prev.map(i =>

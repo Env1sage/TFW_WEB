@@ -598,6 +598,13 @@ export async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_pev_product_created ON website_product_events(product_id, created_at);
       CREATE INDEX IF NOT EXISTS idx_pev_session ON website_product_events(session_id);
     `);
+
+    // color_filter flag on mockups (skip colorize for non-apparel products)
+    // in_stock flag on device models
+    await client.query(`
+      ALTER TABLE website_mockups ADD COLUMN IF NOT EXISTS color_filter BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE website_device_models ADD COLUMN IF NOT EXISTS in_stock BOOLEAN NOT NULL DEFAULT true;
+    `);
   } finally {
     client.release();
   }
@@ -1342,7 +1349,8 @@ export interface DBMockup {
   id: string; name: string; category: string;
   frontImage: string; backImage?: string;
   frontShadow?: string; backShadow?: string;
-  printArea: any; basePrice: number; active: boolean; createdAt: string;
+  printArea: any; basePrice: number; active: boolean;
+  colorFilter: boolean; createdAt: string;
 }
 
 function rowToMockup(row: any): DBMockup {
@@ -1351,7 +1359,7 @@ function rowToMockup(row: any): DBMockup {
     frontImage: row.front_image, backImage: row.back_image || undefined,
     frontShadow: row.front_shadow || undefined, backShadow: row.back_shadow || undefined,
     printArea: row.print_area || {}, basePrice: parseFloat(row.base_price || '0'),
-    active: row.active, createdAt: row.created_at,
+    active: row.active, colorFilter: row.color_filter ?? false, createdAt: row.created_at,
   };
 }
 
@@ -1373,7 +1381,7 @@ export async function updateMockup(id: string, patch: Record<string, any>): Prom
   const fieldMap: Record<string, string> = {
     name: 'name', category: 'category', frontImage: 'front_image',
     backImage: 'back_image', frontShadow: 'front_shadow', backShadow: 'back_shadow',
-    basePrice: 'base_price', active: 'active',
+    basePrice: 'base_price', active: 'active', colorFilter: 'color_filter',
   };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {
@@ -1935,19 +1943,19 @@ export async function getModelBySlug(brandSlug: string, modelSlug: string): Prom
 
 export async function createModel(data: {
   id: string; name: string; slug: string; displayName: string;
-  brandId: string; active: boolean; sortOrder: number;
+  brandId: string; active: boolean; sortOrder: number; inStock?: boolean;
 }): Promise<any> {
   const { rows } = await pool.query(
-    `INSERT INTO website_device_models (id, name, slug, display_name, brand_id, active, sort_order, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING *`,
-    [data.id, data.name, data.slug, data.displayName, data.brandId, data.active, data.sortOrder]
+    `INSERT INTO website_device_models (id, name, slug, display_name, brand_id, active, sort_order, in_stock, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *`,
+    [data.id, data.name, data.slug, data.displayName, data.brandId, data.active, data.sortOrder, data.inStock !== false]
   );
   return rows[0];
 }
 
 export async function updateModel(id: string, data: {
   name?: string; slug?: string; displayName?: string;
-  brandId?: string; active?: boolean; sortOrder?: number;
+  brandId?: string; active?: boolean; sortOrder?: number; inStock?: boolean;
 }): Promise<any | null> {
   const fields: string[] = [];
   const vals: any[] = [];
@@ -1958,6 +1966,7 @@ export async function updateModel(id: string, data: {
   if (data.brandId !== undefined)     { fields.push(`brand_id=$${i++}`);     vals.push(data.brandId); }
   if (data.active !== undefined)      { fields.push(`active=$${i++}`);       vals.push(data.active); }
   if (data.sortOrder !== undefined)   { fields.push(`sort_order=$${i++}`);   vals.push(data.sortOrder); }
+  if (data.inStock !== undefined)     { fields.push(`in_stock=$${i++}`);     vals.push(data.inStock); }
   if (!fields.length) return null;
   vals.push(id);
   const { rows } = await pool.query(

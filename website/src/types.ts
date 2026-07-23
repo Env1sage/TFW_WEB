@@ -108,6 +108,8 @@ export interface CartItem {
   color?: string;
   size?: string;
   customText?: string;
+  phoneBrand?: string;
+  phoneModel?: string;
 }
 
 export type DeliveryMethodType = 'store_pickup' | 'hyperlocal' | 'standard';
@@ -204,6 +206,7 @@ export interface DeviceModel {
   brandSlug: string | null;
   categorySlug: string | null;
   active: boolean;
+  inStock: boolean;
   sortOrder: number;
   createdAt: string;
 }

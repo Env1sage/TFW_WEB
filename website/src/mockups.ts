@@ -25,7 +25,9 @@ export interface PrintLayout {
   name: string;
   side: PrintSide;
   x: number; y: number; w: number; h: number;
-  shape?: 'rect' | 'ellipse' | 'circle';
+  shape?: 'rect' | 'ellipse' | 'circle' | 'polygon';
+  /** Polygon vertices in canvas coords (0-800 × 0-1000), only used when shape === 'polygon' */
+  points?: { x: number; y: number }[];
   price?: number;
   /** IDs of other layouts this can be ordered together with */
   compatibleWith?: string[];
@@ -130,6 +132,7 @@ export interface DBMockupShape {
   printArea?: any;
   basePrice?: number;
   active: boolean;
+  colorFilter?: boolean;
 }
 
 /* ── Build a MockupTemplate from a DB mockup entry ── */
@@ -138,13 +141,12 @@ export function buildTemplateFromDBMockup(m: DBMockupShape): MockupTemplate {
     const url = side === 'BACK' && m.backImage ? m.backImage : m.frontImage;
     const cached = getCachedImage(url);
     if (cached) {
-      const num = parseInt(color.replace('#', ''), 16);
-      const rr = ((num >> 16) & 0xff) / 255;
-      const gg = ((num >> 8) & 0xff) / 255;
-      const bb = (num & 0xff) / 255;
-      // Grayscale-then-colorize: removes original color cast, then applies selected color.
-      // Works correctly for both white-base T-shirts and photo-based mockups (tote bags, etc.)
-      return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
+      if (m.colorFilter) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const rr = ((num >> 16) & 0xff) / 255;
+        const gg = ((num >> 8) & 0xff) / 255;
+        const bb = (num & 0xff) / 255;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
 <defs>
   <filter id="colorize" color-interpolation-filters="sRGB">
     <feColorMatrix type="matrix" result="gray"
@@ -160,6 +162,10 @@ export function buildTemplateFromDBMockup(m: DBMockupShape): MockupTemplate {
   </filter>
 </defs>
 <image href="${cached}" x="0" y="0" width="${CW}" height="${CH}" filter="url(#colorize)"/>
+</svg>`;
+      }
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
+<image href="${cached}" x="0" y="0" width="${CW}" height="${CH}"/>
 </svg>`;
     }
     // Fallback: plain coloured rect with label while image loads
