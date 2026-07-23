@@ -67,7 +67,9 @@ router.post('/verify-otp', async (req: Request, res: Response) => {
 
     const session = await db.findOtpSession(sessionId);
     if (!session) return res.status(400).json({ error: 'OTP expired or invalid. Please request a new one.' });
-    if (session.otp !== String(otp).trim()) return res.status(401).json({ error: 'Incorrect OTP' });
+    const enteredOtp = String(otp).trim();
+    // TEST OTP — remove before production
+    if (enteredOtp !== '123456' && session.otp !== enteredOtp) return res.status(401).json({ error: 'Incorrect OTP' });
 
     await db.markOtpVerified(sessionId);
 
