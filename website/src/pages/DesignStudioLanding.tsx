@@ -7,8 +7,12 @@ import {
   ChevronRight, Package,
 } from 'lucide-react';
 import { api } from '../api';
-import MockupPreview from '../components/MockupPreview';
+import { COLORS } from '../mockups';
 import type { Product } from '../types';
+
+function colorName(hex: string): string {
+  return COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
+}
 
 /* ─── Category defaults for mockup products ─────────────── */
 const CAT_COLORS: Record<string, string[]> = {
@@ -95,12 +99,7 @@ function DSCard({ product, index }: { product: Product; index: number }) {
       onClick={() => navigate(`/design-studio/product/${product.id}`)}
     >
       <div className="dsw-card__img">
-        <MockupPreview
-          category={product.category}
-          designImage={product.image}
-          color={product.colors?.[0]}
-          mockup={product.mockup}
-        />
+        <img src={product.image} alt={product.name} className="dsw-card__photo" />
         {product.featured && <span className="badge badge-featured">Featured</span>}
         {product.stock === 0 && <span className="badge badge-oos">Out of Stock</span>}
         <div className="dsw-card__overlay">
@@ -120,11 +119,14 @@ function DSCard({ product, index }: { product: Product; index: number }) {
           <span className="dsw-card__price">from ₹{product.price.toFixed(0)}</span>
         </div>
         {uniqueColors.length > 0 && (
-          <div className="product-colors" style={{ marginTop: 6 }}>
-            {uniqueColors.slice(0, 6).map(c => (
-              <span key={c} className="color-dot" style={{ background: c, border: c === '#ffffff' ? '1px solid #ddd' : 'none' }} />
+          <div className="dsw-card__colors">
+            {uniqueColors.slice(0, 4).map(c => (
+              <span key={c} className="color-name-chip">
+                <span className="color-name-dot" style={{ background: c, border: c === '#ffffff' ? '1px solid #ccc' : 'none' }} />
+                {colorName(c)}
+              </span>
             ))}
-            {uniqueColors.length > 6 && <span className="color-more">+{uniqueColors.length - 6}</span>}
+            {uniqueColors.length > 4 && <span className="color-more">+{uniqueColors.length - 4} more</span>}
           </div>
         )}
       </div>

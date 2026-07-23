@@ -4,6 +4,11 @@ import { motion } from 'framer-motion';
 import type { Product } from '../types';
 import { useCart } from '../context/CartContext';
 import MockupPreview from './MockupPreview';
+import { COLORS } from '../mockups';
+
+function colorName(hex: string): string {
+  return COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
+}
 
 export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { addItem } = useCart();
@@ -57,10 +62,13 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         </div>
         {product.colors.length > 0 && (
           <div className="product-colors">
-            {product.colors.slice(0, 5).map(c => (
-              <span key={c} className="color-dot" style={{ background: c, border: c === '#ffffff' ? '1px solid #ddd' : 'none' }} />
+            {product.colors.slice(0, 3).map(c => (
+              <span key={c} className="color-name-chip">
+                <span className="color-name-dot" style={{ background: c, border: c === '#ffffff' ? '1px solid #ccc' : 'none' }} />
+                {colorName(c)}
+              </span>
             ))}
-            {product.colors.length > 5 && <span className="color-more">+{product.colors.length - 5}</span>}
+            {product.colors.length > 3 && <span className="color-more">+{product.colors.length - 3}</span>}
           </div>
         )}
       </div>
