@@ -2188,11 +2188,9 @@ export default function Admin() {
                               const f = e.target.files?.[0]; if (!f) return;
                               setUploadingField('categoryImage');
                               try {
-                                const fd = new FormData(); fd.append('file', f);
-                                const r = await fetch('/api/upload/product', { method: 'POST', body: fd });
-                                const d = await r.json();
-                                if (d.url) setCategoryFormImage(d.url);
-                              } catch { toast.error('Upload failed'); }
+                                const { url } = await api.uploadProductImage(f);
+                                setCategoryFormImage(url);
+                              } catch (err: any) { toast.error(err.message || 'Upload failed'); }
                               finally { setUploadingField(null); e.target.value = ''; }
                             }} />
                           </label>
@@ -4722,7 +4720,7 @@ MSG91_SENDER_ID=TFWALL`}
                               const c = LAYOUT_COLORS[realIdx % LAYOUT_COLORS.length];
                               return (
                                 <div key={l.id} className="pae-rect pae-rect-other"
-                                  style={{ left: l.x * PAE_SCALE, top: l.y * PAE_SCALE, width: l.w * PAE_SCALE, height: l.h * PAE_SCALE, borderColor: c, borderRadius: l.shape === 'ellipse' ? '50%' : undefined }}>
+                                  style={{ left: l.x * PAE_SCALE, top: l.y * PAE_SCALE, width: l.w * PAE_SCALE, height: l.h * PAE_SCALE, borderColor: c, borderRadius: (l.shape === 'ellipse' || l.shape === 'circle') ? '50%' : undefined }}>
                                   <span className="pae-rect-label" style={{ color: c }}>{l.name}</span>
                                 </div>
                               );
@@ -4733,7 +4731,7 @@ MSG91_SENDER_ID=TFWALL`}
                             const c = LAYOUT_COLORS[activeIdx % LAYOUT_COLORS.length];
                             return (
                               <div className="pae-rect pae-rect-active"
-                                style={{ left: activeLayout.x * PAE_SCALE, top: activeLayout.y * PAE_SCALE, width: activeLayout.w * PAE_SCALE, height: activeLayout.h * PAE_SCALE, borderColor: c, background: c + '28', borderRadius: activeLayout.shape === 'ellipse' ? '50%' : undefined }}>
+                                style={{ left: activeLayout.x * PAE_SCALE, top: activeLayout.y * PAE_SCALE, width: activeLayout.w * PAE_SCALE, height: activeLayout.h * PAE_SCALE, borderColor: c, background: c + '28', borderRadius: (activeLayout.shape === 'ellipse' || activeLayout.shape === 'circle') ? '50%' : undefined }}>
                                 <span className="pae-rect-label" style={{ color: c }}>{activeLayout.name}</span>
                                 {paeIsHoverMove && <span className="pae-move-hint">drag to move</span>}
                               </div>
