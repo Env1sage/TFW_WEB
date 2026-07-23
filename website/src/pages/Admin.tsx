@@ -4649,30 +4649,37 @@ MSG91_SENDER_ID=TFWALL`}
                       <p style={{ color: 'var(--warning, #d97706)', fontSize: '0.8rem', marginTop: 4 }}>⚠️ Base price is 0 — customers will only pay the design fee, not the product cost</p>
                     )}
                   </div>
+                  {/* ── Transparency warning ── */}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '10px 14px', marginBottom: 4 }}>
+                    <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+                    <div style={{ fontSize: '0.82rem', color: '#92400e', lineHeight: 1.5 }}>
+                      <strong>Use transparent background (PNG only).</strong> Mockup images must have a transparent background so the selected product colour shows through correctly. Do <em>not</em> upload images with a white, grey, or any solid background.
+                    </div>
+                  </div>
                   <div className="form-group">
-                    <label>Front Image * (PNG/JPG/WebP, max 10MB)</label>
+                    <label>Front Image * <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— transparent PNG required</span></label>
                     <div className="image-input-group">
-                      <input type="text" value={mockupForm.frontImage} onChange={e => setMockupForm({ ...mockupForm, frontImage: e.target.value })} placeholder="https://... or upload a file →" required />
-                      <label className="btn btn-ghost upload-btn" title="Upload PNG image">
+                      <input type="text" value={mockupForm.frontImage} onChange={e => setMockupForm({ ...mockupForm, frontImage: e.target.value })} placeholder="https://... or upload a transparent PNG →" required />
+                      <label className="btn btn-ghost upload-btn" title="Upload transparent PNG">
                         {uploadingField === 'frontImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" hidden
+                        <input type="file" accept="image/png" hidden
                           onChange={e => { const f = e.target.files?.[0]; if (f) handleMockupImageUpload('frontImage', f); e.target.value = ''; }} />
                       </label>
                     </div>
-                    {mockupForm.frontImage && <img src={mockupForm.frontImage} alt="Front preview" className="form-preview" />}
+                    {mockupForm.frontImage && <img src={mockupForm.frontImage} alt="Front preview" className="form-preview" style={{ background: 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 0 0 / 16px 16px' }} />}
                   </div>
                   {/* ── Back Image ── */}
                   <div className="form-group">
-                    <label>Back Image (optional)</label>
+                    <label>Back Image (optional) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— transparent PNG required</span></label>
                     <div className="image-input-group">
-                      <input type="text" value={mockupForm.backImage || ''} onChange={e => setMockupForm({ ...mockupForm, backImage: e.target.value })} placeholder="https://... or upload a file →" />
-                      <label className="btn btn-ghost upload-btn" title="Upload PNG image">
+                      <input type="text" value={mockupForm.backImage || ''} onChange={e => setMockupForm({ ...mockupForm, backImage: e.target.value })} placeholder="https://... or upload a transparent PNG →" />
+                      <label className="btn btn-ghost upload-btn" title="Upload transparent PNG">
                         {uploadingField === 'backImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
-                        <input type="file" accept="image/png,image/jpeg,image/webp" hidden
+                        <input type="file" accept="image/png" hidden
                           onChange={e => { const f = e.target.files?.[0]; if (f) handleMockupImageUpload('backImage', f); e.target.value = ''; }} />
                       </label>
                     </div>
-                    {mockupForm.backImage && <img src={mockupForm.backImage} alt="Back preview" className="form-preview" />}
+                    {mockupForm.backImage && <img src={mockupForm.backImage} alt="Back preview" className="form-preview" style={{ background: 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 0 0 / 16px 16px' }} />}
                   </div>
                   {/* ── Print Layouts & Pricing ── */}
                   <div className="form-group pae-section">
