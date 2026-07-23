@@ -215,6 +215,7 @@ export default function MockupPreview({ category, designImage, color = '#ffffff'
 
   // No mockup data or not a design artwork → show product photo directly
   if (!shouldMockup || state === 'fallback') {
+    if (!designImage) return <div className={`mockup-placeholder ${className || ''}`} />;
     return <img src={designImage} alt="Product" className={className} loading="lazy" />;
   }
 

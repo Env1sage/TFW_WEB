@@ -1650,7 +1650,7 @@ router.post('/', authMiddleware, requireRole('admin', 'product_manager'), async 
       category: resolvedCategory,
       categoryId: resolvedCategoryId,
       mockupId: mockupId || null,
-      image: image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
+      image: image || '',
       images: images || [],
       customizable: customizable ?? true,
       colors: colors || [],
