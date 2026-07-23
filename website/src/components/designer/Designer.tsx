@@ -44,8 +44,8 @@ export default function Designer() {
   const { addDesignItem } = useCart();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fcRef = useRef<fabric.Canvas | null>(null);
-  const clipRef = useRef<fabric.Rect | null>(null);
-  const pocketClipRef = useRef<fabric.Rect | null>(null);
+  const clipRef = useRef<fabric.Object | null>(null);
+  const pocketClipRef = useRef<fabric.Object | null>(null);
   const isLoadingRef = useRef(false);
 
   const [activeSide, setActiveSide] = useState<PrintSide>('FRONT');
@@ -57,7 +57,7 @@ export default function Designer() {
   // Layout-mode state (for mockups with named layouts defined in admin)
   const [selectedLayoutIds, setSelectedLayoutIds] = useState<string[]>([]);
   const [activeEditingLayoutId, setActiveEditingLayoutId] = useState<string | null>(null);
-  const layoutClipRefs = useRef<Record<string, fabric.Rect>>({});
+  const layoutClipRefs = useRef<Record<string, fabric.Object>>({});
   const [activeColorHex, setActiveColorHex] = useState(() => searchParams.get('color') || '#ffffff');
   const [activeColorName, setActiveColorName] = useState(() => searchParams.get('colorName') || 'White');
   const [activeProductType, setActiveProductType] = useState('');
@@ -270,31 +270,55 @@ export default function Designer() {
       const activeLayout = sideLayouts.find((l: PrintLayout) => l.id === activeEditingLayoutId);
       // Fallback: if active layout is from another side, treat first side layout as active
       const effectiveActiveId = activeLayout?.id ?? sideLayouts[0]?.id ?? null;
-      const pa = activeLayout ?? (sideLayouts[0] ?? { x: 290, y: 200, w: 220, h: 320 });
+      const pa = activeLayout ?? (sideLayouts[0] ?? { x: 290, y: 200, w: 220, h: 320, shape: 'rect' as const });
       const oc = 'rgba(0,0,0,0.04)';
-      [
-        { l: 0, t: 0, w: CW, h: pa.y, n: '__oT' },
-        { l: 0, t: pa.y + pa.h, w: CW, h: CH - pa.y - pa.h, n: '__oB' },
-        { l: 0, t: pa.y, w: pa.x, h: pa.h, n: '__oL' },
-        { l: pa.x + pa.w, t: pa.y, w: CW - pa.x - pa.w, h: pa.h, n: '__oR' },
-      ].forEach(s => {
-        const r = new fabric.Rect({ left: s.l, top: s.t, width: s.w, height: s.h, fill: oc, selectable: false, evented: false, originX: 'left', originY: 'top', excludeFromExport: true });
-        (r as any).name = s.n;
-        fc.add(r);
-      });
+      if ((pa as PrintLayout).shape === 'ellipse') {
+        // For ellipse: one full-canvas dim overlay clipped with an inverted ellipse
+        const cx = pa.x + pa.w / 2, cy = pa.y + pa.h / 2;
+        const ellipseHole = new fabric.Ellipse({ rx: pa.w / 2, ry: pa.h / 2, left: cx, top: cy, originX: 'center', originY: 'center', absolutePositioned: true });
+        (ellipseHole as any).inverted = true;
+        const dimOverlay = new fabric.Rect({ left: 0, top: 0, width: CW, height: CH, fill: oc, selectable: false, evented: false, originX: 'left', originY: 'top', excludeFromExport: true, clipPath: ellipseHole });
+        (dimOverlay as any).name = '__oEllipse';
+        fc.add(dimOverlay);
+      } else {
+        [
+          { l: 0, t: 0, w: CW, h: pa.y, n: '__oT' },
+          { l: 0, t: pa.y + pa.h, w: CW, h: CH - pa.y - pa.h, n: '__oB' },
+          { l: 0, t: pa.y, w: pa.x, h: pa.h, n: '__oL' },
+          { l: pa.x + pa.w, t: pa.y, w: CW - pa.x - pa.w, h: pa.h, n: '__oR' },
+        ].forEach(s => {
+          const r = new fabric.Rect({ left: s.l, top: s.t, width: s.w, height: s.h, fill: oc, selectable: false, evented: false, originX: 'left', originY: 'top', excludeFromExport: true });
+          (r as any).name = s.n;
+          fc.add(r);
+        });
+      }
       // Draw each layout in the current side
       sideLayouts.forEach((layout: PrintLayout, idx: number) => {
         const isActive = layout.id === effectiveActiveId;
         const isSelected = selectedLayoutIds.includes(layout.id);
         const color = LAYOUT_GUIDE_COLORS[tmpl.layouts!.findIndex((l: PrintLayout) => l.id === layout.id) % LAYOUT_GUIDE_COLORS.length];
-        const border = new fabric.Rect({
-          left: layout.x, top: layout.y, width: layout.w, height: layout.h,
+        const borderProps = {
           fill: isActive ? color + '18' : isSelected ? color + '0d' : 'transparent',
           stroke: color, strokeWidth: isActive ? 1.5 : 1,
           strokeDashArray: isActive ? [8, 4] : [5, 5],
-          selectable: false, evented: false, originX: 'left', originY: 'top', excludeFromExport: true,
+          selectable: false, evented: false, excludeFromExport: true,
           opacity: isActive ? 1 : isSelected ? 0.7 : 0.35,
-        });
+        };
+        let border: fabric.Object;
+        if (layout.shape === 'ellipse') {
+          border = new fabric.Ellipse({
+            left: layout.x + layout.w / 2, top: layout.y + layout.h / 2,
+            rx: layout.w / 2, ry: layout.h / 2,
+            originX: 'center', originY: 'center',
+            ...borderProps,
+          });
+        } else {
+          border = new fabric.Rect({
+            left: layout.x, top: layout.y, width: layout.w, height: layout.h,
+            originX: 'left', originY: 'top',
+            ...borderProps,
+          });
+        }
         (border as any).name = `__border_${idx}`;
         fc.add(border);
         const label = new fabric.Text(layout.name.toUpperCase(), {
@@ -616,14 +640,32 @@ export default function Designer() {
     const tmpl = getTemplate();
 
     if (tmpl?.layouts?.length) {
-      // Layout mode — build a clip rect per layout
+      // Layout mode — build a clip shape per layout (rect or ellipse)
       layoutClipRefs.current = {};
       tmpl.layouts.forEach((layout: PrintLayout) => {
-        layoutClipRefs.current[layout.id] = new fabric.Rect({ left: layout.x, top: layout.y, width: layout.w, height: layout.h, absolutePositioned: true });
+        if (layout.shape === 'ellipse') {
+          layoutClipRefs.current[layout.id] = new fabric.Ellipse({
+            left: layout.x + layout.w / 2, top: layout.y + layout.h / 2,
+            rx: layout.w / 2, ry: layout.h / 2,
+            originX: 'center', originY: 'center',
+            absolutePositioned: true,
+          });
+        } else {
+          layoutClipRefs.current[layout.id] = new fabric.Rect({ left: layout.x, top: layout.y, width: layout.w, height: layout.h, absolutePositioned: true });
+        }
       });
       // Body clip = first front layout or default
       const firstFront = tmpl.layouts.find((l: PrintLayout) => l.side === 'FRONT') ?? tmpl.layouts[0];
-      clipRef.current = new fabric.Rect({ left: firstFront.x, top: firstFront.y, width: firstFront.w, height: firstFront.h, absolutePositioned: true });
+      if (firstFront.shape === 'ellipse') {
+        clipRef.current = new fabric.Ellipse({
+          left: firstFront.x + firstFront.w / 2, top: firstFront.y + firstFront.h / 2,
+          rx: firstFront.w / 2, ry: firstFront.h / 2,
+          originX: 'center', originY: 'center',
+          absolutePositioned: true,
+        });
+      } else {
+        clipRef.current = new fabric.Rect({ left: firstFront.x, top: firstFront.y, width: firstFront.w, height: firstFront.h, absolutePositioned: true });
+      }
     } else {
       // Legacy mode
       const bodyPa = getPrintArea();
