@@ -572,22 +572,41 @@ export default function Designer() {
       dbMockups.forEach((m: any) => { newTemplates[`db_${m.id}`] = buildTemplateFromDBMockup(m); });
       setAllTemplates(newTemplates);
       // Auto-select the template linked to the product (from /design-studio/:id)
-      if (productRouteId) {
-        api.getProduct(productRouteId).then((product: any) => {
-          if (product?.mockupId && newTemplates[`db_${product.mockupId}`]) {
-            const key = `db_${product.mockupId}`;
-            setActiveProductType(key);
-            setProductMockupKey(key);
-            if (product.name) setProductName(product.name);
-            setProductBasePrice(product.price || 0);
-          } else {
-            setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
-          }
-        }).catch(() => {
-          setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
-        });
-      } else {
+      const fallbackToFirst = () => {
         setActiveProductType(prev => (!prev || !newTemplates[prev]) ? Object.keys(newTemplates)[0] || '' : prev);
+      };
+      if (productRouteId) {
+        api.getProduct(productRouteId)
+          .then((product: any) => {
+            if (product?.mockupId && newTemplates[`db_${product.mockupId}`]) {
+              // Catalog product with a linked mockup
+              const key = `db_${product.mockupId}`;
+              setActiveProductType(key);
+              setProductMockupKey(key);
+              if (product.name) setProductName(product.name);
+              setProductBasePrice(product.price || 0);
+            } else {
+              fallbackToFirst();
+            }
+          })
+          .catch(() => {
+            // productRouteId is a mockup ID, not a catalog product ID
+            api.getMockupPublic(productRouteId)
+              .then((mockup: any) => {
+                const key = `db_${mockup.id}`;
+                if (newTemplates[key]) {
+                  setActiveProductType(key);
+                  setProductMockupKey(key);
+                  if (mockup.name) setProductName(mockup.name);
+                  setProductBasePrice(mockup.basePrice || 0);
+                } else {
+                  fallbackToFirst();
+                }
+              })
+              .catch(fallbackToFirst);
+          });
+      } else {
+        fallbackToFirst();
       }
       setImgReady(r => !r ? true : r); // trigger re-render
     }).catch(() => {/* design studio works fine without DB mockups */});
