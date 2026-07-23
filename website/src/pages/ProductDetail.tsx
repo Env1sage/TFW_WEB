@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ShoppingCart, Minus, Plus, ArrowLeft, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors } from 'lucide-react';
+import { Star, ShoppingCart, Minus, Plus, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors } from 'lucide-react';
 import { api, getSessionId } from '../api';
 import { useCart } from '../context/CartContext';
 import type { Product } from '../types';
 import ProductCard from '../components/ProductCard';
 import toast from 'react-hot-toast';
+import { COLORS } from '../mockups';
+
+function colorName(hex: string): string {
+  return COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
+}
 
 // ── Data tables ────────────────────────────────────────────────────────────────
 
@@ -234,6 +239,9 @@ export default function ProductDetail() {
   // FAQ
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // Touch swipe for gallery
+  const touchStartX = useRef<number | null>(null);
+
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -297,12 +305,14 @@ export default function ProductDetail() {
 
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
   const sizeChart = SIZE_CHART[product.category];
-  const highlights = PRODUCT_HIGHLIGHTS[product.category] || [];
-  const printMethods = PRINTING_METHODS[product.category] || [];
-  const printAreas = PRINT_AREAS[product.category] || [];
-  const careSteps = CARE_INSTRUCTIONS[product.category] || CARE_INSTRUCTIONS['T-Shirts'];
-  const fabricInfo = FABRIC_INFO[product.category] || product.description;
-  const faqs = PRODUCT_FAQS[product.category] || PRODUCT_FAQS['default'];
+  const highlights = (product.highlights && product.highlights.length > 0) ? product.highlights : (PRODUCT_HIGHLIGHTS[product.category] || []);
+  const printMethods = (product.printMethods && product.printMethods.length > 0) ? product.printMethods : (PRINTING_METHODS[product.category] || []);
+  const printAreas = (product.printAreas && product.printAreas.length > 0) ? product.printAreas : (PRINT_AREAS[product.category] || []);
+  const careSteps = (product.careInstructions && product.careInstructions.length > 0)
+    ? product.careInstructions.map(c => ({ icon: 'wash' as const, text: c.text }))
+    : (CARE_INSTRUCTIONS[product.category] || CARE_INSTRUCTIONS['T-Shirts']);
+  const fabricInfo = product.fabricInfo || FABRIC_INFO[product.category] || product.description;
+  const faqs = (product.faqs && product.faqs.length > 0) ? product.faqs : (PRODUCT_FAQS[product.category] || PRODUCT_FAQS['default']);
   const deadWeightKg = ((product.weightGrams || 200) / 1000);
   const volWeightKg = ((product.lengthCm || 30) * (product.breadthCm || 20) * (product.heightCm || 5)) / 5000;
 
@@ -325,8 +335,27 @@ export default function ProductDetail() {
               const allImages = [product.image, ...(product.images || [])];
               return (
                 <>
-                  <div className="pd-gallery-main">
+                  <div
+                    className="pd-gallery-main"
+                    onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+                    onTouchEnd={e => {
+                      if (touchStartX.current === null) return;
+                      const dx = e.changedTouches[0].clientX - touchStartX.current;
+                      if (Math.abs(dx) > 40) {
+                        if (dx < 0) setActiveImage(i => Math.min(i + 1, allImages.length - 1));
+                        else setActiveImage(i => Math.max(i - 1, 0));
+                      }
+                      touchStartX.current = null;
+                    }}
+                  >
                     <img src={allImages[activeImage]} alt={product.name} className="pd-design-img" />
+                    {allImages.length > 1 && (
+                      <div className="pd-gallery-dots">
+                        {allImages.map((_, idx) => (
+                          <span key={idx} className={`pd-gallery-dot ${idx === activeImage ? 'active' : ''}`} onClick={() => setActiveImage(idx)} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {allImages.length > 1 && (
                     <div className="pd-thumbs">
@@ -390,7 +419,7 @@ export default function ProductDetail() {
             {product.colors.length > 0 && (
               <div className="pd-option-group">
                 <label>Colour
-                  {selectedColor && <span className="pd-option-value">{selectedColor}</span>}
+                  {selectedColor && <span className="pd-option-value">{colorName(selectedColor)}</span>}
                 </label>
                 <div className="pd-colors">
                   {[...new Set(product.colors)].map(c => (

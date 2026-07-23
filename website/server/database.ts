@@ -255,6 +255,16 @@ export async function initDB() {
       ALTER TABLE website_products ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT '';
     `);
 
+    // Per-product content fields (overrides category defaults on product detail page)
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS highlights JSONB NOT NULL DEFAULT '[]';
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS fabric_info TEXT NOT NULL DEFAULT '';
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS print_methods JSONB NOT NULL DEFAULT '[]';
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS print_areas JSONB NOT NULL DEFAULT '[]';
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS care_instructions JSONB NOT NULL DEFAULT '[]';
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS faqs JSONB NOT NULL DEFAULT '[]';
+    `);
+
     // Ensure unique constraints exist on categories (safe to run repeatedly)
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug ON website_categories(slug);
@@ -745,6 +755,12 @@ export interface DBProduct {
   featured: boolean; createdAt: string;
   weightGrams: number; lengthCm: number; breadthCm: number; heightCm: number;
   mockup?: { id: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea: any };
+  highlights: string[];
+  fabricInfo: string;
+  printMethods: string[];
+  printAreas: { name: string; w: string; h: string }[];
+  careInstructions: { text: string }[];
+  faqs: { q: string; a: string }[];
 }
 
 function rowToProduct(row: any): DBProduct {
@@ -760,6 +776,12 @@ function rowToProduct(row: any): DBProduct {
     featured: row.featured, createdAt: row.created_at,
     weightGrams: row.weight_grams || 200, lengthCm: row.length_cm || 30,
     breadthCm: row.breadth_cm || 20, heightCm: row.height_cm || 5,
+    highlights: row.highlights || [],
+    fabricInfo: row.fabric_info || '',
+    printMethods: row.print_methods || [],
+    printAreas: row.print_areas || [],
+    careInstructions: row.care_instructions || [],
+    faqs: row.faqs || [],
   };
   // Attach mockup data if joined
   if (row.m_id) {
@@ -925,8 +947,9 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
     image: 'image', customizable: 'customizable', stock: 'stock',
     rating: 'rating', reviewCount: 'review_count', featured: 'featured',
     weightGrams: 'weight_grams', lengthCm: 'length_cm', breadthCm: 'breadth_cm', heightCm: 'height_cm',
+    fabricInfo: 'fabric_info',
   };
-  const jsonFields = ['images', 'colors', 'sizes'];
+  const jsonFields = ['images', 'colors', 'sizes', 'highlights', 'printMethods', 'printAreas', 'careInstructions', 'faqs'];
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {
     if (key in patch) { sets.push(`${col} = $${idx}`); vals.push(patch[key]); idx++; }

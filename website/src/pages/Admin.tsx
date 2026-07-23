@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, Edit3, Trash2, X, Save, ShoppingCart,
-  BarChart3, Users, IndianRupee, TrendingUp, Image, Eye, EyeOff, Database, Palette, Download, Upload, Tag, Copy, Check, ChevronDown, ChevronUp, MapPin, Mail, User, Clock, Hash, LogOut, Truck, Percent, DollarSign, Calendar, Sparkles, Settings, ToggleLeft, ToggleRight, UserPlus, Phone, Filter, RefreshCw, Boxes, AlertTriangle, XCircle, PackageCheck, History, Layers, ChevronLeft, ChevronRight, Bell, Send, Store, Zap,
+  BarChart3, Users, IndianRupee, TrendingUp, Image, Eye, EyeOff, Database, Palette, Download, Upload, Tag, Copy, Check, ChevronDown, ChevronUp, MapPin, Mail, User, Clock, Hash, LogOut, Truck, Percent, DollarSign, Calendar, Sparkles, Settings, ToggleLeft, ToggleRight, UserPlus, Phone, Filter, RefreshCw, Boxes, AlertTriangle, XCircle, PackageCheck, History, Layers, ChevronLeft, ChevronRight, Bell, Send, Store, Zap, ExternalLink,
 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -66,6 +66,7 @@ const defaultProduct: Partial<Product> = {
   name: '', description: '', price: 0, category: '', image: '', images: [], customizable: true,
   featured: false, colors: ['#000000', '#ffffff', '#6366f1'], sizes: ['S', 'M', 'L', 'XL'], rating: 4.5, reviewCount: 0,
   weightGrams: 200, lengthCm: 30, breadthCm: 20, heightCm: 5,
+  highlights: [], fabricInfo: '', printMethods: [], printAreas: [], careInstructions: [], faqs: [],
 };
 
 const defaultMockup: Partial<Mockup> = {
@@ -691,7 +692,21 @@ export default function Admin() {
 
   // Product CRUD
   const openNewProduct = () => { setEditingProduct(null); setProductForm({ ...defaultProduct }); setShowProductForm(true); };
-  const openEditProduct = (p: Product) => { setEditingProduct(p); setProductForm({ ...p, colors: [...new Set(p.colors || [])] }); setShowProductForm(true); };
+  const openEditProduct = (p: Product) => {
+    setEditingProduct(p);
+    setProductForm({
+      ...defaultProduct,
+      ...p,
+      colors: [...new Set(p.colors || [])],
+      highlights: p.highlights || [],
+      fabricInfo: p.fabricInfo || '',
+      printMethods: p.printMethods || [],
+      printAreas: p.printAreas || [],
+      careInstructions: p.careInstructions || [],
+      faqs: p.faqs || [],
+    });
+    setShowProductForm(true);
+  };
   const closeProductForm = () => { setShowProductForm(false); setEditingProduct(null); };
   const saveGlobalColors = (cols: {name: string, hex: string}[]) => {
     setGlobalColors(cols); localStorage.setItem('tfw_global_colors', JSON.stringify(cols));
@@ -2042,6 +2057,7 @@ export default function Admin() {
                             >
                               {outOfStock ? <Eye size={15} /> : <EyeOff size={15} />}
                             </button>
+                            <button className="icon-btn" title="Preview product page" onClick={() => window.open(`/products/${p.id}`, '_blank')}><ExternalLink size={15} /></button>
                             <button className="icon-btn" title="Edit product" onClick={() => openEditProduct(p)}><Edit3 size={16} /></button>
                             <button className="icon-btn danger" title="Delete product" onClick={() => handleDeleteProduct(p.id)}><Trash2 size={16} /></button>
                           </td>
@@ -4413,8 +4429,107 @@ MSG91_SENDER_ID=TFWALL`}
                       </div>
                     </div>
                   </div>
+                  {/* ── Product Page Content ── */}
+                  <div className="pf-section">
+                    <div className="pf-section-title">
+                      Product Page Content
+                      <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.78rem', marginLeft: 8 }}>— optional; falls back to category defaults if empty</span>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Feature Chips <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.78rem' }}>— one per line (e.g. "180 GSM", "100% Cotton")</span></label>
+                      <textarea
+                        value={((productForm as any).highlights || []).join('\n')}
+                        onChange={e => setProductForm({ ...productForm, highlights: e.target.value.split('\n').map((s: string) => s.trim()).filter(Boolean) } as any)}
+                        rows={3}
+                        placeholder={'180 GSM\n100% Combed Cotton\nPre-Shrunk'}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Fabric &amp; Material Info</label>
+                      <textarea
+                        value={(productForm as any).fabricInfo || ''}
+                        onChange={e => setProductForm({ ...productForm, fabricInfo: e.target.value } as any)}
+                        rows={3}
+                        placeholder="Describe the fabric, material quality, and key properties…"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Print Methods <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.78rem' }}>— comma-separated</span></label>
+                      <input
+                        type="text"
+                        value={((productForm as any).printMethods || []).join(', ')}
+                        onChange={e => setProductForm({ ...productForm, printMethods: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) } as any)}
+                        placeholder="DTG Printing, DTF Transfer, Screen Printing"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Print Areas</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {((productForm as any).printAreas || []).map((area: any, i: number) => (
+                          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input type="text" value={area.name} placeholder="Area name" style={{ flex: 2 }}
+                              onChange={e => { const arr = [...(productForm as any).printAreas]; arr[i] = { ...arr[i], name: e.target.value }; setProductForm({ ...productForm, printAreas: arr } as any); }} />
+                            <input type="text" value={area.w} placeholder='W e.g. 12"' style={{ flex: 1 }}
+                              onChange={e => { const arr = [...(productForm as any).printAreas]; arr[i] = { ...arr[i], w: e.target.value }; setProductForm({ ...productForm, printAreas: arr } as any); }} />
+                            <input type="text" value={area.h} placeholder='H e.g. 16"' style={{ flex: 1 }}
+                              onChange={e => { const arr = [...(productForm as any).printAreas]; arr[i] = { ...arr[i], h: e.target.value }; setProductForm({ ...productForm, printAreas: arr } as any); }} />
+                            <button type="button" className="btn btn-ghost" style={{ padding: '4px 8px', color: '#ef4444', minHeight: 'unset' }}
+                              onClick={() => setProductForm({ ...productForm, printAreas: (productForm as any).printAreas.filter((_: any, idx: number) => idx !== i) } as any)}>
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button type="button" className="btn btn-ghost" style={{ alignSelf: 'flex-start', fontSize: '.8rem', minHeight: 'unset' }}
+                          onClick={() => setProductForm({ ...productForm, printAreas: [...((productForm as any).printAreas || []), { name: '', w: '', h: '' }] } as any)}>
+                          + Add Print Area
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Care Instructions <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.78rem' }}>— one per line</span></label>
+                      <textarea
+                        value={((productForm as any).careInstructions || []).map((c: any) => c.text || c).join('\n')}
+                        onChange={e => setProductForm({ ...productForm, careInstructions: e.target.value.split('\n').map((s: string) => s.trim()).filter(Boolean).map(text => ({ text })) } as any)}
+                        rows={4}
+                        placeholder={'Machine wash cold (30°C)\nDo not bleach\nTumble dry low\nIron on reverse side only'}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>FAQs</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {((productForm as any).faqs || []).map((faq: any, i: number) => (
+                          <div key={i} style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', position: 'relative' }}>
+                            <input type="text" value={faq.q} placeholder="Question" style={{ marginBottom: 6, fontWeight: 500 }}
+                              onChange={e => { const arr = [...(productForm as any).faqs]; arr[i] = { ...arr[i], q: e.target.value }; setProductForm({ ...productForm, faqs: arr } as any); }} />
+                            <textarea value={faq.a} placeholder="Answer" rows={2}
+                              onChange={e => { const arr = [...(productForm as any).faqs]; arr[i] = { ...arr[i], a: e.target.value }; setProductForm({ ...productForm, faqs: arr } as any); }} />
+                            <button type="button" className="btn btn-ghost" style={{ position: 'absolute', top: 8, right: 8, padding: '2px 6px', minHeight: 'unset', color: '#ef4444' }}
+                              onClick={() => setProductForm({ ...productForm, faqs: (productForm as any).faqs.filter((_: any, idx: number) => idx !== i) } as any)}>
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        <button type="button" className="btn btn-ghost" style={{ alignSelf: 'flex-start', fontSize: '.8rem', minHeight: 'unset' }}
+                          onClick={() => setProductForm({ ...productForm, faqs: [...((productForm as any).faqs || []), { q: '', a: '' }] } as any)}>
+                          + Add FAQ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="modal-actions">
                     <button type="button" className="btn btn-ghost" onClick={closeProductForm}>Cancel</button>
+                    {editingProduct && (
+                      <button type="button" className="btn btn-ghost" onClick={() => window.open(`/products/${editingProduct.id}`, '_blank')}>
+                        <ExternalLink size={14} /> Preview Page
+                      </button>
+                    )}
                     <button type="submit" className="btn btn-primary" disabled={savingProduct}>
                       {savingProduct ? <div className="spinner-sm" /> : <><Save size={16} /> {editingProduct ? 'Update' : 'Create'}</>}
                     </button>

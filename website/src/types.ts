@@ -45,6 +45,12 @@ export interface Product {
   heightCm?: number;
   brandId?: string;
   modelId?: string;
+  highlights?: string[];
+  fabricInfo?: string;
+  printMethods?: string[];
+  printAreas?: { name: string; w: string; h: string }[];
+  careInstructions?: { text: string }[];
+  faqs?: { q: string; a: string }[];
 }
 
 export interface ProductVariant {
