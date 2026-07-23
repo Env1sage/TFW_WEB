@@ -359,7 +359,8 @@ export default function ProductDetail() {
           {/* ── LEFT: Gallery ── */}
           <div className="pd-gallery">
             {(() => {
-              const allImages = [product.image, ...(product.images || [])];
+              const allImages = [product.image, ...(product.images || [])].filter(Boolean);
+              const safeIdx = Math.min(activeImage, Math.max(0, allImages.length - 1));
               return (
                 <>
                   <div
@@ -375,11 +376,14 @@ export default function ProductDetail() {
                       touchStartX.current = null;
                     }}
                   >
-                    <img src={allImages[activeImage]} alt={product.name} className="pd-design-img" />
+                    {allImages.length > 0
+                      ? <img src={allImages[safeIdx]} alt={product.name} className="pd-design-img" />
+                      : <div className="pd-design-img mockup-placeholder" />
+                    }
                     {allImages.length > 1 && (
                       <div className="pd-gallery-dots">
                         {allImages.map((_, idx) => (
-                          <span key={idx} className={`pd-gallery-dot ${idx === activeImage ? 'active' : ''}`} onClick={() => setActiveImage(idx)} />
+                          <span key={idx} className={`pd-gallery-dot ${idx === safeIdx ? 'active' : ''}`} onClick={() => setActiveImage(idx)} />
                         ))}
                       </div>
                     )}
@@ -389,7 +393,7 @@ export default function ProductDetail() {
                       {allImages.map((img, idx) => (
                         <button
                           key={idx}
-                          className={`pd-thumb ${activeImage === idx ? 'active' : ''}`}
+                          className={`pd-thumb ${idx === safeIdx ? 'active' : ''}`}
                           onClick={() => setActiveImage(idx)}
                         >
                           <img src={img} alt={`${product.name} view ${idx + 1}`} />
