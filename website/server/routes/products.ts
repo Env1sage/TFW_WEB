@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
+import { upsertLead } from './auth.js';
 import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendCombinedOrderConfirmation, sendAdminCombinedOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate, sendTestEmail } from '../email.js';
 import { testSMSConfig, getSMSConfig } from '../sms.js';
 
@@ -981,6 +982,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
     // Send emails (non-blocking)
     const user = await db.findUserById((req as any).userId);
     if (user) {
+      upsertLead({ name: user.name || '', email: user.email || '', mobile: user.phone || '', source: 'order' });
       // Calculate shipping the same way as the frontend
     // Calculate shipping based on pin code / zone
       const rawSubtotal = total; // sum of item prices before discount

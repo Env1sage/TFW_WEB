@@ -5,6 +5,32 @@ import { v4 as uuid } from 'uuid';
 import * as db from '../database.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { sendOtpSMS } from '../sms.js';
+import { pool } from '../database.js';
+
+export async function upsertLead(opts: { name?: string; mobile?: string; email?: string; source: string }) {
+  const { name = '', mobile = '', email = '', source } = opts;
+  try {
+    if (email) {
+      const { rows } = await pool.query('SELECT id FROM website_leads WHERE email = $1 LIMIT 1', [email]);
+      if (rows.length) {
+        await pool.query(`UPDATE website_leads SET last_activity = NOW(), updated_at = NOW(), source = CASE WHEN source = 'organic' THEN $1 ELSE source END, name = CASE WHEN name = '' AND $2 != '' THEN $2 ELSE name END, mobile = CASE WHEN mobile = '' AND $3 != '' THEN $3 ELSE mobile END WHERE id = $4`, [source, name, mobile, rows[0].id]);
+        return;
+      }
+    }
+    if (mobile) {
+      const { rows } = await pool.query('SELECT id FROM website_leads WHERE mobile = $1 LIMIT 1', [mobile]);
+      if (rows.length) {
+        await pool.query(`UPDATE website_leads SET last_activity = NOW(), updated_at = NOW(), source = CASE WHEN source = 'organic' THEN $1 ELSE source END, name = CASE WHEN name = '' AND $2 != '' THEN $2 ELSE name END, email = CASE WHEN email = '' AND $3 != '' THEN $3 ELSE email END WHERE id = $4`, [source, name, email, rows[0].id]);
+        return;
+      }
+    }
+    if (!name && !mobile && !email) return;
+    await pool.query(
+      `INSERT INTO website_leads (id, name, mobile, email, source, products_viewed, status, last_activity, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,'[]','new',NOW(),NOW(),NOW()) ON CONFLICT DO NOTHING`,
+      [uuid(), name, mobile, email, source]
+    );
+  } catch (e) { /* non-blocking: never fail the main request */ }
+}
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -55,6 +81,9 @@ router.post('/verify-otp', async (req: Request, res: Response) => {
       isNewUser = true;
     }
     if (!user) return res.status(500).json({ error: 'User creation failed' });
+
+    // Capture lead (non-blocking)
+    upsertLead({ mobile: session.phone, name: user.name || '', email: user.email || '', source: isNewUser ? 'registration' : 'login' });
 
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     const { password: _, twoFactorSecret: __, ...safe } = user;
@@ -111,6 +140,9 @@ router.put('/me', authMiddleware, async (req: Request, res: Response) => {
     }
     const updated = await db.updateUser(user.id, patch);
     if (!updated) return res.status(500).json({ error: 'Update failed' });
+    if (name || email) {
+      upsertLead({ name: updated.name || '', email: updated.email || '', mobile: updated.phone || '', source: 'profile_update' });
+    }
     const { password: _, twoFactorSecret: __, ...safe } = updated;
     res.json(safe);
   } catch (e: any) {
