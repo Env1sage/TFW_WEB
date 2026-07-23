@@ -30,7 +30,6 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
           color={product.colors?.[0]}
           mockup={product.mockup}
         />
-        {product.customizable && <span className="badge badge-custom">Customizable</span>}
         {product.featured && <span className="badge badge-featured">Featured</span>}
         {product.stock === 0 && <span className="badge badge-oos">Out of Stock</span>}
         {/* Hover quick-action overlay */}

@@ -487,11 +487,6 @@ export default function ProductDetail() {
                 <button className="btn btn-primary btn-lg pd-add-btn btn-shimmer" onClick={handleAdd}>
                   <ShoppingCart size={18} /> Add to Cart — ₹{(product.price * quantity).toFixed(0)}
                 </button>
-                {product.customizable && (
-                  <Link to={`/design-studio/product/${product.id}`} className="btn btn-outline btn-lg pd-design-btn">
-                    <Palette size={18} /> Customize in Design Studio
-                  </Link>
-                )}
               </div>
             )}
 

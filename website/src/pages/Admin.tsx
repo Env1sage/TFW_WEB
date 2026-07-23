@@ -63,7 +63,7 @@ const LEAD_STATUS: Record<string, { label: string; bg: string; color: string }> 
 };
 
 const defaultProduct: Partial<Product> = {
-  name: '', description: '', price: 0, category: '', image: '', images: [], customizable: true,
+  name: '', description: '', price: 0, category: '', image: '', images: [], customizable: false,
   featured: false, colors: ['#000000', '#ffffff', '#6366f1'], sizes: ['S', 'M', 'L', 'XL'], rating: 4.5, reviewCount: 0,
   weightGrams: 200, lengthCm: 30, breadthCm: 20, heightCm: 5,
   highlights: [], fabricInfo: '', printMethods: [], printAreas: [], careInstructions: [], faqs: [],
@@ -2867,63 +2867,109 @@ export default function Admin() {
             {/* Create / Edit form */}
             {editingCol !== null && (
               <div className="section-card" style={{ marginBottom: 24, padding: 20 }}>
-                <h4 style={{ marginBottom: 14 }}>{editingCol.id ? `Edit: ${editingCol.name}` : 'Create Collection'}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
-                  {[
-                    { label: 'Name *', key: 'name', type: 'text', placeholder: 'Marvel Universe' },
-                    { label: 'Tagline', key: 'tagline', type: 'text', placeholder: 'With great power...' },
-                    { label: 'Tag / Category', key: 'tag', type: 'text', placeholder: 'Comics' },
-                    { label: 'Symbol (emoji)', key: 'symbol', type: 'text', placeholder: '⚡' },
-                    { label: 'Badge text', key: 'badge', type: 'text', placeholder: 'New' },
-                    { label: 'Badge colour', key: 'badgeColor', type: 'color' },
-                    { label: 'Glow colour', key: 'glow', type: 'color' },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>{f.label}</label>
-                      <input
-                        type={f.type}
-                        placeholder={f.placeholder}
-                        value={(editingCol[f.key] ?? colForm[f.key as keyof typeof colForm] ?? '') as string}
-                        onChange={e => setEditingCol((prev: any) => ({ ...prev, [f.key]: e.target.value }))}
-                        style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit' }}
-                      />
+                <h4 style={{ marginBottom: 16 }}>{editingCol.id ? `Edit: ${editingCol.name}` : 'Create Collection'}</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' }}>
+                  {/* Fields */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+                    {[
+                      { label: 'Name *', key: 'name', type: 'text', placeholder: 'Marvel Universe' },
+                      { label: 'Tagline', key: 'tagline', type: 'text', placeholder: 'With great power...' },
+                      { label: 'Tag / Category', key: 'tag', type: 'text', placeholder: 'Comics' },
+                      { label: 'Symbol (emoji)', key: 'symbol', type: 'text', placeholder: '⚡' },
+                      { label: 'Badge text', key: 'badge', type: 'text', placeholder: 'New' },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>{f.label}</label>
+                        <input
+                          type={f.type}
+                          placeholder={f.placeholder}
+                          value={(editingCol[f.key] ?? colForm[f.key as keyof typeof colForm] ?? '') as string}
+                          onChange={e => setEditingCol((prev: any) => ({ ...prev, [f.key]: e.target.value }))}
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    ))}
+                    {/* Color row */}
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>Badge colour</label>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="color" value={(editingCol.badgeColor ?? colForm.badgeColor) as string} onChange={e => setEditingCol((p: any) => ({ ...p, badgeColor: e.target.value }))} style={{ width: 36, height: 36, padding: 2, borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--bg)' }} />
+                          <input type="text" value={(editingCol.badgeColor ?? colForm.badgeColor) as string} onChange={e => setEditingCol((p: any) => ({ ...p, badgeColor: e.target.value }))} style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'monospace', fontSize: '0.8rem' }} />
+                        </div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>Glow colour</label>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="color" value={(editingCol.glow ?? colForm.glow) as string} onChange={e => setEditingCol((p: any) => ({ ...p, glow: e.target.value }))} style={{ width: 36, height: 36, padding: 2, borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--bg)' }} />
+                          <input type="text" value={(editingCol.glow ?? colForm.glow) as string} onChange={e => setEditingCol((p: any) => ({ ...p, glow: e.target.value }))} style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'monospace', fontSize: '0.8rem' }} />
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>CSS Gradient</label>
-                    <input
-                      type="text"
-                      placeholder="linear-gradient(135deg, #E23636 0%, #7B0000 100%)"
-                      value={editingCol.gradient ?? colForm.gradient}
-                      onChange={e => setEditingCol((prev: any) => ({ ...prev, gradient: e.target.value }))}
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit' }}
-                    />
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>CSS Gradient <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(collection card background)</span></label>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div style={{ width: 40, height: 36, borderRadius: 8, background: editingCol.gradient ?? colForm.gradient, flexShrink: 0, border: '1px solid var(--border)' }} />
+                        <input
+                          type="text"
+                          placeholder="linear-gradient(135deg, #E23636 0%, #7B0000 100%)"
+                          value={editingCol.gradient ?? colForm.gradient}
+                          onChange={e => setEditingCol((prev: any) => ({ ...prev, gradient: e.target.value }))}
+                          style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit' }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>Cover Image URL <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(banner shown on Collections page)</span></label>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <input
+                          type="text"
+                          placeholder="https://example.com/image.jpg  or  /products/banner.jpg"
+                          value={editingCol.coverImage ?? ''}
+                          onChange={e => setEditingCol((prev: any) => ({ ...prev, coverImage: e.target.value }))}
+                          style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit' }}
+                        />
+                        {editingCol.coverImage && (
+                          <img src={editingCol.coverImage} alt="cover preview" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ height: 36, width: 64, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }} />
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={editingCol.featured ?? false} onChange={e => setEditingCol((p: any) => ({ ...p, featured: e.target.checked }))} />
+                        Featured
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={editingCol.active ?? true} onChange={e => setEditingCol((p: any) => ({ ...p, active: e.target.checked }))} />
+                        Active
+                      </label>
+                    </div>
+                    <div />
                   </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: 4 }}>Cover Image URL <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(shown on Collections page)</span></label>
-                    <input
-                      type="text"
-                      placeholder="https://example.com/image.jpg  or  /products/banner.jpg"
-                      value={editingCol.coverImage ?? ''}
-                      onChange={e => setEditingCol((prev: any) => ({ ...prev, coverImage: e.target.value }))}
-                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit' }}
-                    />
-                    {editingCol.coverImage && (
-                      <img src={editingCol.coverImage} alt="cover preview" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ marginTop: 8, height: 80, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={editingCol.featured ?? false} onChange={e => setEditingCol((p: any) => ({ ...p, featured: e.target.checked }))} />
-                      Featured
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={editingCol.active ?? true} onChange={e => setEditingCol((p: any) => ({ ...p, active: e.target.checked }))} />
-                      Active
-                    </label>
+
+                  {/* Live preview card */}
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Preview</div>
+                    <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: `0 0 24px 0 ${(editingCol.glow ?? colForm.glow)}44` }}>
+                      <div style={{ background: editingCol.gradient ?? colForm.gradient, padding: '24px 20px 20px', position: 'relative', minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                        {editingCol.coverImage && (
+                          <img src={editingCol.coverImage} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        )}
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          <div style={{ fontSize: '2rem', marginBottom: 4 }}>{editingCol.symbol ?? colForm.symbol}</div>
+                          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.4)' }}>{editingCol.name || 'Collection Name'}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,.75)', marginTop: 2 }}>{editingCol.tagline || 'Tagline goes here'}</div>
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--surface)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{editingCol.tag ?? colForm.tag}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, background: editingCol.badgeColor ?? colForm.badgeColor, color: '#fff', borderRadius: 20, padding: '2px 10px' }}>{editingCol.badge ?? colForm.badge}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                   <button className="btn btn-primary btn-sm" onClick={async () => {
                     if (!editingCol.name) { toast.error('Name required'); return; }
                     try {
@@ -2938,7 +2984,7 @@ export default function Admin() {
                       loadCollections();
                     } catch (e: any) { toast.error(e.message); }
                   }}>
-                    <Save size={14} /> Save
+                    <Save size={14} /> Save Collection
                   </button>
                   <button className="btn btn-sm" onClick={() => setEditingCol(null)}>Cancel</button>
                 </div>
@@ -2985,29 +3031,21 @@ export default function Admin() {
                         </span>
                       </div>
 
-                      {/* Add product input */}
+                      {/* Add product dropdown */}
                       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                        <input
-                          type="text"
-                          placeholder="Product ID (e.g. prod_1)"
+                        <select
                           value={addProductId[col.id] || ''}
                           onChange={e => setAddProductId(p => ({ ...p, [col.id]: e.target.value }))}
                           style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.85rem' }}
-                          onKeyDown={async (e) => {
-                            if (e.key !== 'Enter') return;
-                            const pid = addProductId[col.id]?.trim();
-                            if (!pid) return;
-                            try {
-                              await api.addProductToCollection(col.id, pid);
-                              toast.success('Product added');
-                              setAddProductId(p => ({ ...p, [col.id]: '' }));
-                              loadCollections();
-                            } catch (err: any) { toast.error(err.message || 'Failed'); }
-                          }}
-                        />
+                        >
+                          <option value="">— Select a product to add —</option>
+                          {products.filter(p => !(colProducts[col.id] || []).some((cp: any) => cp.id === p.id)).map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.category}) — ₹{p.price}</option>
+                          ))}
+                        </select>
                         <button className="btn btn-primary btn-sm" onClick={async () => {
                           const pid = addProductId[col.id]?.trim();
-                          if (!pid) return;
+                          if (!pid) { toast.error('Select a product first'); return; }
                           try {
                             await api.addProductToCollection(col.id, pid);
                             toast.success('Product added');
@@ -4304,7 +4342,7 @@ MSG91_SENDER_ID=TFWALL`}
                       <div className="form-group"><label>Product Name *</label><input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} placeholder="e.g. Classic Polo T-Shirt" required /></div>
                       <div className="form-group">
                         <label>Category *</label>
-                        <select value={(productForm as any).categoryId || ''} onChange={e => { const cat = categories.find(c => c.id === e.target.value); setProductForm(f => ({ ...f, category: cat?.name || '', ...(cat ? { categoryId: cat.id } : { categoryId: '' }), ...(!f.image && cat?.image ? { image: cat.image } : {}) } as any)); }} required>
+                        <select value={(productForm as any).categoryId || ''} onChange={e => { const cat = categories.find(c => c.id === e.target.value); setProductForm(f => ({ ...f, category: cat?.name || '', ...(cat ? { categoryId: cat.id } : { categoryId: '' }) } as any)); }} required>
                           <option value="">— Select category —</option>
                           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>

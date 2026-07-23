@@ -133,11 +133,6 @@ export default function CollectionDetail() {
                 <Link to={`/products/${product.id}`} className="cd-card-img-wrap">
                   <img src={product.image} alt={product.name} className="cd-card-img" loading="lazy" />
                   {product.featured && <span className="cd-card-badge">Featured</span>}
-                  {product.customizable && (
-                    <div className="cd-card-customize">
-                      <Palette size={13} /> Customizable
-                    </div>
-                  )}
                 </Link>
 
                 {/* Body */}
@@ -173,11 +168,6 @@ export default function CollectionDetail() {
                         <ShoppingCart size={14} />
                         {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                       </button>
-                      {product.customizable && (
-                        <Link to={product.mockupId ? `/design-studio/product/${product.id}` : '/design-studio'} className="cd-btn-design" title="Customise">
-                          <Palette size={14} />
-                        </Link>
-                      )}
                     </div>
                   </div>
                 </div>
