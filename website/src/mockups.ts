@@ -25,7 +25,7 @@ export interface PrintLayout {
   name: string;
   side: PrintSide;
   x: number; y: number; w: number; h: number;
-  shape?: 'rect' | 'ellipse';
+  shape?: 'rect' | 'ellipse' | 'circle';
   price?: number;
   /** IDs of other layouts this can be ordered together with */
   compatibleWith?: string[];

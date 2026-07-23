@@ -426,7 +426,17 @@
 .lp-font-item:hover { background: var(--bg); }
 .lp-font-item.active { background: var(--primary-50); color: var(--primary); }
 
-/* Graphics tab */
+/* Graphics tab — vectors */
+.lp-vector-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lp-vector-btn {
+  width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--bg-2); cursor: pointer;
+  border-radius: var(--radius-sm); padding: 6px; transition: all .12s;
+}
+.lp-vector-btn svg { width: 100%; height: 100%; }
+.lp-vector-btn:hover { border-color: var(--primary); background: var(--primary-50); transform: scale(1.08); }
+
+/* Graphics tab — emoji */
 .lp-emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .lp-emoji-btn {
   width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
@@ -434,6 +444,27 @@
   border-radius: var(--radius-sm); transition: all .12s;
 }
 .lp-emoji-btn:hover { background: var(--bg); transform: scale(1.15); }
+
+/* Text styles */
+.lp-text-styles-grid { display: flex; flex-direction: column; gap: 4px; }
+.lp-text-style-preset {
+  width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 8px 10px; border: 1px solid var(--border); background: var(--bg-2);
+  border-radius: var(--radius-sm); cursor: pointer; text-align: left; transition: all .12s;
+}
+.lp-text-style-preset:hover { border-color: var(--primary); background: var(--primary-50); }
+.lp-text-style-preview { font-size: 18px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.lp-text-style-label { font-size: 10px; color: var(--text-3); font-family: Inter, sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+
+/* Remove background button */
+.lp-bg-remove-btn {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 8px; padding: 10px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--primary); background: var(--primary-50);
+  color: var(--primary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .12s;
+}
+.lp-bg-remove-btn:hover:not(:disabled) { background: var(--primary); color: #fff; }
+.lp-bg-remove-btn:disabled { opacity: 0.6; cursor: wait; }
 
 /* ═══════════════════════════════════════════════════════
    CANVAS AREA

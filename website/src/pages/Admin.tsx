@@ -85,7 +85,7 @@ const LAYOUT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#e879f9', '#ef4444', '#
 interface PrintLayout {
   id: string; name: string; side: 'FRONT' | 'BACK';
   x: number; y: number; w: number; h: number;
-  shape?: 'rect' | 'ellipse';
+  shape?: 'rect' | 'ellipse' | 'circle';
   price?: number;
   /** IDs of other layouts this can be ordered together with */
   compatibleWith?: string[];
@@ -957,10 +957,21 @@ export default function Admin() {
         y: Math.round(Math.max(0, Math.min(1000 - activeLayout.h, (y - offsetY) / PAE_SCALE))),
       });
     } else {
-      setPaeDraft({
-        x: Math.round(Math.min(x, startX) / PAE_SCALE), y: Math.round(Math.min(y, startY) / PAE_SCALE),
-        w: Math.round(Math.abs(x - startX) / PAE_SCALE), h: Math.round(Math.abs(y - startY) / PAE_SCALE),
-      });
+      const rawW = Math.abs(x - startX);
+      const rawH = Math.abs(y - startY);
+      if (activeLayout?.shape === 'circle') {
+        const size = Math.round(Math.max(rawW, rawH) / PAE_SCALE);
+        setPaeDraft({
+          x: Math.round((x < startX ? startX - Math.max(rawW, rawH) : startX) / PAE_SCALE),
+          y: Math.round((y < startY ? startY - Math.max(rawW, rawH) : startY) / PAE_SCALE),
+          w: size, h: size,
+        });
+      } else {
+        setPaeDraft({
+          x: Math.round(Math.min(x, startX) / PAE_SCALE), y: Math.round(Math.min(y, startY) / PAE_SCALE),
+          w: Math.round(rawW / PAE_SCALE), h: Math.round(rawH / PAE_SCALE),
+        });
+      }
     }
   };
   const handlePaeDragEnd = () => {
@@ -4732,9 +4743,10 @@ MSG91_SENDER_ID=TFWALL`}
                           {paeDraft && (() => {
                             const activeIdx = paeLayouts.findIndex(l => l.id === activeLayoutId);
                             const c = LAYOUT_COLORS[activeIdx % LAYOUT_COLORS.length];
+                            const isRound = activeLayout?.shape === 'ellipse' || activeLayout?.shape === 'circle';
                             return (
                               <div className="pae-rect pae-rect-live"
-                                style={{ left: paeDraft.x * PAE_SCALE, top: paeDraft.y * PAE_SCALE, width: Math.max(2, paeDraft.w * PAE_SCALE), height: Math.max(2, paeDraft.h * PAE_SCALE), borderColor: c, background: c + '22' }} />
+                                style={{ left: paeDraft.x * PAE_SCALE, top: paeDraft.y * PAE_SCALE, width: Math.max(2, paeDraft.w * PAE_SCALE), height: Math.max(2, paeDraft.h * PAE_SCALE), borderColor: c, background: c + '22', borderRadius: isRound ? '50%' : undefined }} />
                             );
                           })()}
                         </div>
@@ -4772,16 +4784,18 @@ MSG91_SENDER_ID=TFWALL`}
                             <div className="pae-control-section">
                               <div className="pae-control-label">Shape</div>
                               <div style={{ display: 'flex', gap: 8 }}>
-                                {(['rect','ellipse'] as const).map(s => (
+                                {(['rect','ellipse','circle'] as const).map(s => (
                                   <button key={s} type="button"
                                     className={`btn btn-sm ${(activeLayout.shape ?? 'rect') === s ? 'btn-primary' : 'btn-ghost'}`}
                                     style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}
                                     onClick={() => updateActiveLayout({ shape: s })}>
                                     {s === 'rect'
                                       ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="7"/></svg>
+                                      : s === 'ellipse'
+                                      ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="7"/></svg>
+                                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/></svg>
                                     }
-                                    {s === 'rect' ? 'Rectangle' : 'Ellipse'}
+                                    {s === 'rect' ? 'Rectangle' : s === 'ellipse' ? 'Ellipse' : 'Circle'}
                                   </button>
                                 ))}
                               </div>

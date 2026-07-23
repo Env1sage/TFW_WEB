@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import * as fabric from 'fabric';
 import {
   Package, Layers as LayersIcon, Upload, Type, Smile,
   ImageUp, Trash2, Copy, AlignCenter, FlipHorizontal2, FlipVertical2,
   Lock, LockOpen, Eye, EyeOff, Square, Circle, Triangle, Minus,
   ZoomIn, ZoomOut, RefreshCcw, Search, Bold, Italic, Underline,
-  Plus, Check, Palette,
+  Plus, Check, Palette, Wand2,
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { MockupTemplate, PrintSide, PrintSize } from '../../mockups';
@@ -48,6 +48,76 @@ const FONT_STYLES = [
   { name: 'Montserrat',       preview: 'Modern Sans', weight: 700 },
 ];
 
+export interface TextStylePreset {
+  label: string;
+  sampleText: string;
+  font: string;
+  size: number;
+  weight: string | number;
+  fill: string;
+  stroke?: string;
+  strokeWidth?: number;
+  italic?: boolean;
+}
+
+const TEXT_STYLE_PRESETS: TextStylePreset[] = [
+  { label: 'Bold Impact',   sampleText: 'YOUR TEXT', font: 'Impact',           size: 72, weight: 'bold', fill: '#1a1a1a' },
+  { label: 'Varsity',       sampleText: 'VARSITY',   font: 'Oswald',           size: 64, weight: '700',  fill: '#ffffff', stroke: '#1a1a1a', strokeWidth: 3 },
+  { label: 'Script',        sampleText: 'Your Text', font: 'Dancing Script',   size: 60, weight: '700',  fill: '#1a1a1a' },
+  { label: 'Retro',         sampleText: 'RETRO',     font: 'Lobster',          size: 58, weight: '400',  fill: '#e74c3c' },
+  { label: 'Classic',       sampleText: 'Classic',   font: 'Playfair Display', size: 56, weight: '700',  fill: '#2c3e50', italic: true },
+  { label: 'Modern',        sampleText: 'MODERN',    font: 'Montserrat',       size: 60, weight: '700',  fill: '#0e7c61' },
+  { label: 'Shadow',        sampleText: 'SHADOW',    font: 'Impact',           size: 68, weight: 'bold', fill: '#ffffff', stroke: '#333333', strokeWidth: 2 },
+  { label: 'Handwritten',   sampleText: 'Handwrite', font: 'Permanent Marker', size: 50, weight: '400',  fill: '#1a1a1a' },
+];
+
+const SVG_VECTOR_SETS = [
+  {
+    category: 'Stars & Bursts',
+    items: [
+      { label: '5-Point Star', svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,4 L61.2,34.6 L93.7,35.8 L68.1,55.9 L77,87.2 L50,69 L23,87.2 L31.9,55.9 L6.3,35.8 L38.8,34.6 Z" fill="#FFD700" stroke="#E6B800" stroke-width="1"/></svg>` },
+      { label: '4-Point Star', svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,4 L61,39 L96,50 L61,61 L50,96 L39,61 L4,50 L39,39 Z" fill="#FFD700" stroke="#E6B800" stroke-width="1"/></svg>` },
+      { label: '6-Point Star', svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,4 L63,27 L90,27 L77,50 L90,73 L63,73 L50,96 L37,73 L10,73 L23,50 L10,27 L37,27 Z" fill="#FFD700" stroke="#E6B800" stroke-width="1"/></svg>` },
+      { label: 'Starburst',    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,5 L53,37 L68,10 L62,42 L88,26 L72,54 L97,52 L76,70 L95,82 L72,83 L80,97 L58,86 L54,100 L46,86 L24,97 L32,83 L9,82 L28,70 L7,52 L32,54 L16,26 L42,42 L36,10 L51,37 Z" fill="#FFD700" stroke="#E6B800" stroke-width="0.5"/></svg>` },
+      { label: 'Lightning',    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M60,5 L28,55 L52,55 L38,95 L78,40 L54,40 Z" fill="#FFD700" stroke="#E6B800" stroke-width="1"/></svg>` },
+      { label: 'Sun',          svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="22" fill="#FFD700" stroke="#E6B800" stroke-width="1"/><line x1="50" y1="3" x2="50" y2="19" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="50" y1="81" x2="50" y2="97" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="3" y1="50" x2="19" y2="50" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="81" y1="50" x2="97" y2="50" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="17" y1="17" x2="29" y2="29" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="71" y1="71" x2="83" y2="83" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="83" y1="17" x2="71" y2="29" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/><line x1="17" y1="83" x2="29" y2="71" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/></svg>` },
+    ],
+  },
+  {
+    category: 'Arrows',
+    items: [
+      { label: 'Right Arrow',   svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M5,40 L62,40 L62,22 L95,50 L62,78 L62,60 L5,60 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+      { label: 'Left Arrow',    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M95,40 L38,40 L38,22 L5,50 L38,78 L38,60 L95,60 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+      { label: 'Up Arrow',      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M40,95 L40,38 L22,38 L50,5 L78,38 L60,38 L60,95 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+      { label: 'Double Arrow',  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M5,50 L28,28 L28,42 L72,42 L72,28 L95,50 L72,72 L72,58 L28,58 L28,72 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+      { label: 'Curved Arrow',  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15,65 Q15,20 65,20 L65,8 L90,28 L65,48 L65,36 Q30,36 30,65 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+      { label: 'Circle Arrow',  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,10 A40,40 0 1,1 10,50 L10,35 L25,50 L10,65 L10,50 A40,40 0 1,0 50,10 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+    ],
+  },
+  {
+    category: 'Shapes & Icons',
+    items: [
+      { label: 'Heart',     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,82 C25,68 5,53 5,35 C5,22 14,13 26,13 C34,13 42,18 50,27 C58,18 66,13 74,13 C86,13 95,22 95,35 C95,53 75,68 50,82 Z" fill="#e74c3c" stroke="#c0392b" stroke-width="1"/></svg>` },
+      { label: 'Crown',     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10,75 L10,42 L25,62 L50,15 L75,62 L90,42 L90,75 Z" fill="#FFD700" stroke="#E6B800" stroke-width="1.5"/><rect x="8" y="75" width="84" height="12" rx="2" fill="#FFD700" stroke="#E6B800" stroke-width="1"/></svg>` },
+      { label: 'Shield',    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,5 L90,22 L90,52 C90,73 70,88 50,97 C30,88 10,73 10,52 L10,22 Z" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/></svg>` },
+      { label: 'Diamond',   svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,4 L94,50 L50,96 L6,50 Z" fill="#00bcd4" stroke="#0097a7" stroke-width="1"/></svg>` },
+      { label: 'Hexagon',   svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,4 L93,27 L93,73 L50,96 L7,73 L7,27 Z" fill="#9c27b0" stroke="#7b1fa2" stroke-width="1"/></svg>` },
+      { label: 'Pentagon',  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,4 L96,38 L78,92 L22,92 L4,38 Z" fill="#ff9800" stroke="#f57c00" stroke-width="1"/></svg>` },
+    ],
+  },
+  {
+    category: 'Badges & Frames',
+    items: [
+      { label: 'Badge',        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="#0E7C61" stroke-width="4"/><circle cx="50" cy="50" r="38" fill="none" stroke="#0E7C61" stroke-width="1.5" stroke-dasharray="4 3"/></svg>` },
+      { label: 'Label Tag',    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M8,20 L72,20 L92,50 L72,80 L8,80 Z" fill="none" stroke="#0E7C61" stroke-width="3" rx="3"/><circle cx="22" cy="50" r="6" fill="#0E7C61"/></svg>` },
+      { label: 'Ribbon',       svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="5" y="35" width="90" height="30" rx="3" fill="#0E7C61" stroke="#0a5c48" stroke-width="1"/><path d="M5,35 L20,20 L5,35 Z" fill="#0a5c48"/><path d="M95,35 L80,20 L95,35 Z" fill="#0a5c48"/><path d="M5,65 L20,80 L5,65 Z" fill="#0a5c48"/><path d="M95,65 L80,80 L95,65 Z" fill="#0a5c48"/></svg>` },
+      { label: 'Check Badge',  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#0E7C61"/><path d="M28,52 L44,68 L74,35" fill="none" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+      { label: 'Oval Frame',   svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="50" rx="46" ry="36" fill="none" stroke="#0E7C61" stroke-width="3"/><ellipse cx="50" cy="50" rx="40" ry="30" fill="none" stroke="#0E7C61" stroke-width="1" stroke-dasharray="3 3"/></svg>` },
+      { label: 'Rect Frame',   svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="5" y="5" width="90" height="90" rx="4" fill="none" stroke="#0E7C61" stroke-width="3"/><rect x="12" y="12" width="76" height="76" rx="2" fill="none" stroke="#0E7C61" stroke-width="1" stroke-dasharray="3 3"/></svg>` },
+    ],
+  },
+];
+
 interface PriceResult {
   originalPrice: number;
   finalPrice: number;
@@ -78,6 +148,9 @@ interface LeftPanelProps {
   onAddText: () => void;
   onAddImage: (file: File) => void;
   onAddShape: (type: ShapeType) => void;
+  onAddTextStyle?: (preset: TextStylePreset) => void;
+  onAddSvgVector?: (svgStr: string) => void;
+  onRemoveBg?: () => Promise<void>;
   onDelete: () => void;
   onDuplicate: () => void;
   onCenter: () => void;
@@ -105,7 +178,7 @@ interface LeftPanelProps {
   activeProductType?: string;
   onSwitchType?: (type: string) => void;
   uploadEnabled?: boolean;
-  extraClassName?: string; // mobile open
+  extraClassName?: string;
 }
 
 export default function LeftPanel({
@@ -114,6 +187,7 @@ export default function LeftPanel({
   quantity, onQuantityChange, price, productBasePrice, onAddToCart, onPreview,
   selectedSides, pocketPrintEnabled, activePrintSize,
   onAddText, onAddImage, onAddShape,
+  onAddTextStyle, onAddSvgVector, onRemoveBg,
   onDelete, onDuplicate, onCenter, onFlipH, onFlipV, onToggleLock, isLocked,
   onZoomIn, onZoomOut, onResetView,
   layers, selectedObj, onSelectLayer, onRemoveLayer, onToggleVisibility,
@@ -124,7 +198,9 @@ export default function LeftPanel({
 }: LeftPanelProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [fontSearch, setFontSearch] = useState('');
+  const [bgRemoving, setBgRemoving] = useState(false);
   const isText = selectedObj instanceof fabric.IText;
+  const isImage = selectedObj instanceof fabric.FabricImage;
 
   const displayPrice = price ?? (productBasePrice > 0
     ? { finalPrice: productBasePrice * quantity, originalPrice: productBasePrice * quantity, discountPercent: 0 }
@@ -148,6 +224,12 @@ export default function LeftPanel({
     (t as any).layerName = `Emoji ${emoji}`;
     (t as any).printZone = 'body';
     canvas.add(t); canvas.setActiveObject(t); canvas.requestRenderAll();
+  };
+
+  const handleRemoveBgClick = async () => {
+    if (!onRemoveBg) return;
+    setBgRemoving(true);
+    try { await onRemoveBg(); } finally { setBgRemoving(false); }
   };
 
   const filteredFonts = STUDIO_FONTS.filter(f => f.toLowerCase().includes(fontSearch.toLowerCase()));
@@ -369,6 +451,18 @@ export default function LeftPanel({
               <div className="lp-disabled-msg">Uploads are currently disabled</div>
             )}
 
+            {/* Remove Background — visible when an image is selected */}
+            {isImage && onRemoveBg && (
+              <button
+                className="lp-bg-remove-btn"
+                onClick={handleRemoveBgClick}
+                disabled={bgRemoving}
+              >
+                <Wand2 size={15} />
+                {bgRemoving ? 'Removing background…' : 'Remove Background'}
+              </button>
+            )}
+
             {/* Shapes */}
             <div className="lp-subsection" style={{ marginTop: 16 }}>
               <p className="lp-sub-label">Basic Shapes</p>
@@ -391,6 +485,35 @@ export default function LeftPanel({
               <Type size={16} />
               Add Text to Design
             </button>
+
+            {/* Text Style Presets */}
+            <div className="lp-subsection">
+              <p className="lp-sub-label">Text Styles</p>
+              <div className="lp-text-styles-grid">
+                {TEXT_STYLE_PRESETS.map(preset => (
+                  <button
+                    key={preset.label}
+                    className="lp-text-style-preset"
+                    title={`Add ${preset.label} style`}
+                    onClick={() => onAddTextStyle?.(preset)}
+                  >
+                    <span
+                      className="lp-text-style-preview"
+                      style={{
+                        fontFamily: `"${preset.font}", sans-serif`,
+                        fontWeight: preset.weight as any,
+                        fontStyle: preset.italic ? 'italic' : 'normal',
+                        color: preset.fill === '#ffffff' ? '#0E7C61' : preset.fill,
+                        WebkitTextStroke: preset.stroke ? `1px ${preset.stroke}` : undefined,
+                      }}
+                    >
+                      {preset.sampleText}
+                    </span>
+                    <span className="lp-text-style-label">{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Text controls — only when a text object is selected */}
             {isText && (
@@ -495,6 +618,25 @@ export default function LeftPanel({
           <div className="lp-content">
             <div className="lp-section-head">Graphics Kit</div>
 
+            {/* SVG Vector graphics */}
+            {SVG_VECTOR_SETS.map(set => (
+              <div key={set.category} className="lp-subsection">
+                <p className="lp-sub-label">{set.category}</p>
+                <div className="lp-vector-grid">
+                  {set.items.map(item => (
+                    <button
+                      key={item.label}
+                      className="lp-vector-btn"
+                      onClick={() => onAddSvgVector?.(item.svg)}
+                      title={item.label}
+                      dangerouslySetInnerHTML={{ __html: item.svg }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Emoji */}
             {EMOJI_SETS.map(set => (
               <div key={set.category} className="lp-subsection">
                 <p className="lp-sub-label">{set.category}</p>

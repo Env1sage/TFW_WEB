@@ -13,6 +13,7 @@
     "start": "NODE_ENV=production node dist/server/index.js"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "@types/express-session": "^1.18.2",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",

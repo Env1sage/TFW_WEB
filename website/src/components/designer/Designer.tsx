@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Package, Layers as LayersIcon, Upload, Type, Smile, ShoppingCart } from 'lucide-react';
 import * as fabric from 'fabric';
@@ -85,6 +85,15 @@ export default function Designer() {
   });
 
   const getTemplate = useCallback(() => allTemplates[activeProductType], [activeProductType, allTemplates]);
+
+  // Only show BACK tab if the current template actually has a back mockup image
+  const availableSides = useMemo((): PrintSide[] => {
+    const tmpl = allTemplates[activeProductType];
+    if (!tmpl) return ['FRONT'];
+    // Procedural templates (renderSVG) always have both sides
+    if (typeof (tmpl as any).renderSVG === 'function') return ['FRONT', 'BACK'];
+    return tmpl.imageUrls?.BACK ? ['FRONT', 'BACK'] : ['FRONT'];
+  }, [activeProductType, allTemplates]);
 
   const getPrintArea = useCallback(() => {
     const tmpl = getTemplate();
@@ -272,7 +281,7 @@ export default function Designer() {
       const effectiveActiveId = activeLayout?.id ?? sideLayouts[0]?.id ?? null;
       const pa = activeLayout ?? (sideLayouts[0] ?? { x: 290, y: 200, w: 220, h: 320, shape: 'rect' as const });
       const oc = 'rgba(0,0,0,0.04)';
-      if ((pa as PrintLayout).shape === 'ellipse') {
+      if ((pa as PrintLayout).shape === 'ellipse' || (pa as PrintLayout).shape === 'circle') {
         // For ellipse: one full-canvas dim overlay clipped with an inverted ellipse
         const cx = pa.x + pa.w / 2, cy = pa.y + pa.h / 2;
         const ellipseHole = new fabric.Ellipse({ rx: pa.w / 2, ry: pa.h / 2, left: cx, top: cy, originX: 'center', originY: 'center', absolutePositioned: true });
@@ -305,7 +314,7 @@ export default function Designer() {
           opacity: isActive ? 1 : isSelected ? 0.7 : 0.35,
         };
         let border: fabric.Object;
-        if (layout.shape === 'ellipse') {
+        if (layout.shape === 'ellipse' || layout.shape === 'circle') {
           border = new fabric.Ellipse({
             left: layout.x + layout.w / 2, top: layout.y + layout.h / 2,
             rx: layout.w / 2, ry: layout.h / 2,
@@ -643,7 +652,7 @@ export default function Designer() {
       // Layout mode — build a clip shape per layout (rect or ellipse)
       layoutClipRefs.current = {};
       tmpl.layouts.forEach((layout: PrintLayout) => {
-        if (layout.shape === 'ellipse') {
+        if (layout.shape === 'ellipse' || layout.shape === 'circle') {
           layoutClipRefs.current[layout.id] = new fabric.Ellipse({
             left: layout.x + layout.w / 2, top: layout.y + layout.h / 2,
             rx: layout.w / 2, ry: layout.h / 2,
@@ -899,6 +908,104 @@ export default function Designer() {
     fc.add(obj); fc.setActiveObject(obj); fc.renderAll();
     setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
   }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
+
+  const handleAddTextStyle = useCallback((preset: { label: string; sampleText: string; font: string; size: number; weight: string | number; fill: string; stroke?: string; strokeWidth?: number; italic?: boolean }) => {
+    const fc = fcRef.current; if (!fc) return;
+    const tmpl = getTemplate();
+    let effectiveLayoutId = activeEditingLayoutId;
+    if (!effectiveLayoutId && tmpl?.layouts?.length) {
+      const auto = (tmpl.layouts as PrintLayout[]).find((l: PrintLayout) => l.side === activeSideRef.current) || (tmpl.layouts[0] as PrintLayout);
+      effectiveLayoutId = auto.id;
+      setActiveEditingLayoutId(auto.id);
+      setSelectedLayoutIds(prev => prev.includes(auto.id) ? prev : [...prev, auto.id]);
+    }
+    const isLayoutMode = !!(tmpl?.layouts?.length && effectiveLayoutId);
+    const clip = isLayoutMode ? (layoutClipRefs.current[effectiveLayoutId!] ?? clipRef.current) : (editingPocket ? pocketClipRef.current : clipRef.current);
+    const zone = isLayoutMode ? effectiveLayoutId! : (editingPocket ? 'pocket' : 'body');
+    const pa = getActiveArea();
+    const text = new fabric.IText(preset.sampleText, {
+      left: pa.x + pa.w / 2, top: pa.y + pa.h / 2,
+      originX: 'center', originY: 'center',
+      fontFamily: preset.font, fontSize: preset.size,
+      fontWeight: preset.weight as any, fill: preset.fill,
+      fontStyle: preset.italic ? 'italic' : 'normal',
+      stroke: preset.stroke, strokeWidth: preset.strokeWidth,
+      textAlign: 'center', clipPath: clip ?? undefined,
+    });
+    (text as any).customId = crypto.randomUUID();
+    (text as any).layerName = preset.label;
+    (text as any).printZone = zone;
+    fc.add(text); fc.setActiveObject(text); fc.renderAll();
+    if (isLayoutMode && effectiveLayoutId) setSelectedLayoutIds(prev => prev.includes(effectiveLayoutId!) ? prev : [...prev, effectiveLayoutId!]);
+    setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
+  }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
+
+  const handleAddSvgVector = useCallback(async (svgStr: string) => {
+    const fc = fcRef.current; if (!fc) return;
+    const tmpl = getTemplate();
+    let effectiveLayoutId = activeEditingLayoutId;
+    if (!effectiveLayoutId && tmpl?.layouts?.length) {
+      const auto = (tmpl.layouts as PrintLayout[]).find((l: PrintLayout) => l.side === activeSideRef.current) || (tmpl.layouts[0] as PrintLayout);
+      effectiveLayoutId = auto.id;
+      setActiveEditingLayoutId(auto.id);
+      setSelectedLayoutIds(prev => prev.includes(auto.id) ? prev : [...prev, auto.id]);
+    }
+    const isLayoutMode = !!(tmpl?.layouts?.length && effectiveLayoutId);
+    const clip = isLayoutMode ? (layoutClipRefs.current[effectiveLayoutId!] ?? clipRef.current) : (editingPocket ? pocketClipRef.current : clipRef.current);
+    const zone = isLayoutMode ? effectiveLayoutId! : (editingPocket ? 'pocket' : 'body');
+    const activeLayout = isLayoutMode ? (tmpl!.layouts as PrintLayout[]).find((l: PrintLayout) => l.id === effectiveLayoutId) : null;
+    const pa = activeLayout ? { x: activeLayout.x, y: activeLayout.y, w: activeLayout.w, h: activeLayout.h } : getActiveArea();
+    try {
+      const result = await (fabric as any).loadSVGFromString(svgStr);
+      const objects = ((result.objects || []) as fabric.FabricObject[]).filter(Boolean);
+      if (!objects.length) return;
+      const group = new fabric.Group(objects);
+      const maxDim = Math.min(pa.w || 200, pa.h || 200) * 0.7;
+      const scale = maxDim / Math.max(group.width || 100, group.height || 100);
+      group.set({ left: pa.x + (pa.w || 200) / 2, top: pa.y + (pa.h || 200) / 2, originX: 'center', originY: 'center', scaleX: scale, scaleY: scale });
+      if (clip) group.set({ clipPath: clip });
+      (group as any).customId = crypto.randomUUID();
+      (group as any).layerName = 'Vector';
+      (group as any).printZone = zone;
+      fc.add(group); fc.setActiveObject(group); fc.renderAll();
+      if (isLayoutMode && effectiveLayoutId) setSelectedLayoutIds(prev => prev.includes(effectiveLayoutId!) ? prev : [...prev, effectiveLayoutId!]);
+      setSelectedSides(prev => prev.includes(activeSideRef.current) ? prev : [...prev, activeSideRef.current]);
+    } catch (e) { console.error('SVG load error', e); }
+  }, [getActiveArea, getTemplate, activeEditingLayoutId, editingPocket]);
+
+  const handleRemoveBg = useCallback(async () => {
+    const fc = fcRef.current; if (!fc) return;
+    const activeObj = fc.getActiveObject();
+    if (!(activeObj instanceof fabric.FabricImage)) return;
+    try {
+      const { removeBackground } = await import('@imgly/background-removal');
+      const imgEl = (activeObj as fabric.FabricImage).getElement() as HTMLImageElement;
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = imgEl.naturalWidth || imgEl.width;
+      tmpCanvas.height = imgEl.naturalHeight || imgEl.height;
+      const ctx = tmpCanvas.getContext('2d')!;
+      ctx.drawImage(imgEl, 0, 0);
+      const blob = await new Promise<Blob>(res => tmpCanvas.toBlob(b => res(b!), 'image/png'));
+      const resultBlob = await removeBackground(blob);
+      const url = URL.createObjectURL(resultBlob);
+      const newEl = new Image(); newEl.crossOrigin = 'anonymous';
+      newEl.onload = () => {
+        const newFImg = new fabric.FabricImage(newEl, {
+          left: activeObj.left, top: activeObj.top,
+          scaleX: activeObj.scaleX, scaleY: activeObj.scaleY,
+          angle: activeObj.angle, clipPath: activeObj.clipPath,
+          originX: activeObj.originX, originY: activeObj.originY,
+        });
+        (newFImg as any).customId = (activeObj as any).customId;
+        (newFImg as any).layerName = (activeObj as any).layerName;
+        (newFImg as any).printZone = (activeObj as any).printZone;
+        fc.remove(activeObj);
+        fc.add(newFImg); fc.setActiveObject(newFImg); fc.renderAll();
+        URL.revokeObjectURL(url);
+      };
+      newEl.src = url;
+    } catch (e) { console.error('Background removal failed', e); }
+  }, []);
 
   const handleDelete = useCallback(() => {
     const fc = fcRef.current; if (!fc) return;
@@ -1192,7 +1299,7 @@ export default function Designer() {
       <TopBar
         activeSide={activeSide}
         selectedSides={selectedSides}
-        sides={SIDES}
+        sides={availableSides}
         saveStatus={saveStatus}
         onToggleSide={handleToggleSide}
         onUndo={handleUndo}
@@ -1242,6 +1349,9 @@ export default function Designer() {
           onAddText={handleAddText}
           onAddImage={handleAddImage}
           onAddShape={handleAddShape}
+          onAddTextStyle={handleAddTextStyle}
+          onAddSvgVector={handleAddSvgVector}
+          onRemoveBg={handleRemoveBg}
           onDelete={handleDelete}
           onDuplicate={handleDuplicate}
           onCenter={handleCenter}
@@ -1301,7 +1411,7 @@ export default function Designer() {
 
           {/* ── Film strip: side thumbnails floating in canvas ── */}
           <div className="ds-film-strip">
-            {SIDES.map(side => (
+            {availableSides.map(side => (
               <button
                 key={side}
                 className={`ds-film-card${activeSide === side ? ' active' : ''}${selectedSides.includes(side) ? ' has-design' : ''}`}
@@ -1330,7 +1440,7 @@ export default function Designer() {
       </div>
       <BottomBar
         activeSide={activeSide}
-        sides={SIDES}
+        sides={availableSides}
         selectedSides={selectedSides}
         onToggleSide={handleToggleSide}
         onZoomIn={handleZoomIn}
