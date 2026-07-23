@@ -84,6 +84,7 @@ const LAYOUT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#e879f9', '#ef4444', '#
 interface PrintLayout {
   id: string; name: string; side: 'FRONT' | 'BACK';
   x: number; y: number; w: number; h: number;
+  shape?: 'rect' | 'ellipse';
   price?: number;
   /** IDs of other layouts this can be ordered together with */
   compatibleWith?: string[];
@@ -904,7 +905,7 @@ export default function Admin() {
   };
   const addNewLayout = () => {
     if (!paeNewLayoutName.trim()) { toast.error('Layout name is required'); return; }
-    const newLayout: PrintLayout = { id: crypto.randomUUID(), name: paeNewLayoutName.trim(), side: paeNewLayoutSide, x: 0, y: 0, w: 0, h: 0, price: 499 };
+    const newLayout: PrintLayout = { id: crypto.randomUUID(), name: paeNewLayoutName.trim(), side: paeNewLayoutSide, x: 0, y: 0, w: 0, h: 0, shape: 'rect', price: 499 };
     setMockupForm(prev => ({ ...prev, printArea: { ...prev.printArea, layouts: [...(prev.printArea as any).layouts, newLayout] } }));
     setActiveLayoutId(newLayout.id); setShowPaeAddForm(false); setPaeNewLayoutName('');
     toast.success(`Layout "${newLayout.name}" added — draw its print area on the canvas`);
@@ -4560,7 +4561,7 @@ MSG91_SENDER_ID=TFWALL`}
                               const c = LAYOUT_COLORS[realIdx % LAYOUT_COLORS.length];
                               return (
                                 <div key={l.id} className="pae-rect pae-rect-other"
-                                  style={{ left: l.x * PAE_SCALE, top: l.y * PAE_SCALE, width: l.w * PAE_SCALE, height: l.h * PAE_SCALE, borderColor: c }}>
+                                  style={{ left: l.x * PAE_SCALE, top: l.y * PAE_SCALE, width: l.w * PAE_SCALE, height: l.h * PAE_SCALE, borderColor: c, borderRadius: l.shape === 'ellipse' ? '50%' : undefined }}>
                                   <span className="pae-rect-label" style={{ color: c }}>{l.name}</span>
                                 </div>
                               );
@@ -4571,7 +4572,7 @@ MSG91_SENDER_ID=TFWALL`}
                             const c = LAYOUT_COLORS[activeIdx % LAYOUT_COLORS.length];
                             return (
                               <div className="pae-rect pae-rect-active"
-                                style={{ left: activeLayout.x * PAE_SCALE, top: activeLayout.y * PAE_SCALE, width: activeLayout.w * PAE_SCALE, height: activeLayout.h * PAE_SCALE, borderColor: c, background: c + '28' }}>
+                                style={{ left: activeLayout.x * PAE_SCALE, top: activeLayout.y * PAE_SCALE, width: activeLayout.w * PAE_SCALE, height: activeLayout.h * PAE_SCALE, borderColor: c, background: c + '28', borderRadius: activeLayout.shape === 'ellipse' ? '50%' : undefined }}>
                                 <span className="pae-rect-label" style={{ color: c }}>{activeLayout.name}</span>
                                 {paeIsHoverMove && <span className="pae-move-hint">drag to move</span>}
                               </div>
@@ -4615,6 +4616,23 @@ MSG91_SENDER_ID=TFWALL`}
                                       value={(activeLayout as any)[field] ?? ''}
                                       onChange={e => updateActiveLayout({ [field]: +e.target.value })} />
                                   </label>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="pae-control-section">
+                              <div className="pae-control-label">Shape</div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                {(['rect','ellipse'] as const).map(s => (
+                                  <button key={s} type="button"
+                                    className={`btn btn-sm ${(activeLayout.shape ?? 'rect') === s ? 'btn-primary' : 'btn-ghost'}`}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}
+                                    onClick={() => updateActiveLayout({ shape: s })}>
+                                    {s === 'rect'
+                                      ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="12" rx="10" ry="7"/></svg>
+                                    }
+                                    {s === 'rect' ? 'Rectangle' : 'Ellipse'}
+                                  </button>
                                 ))}
                               </div>
                             </div>

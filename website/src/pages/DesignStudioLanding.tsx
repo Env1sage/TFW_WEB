@@ -10,6 +10,35 @@ import { api } from '../api';
 import MockupPreview from '../components/MockupPreview';
 import type { Product } from '../types';
 
+/* ─── Category defaults for mockup products ─────────────── */
+const CAT_COLORS: Record<string, string[]> = {
+  'T-Shirts':       ['#ffffff','#1a1a1a','#1b2a4a','#c0392b','#2d5a3d','#36454f'],
+  'Polo T-Shirts':  ['#ffffff','#1a1a1a','#1b2a4a','#c0392b'],
+  'Hoodies':        ['#9e9e9e','#1a1a1a','#36454f','#1b2a4a'],
+  'Kids Clothing':  ['#ffffff','#1a1a1a','#c0392b','#1b2a4a','#fce4ec','#e3f2fd'],
+  'Mugs':           ['#ffffff'],
+  'Bottles':        ['#9e9e9e','#1a1a1a','#6b4c3b'],
+  'Tote Bags':      ['#f5e6d3'],
+  'Stationery':     ['#ffffff','#1a1a1a','#f5e6d3'],
+};
+const CAT_SIZES: Record<string, string[]> = {
+  'T-Shirts':       ['XS','S','M','L','XL','XXL'],
+  'Polo T-Shirts':  ['S','M','L','XL','XXL'],
+  'Hoodies':        ['S','M','L','XL','XXL'],
+  'Kids Clothing':  ['2Y','4Y','6Y','8Y','10Y','12Y','14Y'],
+};
+function mockupToProduct(m: any) {
+  return {
+    id: m.id, name: m.name, description: `Custom ${m.name} — fully personalised`,
+    price: m.basePrice || 0, category: m.category, subcategory: m.category,
+    image: m.frontImage, customizable: true,
+    colors: CAT_COLORS[m.category] || ['#ffffff','#1a1a1a'],
+    sizes: CAT_SIZES[m.category] || [],
+    stock: 999, rating: 5.0, reviewCount: 0, featured: false,
+    mockup: { id: m.id, frontImage: m.frontImage, backImage: m.backImage, frontShadow: m.frontShadow, backShadow: m.backShadow, printArea: m.printArea },
+  };
+}
+
 /* ─── helpers ────────────────────────────────────────────── */
 const CAT_ICONS: Record<string, React.ReactNode> = {
   'T-Shirts':    <Shirt size={16} />,
@@ -113,15 +142,12 @@ export default function DesignStudioLanding() {
 
   const activeCategory = searchParams.get('category') || 'all';
 
-  /* load once */
+  /* load once — show only admin-configured mockup products */
   useEffect(() => {
-    Promise.all([
-      api.getProducts({}),
-      api.getCategories(),
-    ]).then(([prods, cats]) => {
-      const customizable = prods.filter((p: Product) => p.customizable);
-      setAllProducts(customizable.length ? customizable : prods);
-      setCategories(cats.map((c: any) => c.name));
+    api.getActiveMockups().then((mockups: any[]) => {
+      const mapped = mockups.map(mockupToProduct);
+      setAllProducts(mapped as any);
+      setCategories([...new Set(mockups.map((m: any) => m.category))]);
     }).finally(() => setLoading(false));
   }, []);
 

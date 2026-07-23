@@ -857,6 +857,17 @@ router.get('/mockups/active', async (_req: Request, res: Response) => {
   }
 });
 
+router.get('/mockups/:id', async (req: Request, res: Response) => {
+  try {
+    const mockups = await db.getAllMockups();
+    const mockup = mockups.find(m => m.id === req.params.id && m.active);
+    if (!mockup) return res.status(404).json({ error: 'Not found' });
+    res.json(mockup);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/mockups', authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
   try {
     const mockups = await db.getAllMockups();

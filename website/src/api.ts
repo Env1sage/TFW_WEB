@@ -164,6 +164,7 @@ export const api = {
 
   // Public: active mockups for the design studio (no auth required)
   getActiveMockups: () => request<any[]>('/products/mockups/active'),
+  getMockupPublic: (id: string) => request<any>(`/products/mockups/${id}`),
 
   uploadMockupImage: async (file: File): Promise<{ url: string }> => {
     const token = getToken();
