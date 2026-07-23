@@ -442,6 +442,55 @@ export default function ProductDetail() {
 
             <div className="pd-divider" />
 
+            {/* Phone brand/model selector — shown first so the customer picks their device before color/size */}
+            {(brands.length > 0 || brandsLoading) && (
+              <div className="pd-device-selector">
+                <div className="pd-device-header">
+                  <span className="pd-device-title">Select your phone</span>
+                  {brandsLoading && <span className="pd-device-loading">loading…</span>}
+                </div>
+                <div className="pd-option-group" style={{ marginBottom: selectedBrand ? 0 : undefined }}>
+                  <label>Brand</label>
+                  <div className="pd-brand-grid">
+                    {brands.map(b => (
+                      <button
+                        key={b.id}
+                        className={`pd-brand-btn ${selectedBrand?.id === b.id ? 'active' : ''}`}
+                        onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
+                      >
+                        {b.logo && <img src={b.logo} alt={b.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />}
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {selectedBrand && (
+                  <div className="pd-option-group">
+                    <label>Model
+                      {modelsLoading && <span className="pd-option-value" style={{ fontSize: '0.72rem' }}> loading…</span>}
+                      {selectedModel && <span className="pd-option-value">{selectedModel.displayName}</span>}
+                    </label>
+                    <div className="pd-model-grid">
+                      {models.map(m => (
+                        <button
+                          key={m.id}
+                          className={`pd-model-btn ${selectedModel?.id === m.id ? 'active' : ''} ${!m.inStock ? 'oos' : ''}`}
+                          disabled={!m.inStock}
+                          onClick={() => setSelectedModel(selectedModel?.id === m.id ? null : m)}
+                        >
+                          {m.displayName}
+                          {!m.inStock && <span className="pd-model-oos"> Out of Stock</span>}
+                        </button>
+                      ))}
+                      {!modelsLoading && models.length === 0 && (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>No models available</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Color selector */}
             {product.colors.length > 0 && (
               <div className="pd-option-group">
@@ -486,51 +535,6 @@ export default function ProductDetail() {
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* Phone brand/model selector */}
-            {brands.length > 0 && (
-              <>
-                <div className="pd-option-group">
-                  <label>Brand
-                    {brandsLoading && <span className="pd-option-value" style={{ fontSize: '0.72rem' }}> loading…</span>}
-                  </label>
-                  <div className="pd-brand-grid">
-                    {brands.map(b => (
-                      <button
-                        key={b.id}
-                        className={`pd-brand-btn ${selectedBrand?.id === b.id ? 'active' : ''}`}
-                        onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
-                      >
-                        {b.logo && <img src={b.logo} alt={b.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />}
-                        {b.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {selectedBrand && (
-                  <div className="pd-option-group">
-                    <label>Model
-                      {modelsLoading && <span className="pd-option-value" style={{ fontSize: '0.72rem' }}> loading…</span>}
-                      {selectedModel && <span className="pd-option-value">{selectedModel.displayName}</span>}
-                    </label>
-                    <div className="pd-model-grid">
-                      {models.map(m => (
-                        <button
-                          key={m.id}
-                          className={`pd-model-btn ${selectedModel?.id === m.id ? 'active' : ''} ${!m.inStock ? 'oos' : ''}`}
-                          disabled={!m.inStock}
-                          onClick={() => setSelectedModel(selectedModel?.id === m.id ? null : m)}
-                        >
-                          {m.displayName}
-                          {!m.inStock && <span className="pd-model-oos"> (Out of Stock)</span>}
-                        </button>
-                      ))}
-                      {!modelsLoading && models.length === 0 && <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>No models available</span>}
-                    </div>
-                  </div>
-                )}
-              </>
             )}
 
             {/* Quantity */}
