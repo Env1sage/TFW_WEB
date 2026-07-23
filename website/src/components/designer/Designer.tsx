@@ -86,12 +86,10 @@ export default function Designer() {
 
   const getTemplate = useCallback(() => allTemplates[activeProductType], [activeProductType, allTemplates]);
 
-  // Only show BACK tab if the current template actually has a back mockup image
+  // Only show BACK tab if the template has an actual back mockup image URL
   const availableSides = useMemo((): PrintSide[] => {
     const tmpl = allTemplates[activeProductType];
     if (!tmpl) return ['FRONT'];
-    // Procedural templates (renderSVG) always have both sides
-    if (typeof (tmpl as any).renderSVG === 'function') return ['FRONT', 'BACK'];
     return tmpl.imageUrls?.BACK ? ['FRONT', 'BACK'] : ['FRONT'];
   }, [activeProductType, allTemplates]);
 
@@ -1379,8 +1377,6 @@ export default function Designer() {
           <div
             className="canvas-wrap"
             style={{ position: 'relative' }}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseLeave={() => setCanvasHover(null)}
           >
             <canvas ref={canvasRef} width={CW} height={CH} />
             {!hasUserContent && (
@@ -1455,19 +1451,6 @@ export default function Designer() {
         activePrintSize={activePrintSize}
       />
 
-      {/* ── Canvas Hover Zoom Popup ── */}
-      {canvasHover && hoverSnapshot && (
-        <div
-          className="ds-canvas-zoom-popup"
-          style={{
-            left: canvasHover.left,
-            top: canvasHover.top,
-            backgroundImage: `url(${hoverSnapshot})`,
-            backgroundSize: '380%',
-            backgroundPosition: `${canvasHover.bgX}% ${canvasHover.bgY}%`,
-          }}
-        />
-      )}
 
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="mobile-bottom-nav">

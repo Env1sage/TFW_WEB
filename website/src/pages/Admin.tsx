@@ -64,7 +64,7 @@ const LEAD_STATUS: Record<string, { label: string; bg: string; color: string }> 
 
 const defaultProduct: Partial<Product> = {
   name: '', description: '', price: 0, category: '', image: '', images: [], customizable: false,
-  featured: false, colors: ['#000000', '#ffffff', '#6366f1'], sizes: ['S', 'M', 'L', 'XL'], rating: 4.5, reviewCount: 0,
+  featured: false, colors: [], sizes: [], rating: 4.5, reviewCount: 0,
   weightGrams: 200, lengthCm: 30, breadthCm: 20, heightCm: 5,
   highlights: [], fabricInfo: '', printMethods: [], printAreas: [], careInstructions: [], faqs: [],
 };
