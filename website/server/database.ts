@@ -250,6 +250,11 @@ export async function initDB() {
       ALTER TABLE website_categories ADD COLUMN IF NOT EXISTS parent_id TEXT REFERENCES website_categories(id) ON DELETE SET NULL;
     `);
 
+    // Category default image (used as fallback in product form)
+    await client.query(`
+      ALTER TABLE website_categories ADD COLUMN IF NOT EXISTS image TEXT NOT NULL DEFAULT '';
+    `);
+
     // Subcategory field on products
     await client.query(`
       ALTER TABLE website_products ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT '';
@@ -851,11 +856,11 @@ export async function getProductById(id: string): Promise<DBProduct | null> {
 
 /* ── Category queries ── */
 export interface DBCategory {
-  id: string; name: string; slug: string; createdAt: string; parentId?: string | null;
+  id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image: string;
 }
 
 function rowToCategory(row: any): DBCategory {
-  return { id: row.id, name: row.name, slug: row.slug, createdAt: row.created_at, parentId: row.parent_id ?? null };
+  return { id: row.id, name: row.name, slug: row.slug, createdAt: row.created_at, parentId: row.parent_id ?? null, image: row.image || '' };
 }
 
 export async function getCategories(): Promise<DBCategory[]> {
@@ -876,10 +881,11 @@ export async function addCategory(c: { id: string; name: string; slug: string; p
   return rowToCategory(rows[0]);
 }
 
-export async function updateCategory(id: string, patch: { name?: string; slug?: string }): Promise<DBCategory | null> {
+export async function updateCategory(id: string, patch: { name?: string; slug?: string; image?: string }): Promise<DBCategory | null> {
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   if (patch.name !== undefined) { sets.push(`name = $${idx}`); vals.push(patch.name); idx++; }
   if (patch.slug !== undefined) { sets.push(`slug = $${idx}`); vals.push(patch.slug); idx++; }
+  if (patch.image !== undefined) { sets.push(`image = $${idx}`); vals.push(patch.image); idx++; }
   if (sets.length === 0) return getCategoryById(id);
   vals.push(id);
   const { rows } = await pool.query(`UPDATE website_categories SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);

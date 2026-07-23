@@ -28,7 +28,7 @@ interface Analytics {
 }
 
 interface Category {
-  id: string; name: string; slug: string; createdAt: string; parentId?: string | null;
+  id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image?: string;
 }
 
 interface MockupCategory {
@@ -188,6 +188,7 @@ export default function Admin() {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryFormName, setCategoryFormName] = useState('');
+  const [categoryFormImage, setCategoryFormImage] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -749,16 +750,16 @@ export default function Admin() {
   };
 
   // Category CRUD
-  const openNewCategory = () => { setEditingCategory(null); setCategoryFormName(''); setShowCategoryForm(true); };
-  const openEditCategory = (c: Category) => { setEditingCategory(c); setCategoryFormName(c.name); setShowCategoryForm(true); };
-  const closeCategoryForm = () => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormName(''); };
+  const openNewCategory = () => { setEditingCategory(null); setCategoryFormName(''); setCategoryFormImage(''); setShowCategoryForm(true); };
+  const openEditCategory = (c: Category) => { setEditingCategory(c); setCategoryFormName(c.name); setCategoryFormImage(c.image || ''); setShowCategoryForm(true); };
+  const closeCategoryForm = () => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormName(''); setCategoryFormImage(''); };
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryFormName.trim()) { toast.error('Category name is required'); return; }
     setSavingCategory(true);
     try {
       if (editingCategory) {
-        await api.updateCategory(editingCategory.id, { name: categoryFormName.trim() });
+        await api.updateCategory(editingCategory.id, { name: categoryFormName.trim(), image: categoryFormImage.trim() });
         toast.success('Category updated');
       } else {
         await api.createCategory({ name: categoryFormName.trim() });
@@ -2159,6 +2160,34 @@ export default function Admin() {
                           <p className="cat-slug-preview">
                             Slug: <code>{categoryFormName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}</code>
                           </p>
+                        )}
+                      </div>
+                      <div className="form-group">
+                        <label>Default Product Image <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.78rem' }}>— auto-fills new product image when this category is selected</span></label>
+                        <div className="image-input-group">
+                          <input
+                            type="text"
+                            value={categoryFormImage}
+                            onChange={e => setCategoryFormImage(e.target.value)}
+                            placeholder="Paste image URL…"
+                          />
+                          <label className="btn btn-ghost upload-btn" title="Upload image">
+                            {uploadingField === 'categoryImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
+                            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async e => {
+                              const f = e.target.files?.[0]; if (!f) return;
+                              setUploadingField('categoryImage');
+                              try {
+                                const fd = new FormData(); fd.append('file', f);
+                                const r = await fetch('/api/upload/product', { method: 'POST', body: fd });
+                                const d = await r.json();
+                                if (d.url) setCategoryFormImage(d.url);
+                              } catch { toast.error('Upload failed'); }
+                              finally { setUploadingField(null); e.target.value = ''; }
+                            }} />
+                          </label>
+                        </div>
+                        {categoryFormImage && (
+                          <img src={categoryFormImage} alt="Category preview" style={{ marginTop: 8, height: 80, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         )}
                       </div>
                       <div className="modal-actions">
@@ -4226,7 +4255,14 @@ MSG91_SENDER_ID=TFWALL`}
               <motion.div className="modal" style={{ maxWidth: 720 }} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                   <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
-                  <button className="icon-btn" onClick={closeProductForm}><X size={20} /></button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {editingProduct && (
+                      <a href={`/products/${editingProduct.id}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82rem', padding: '6px 12px' }}>
+                        <ExternalLink size={14} /> Preview
+                      </a>
+                    )}
+                    <button className="icon-btn" onClick={closeProductForm}><X size={20} /></button>
+                  </div>
                 </div>
                 <form onSubmit={handleSaveProduct} className="modal-body">
 
@@ -4259,7 +4295,7 @@ MSG91_SENDER_ID=TFWALL`}
                       <div className="form-group"><label>Product Name *</label><input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} placeholder="e.g. Classic Polo T-Shirt" required /></div>
                       <div className="form-group">
                         <label>Category *</label>
-                        <select value={(productForm as any).categoryId || ''} onChange={e => { const cat = categories.find(c => c.id === e.target.value); setProductForm({ ...productForm, category: cat?.name || '', ...(cat ? { categoryId: cat.id } : { categoryId: '' }) } as any); }} required>
+                        <select value={(productForm as any).categoryId || ''} onChange={e => { const cat = categories.find(c => c.id === e.target.value); setProductForm(f => ({ ...f, category: cat?.name || '', ...(cat ? { categoryId: cat.id } : { categoryId: '' }), ...(!f.image && cat?.image ? { image: cat.image } : {}) } as any)); }} required>
                           <option value="">— Select category —</option>
                           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
@@ -4272,7 +4308,6 @@ MSG91_SENDER_ID=TFWALL`}
                           <span>Flags</span>
                         </label>
                         <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
-                          <label className="checkbox-label"><input type="checkbox" checked={productForm.customizable} onChange={e => setProductForm({ ...productForm, customizable: e.target.checked })} /> Customizable</label>
                           <label className="checkbox-label"><input type="checkbox" checked={productForm.featured} onChange={e => setProductForm({ ...productForm, featured: e.target.checked })} /> Featured</label>
                         </div>
                       </div>
