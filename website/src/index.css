@@ -1564,8 +1564,13 @@ html.dark .footer { background: #0A0C10; }
 
 
 /* ── Product card hover popup (Amazon-style) ── */
+.pc-wrap {
+  position: relative;
+  /* no overflow:hidden — popup must escape the card */
+}
 .pc-hover-popup {
-  position: fixed; z-index: 1200;
+  position: absolute; top: 0; z-index: 1200;
+  width: 300px;
   background: var(--surface);
   border-radius: var(--radius-xl);
   box-shadow: 0 8px 40px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.10);
@@ -1573,6 +1578,11 @@ html.dark .footer { background: #0A0C10; }
   overflow: hidden;
   cursor: pointer;
   pointer-events: all;
+  animation: pcPopIn .15s ease;
+}
+@keyframes pcPopIn {
+  from { opacity: 0; transform: scale(.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 .pc-hover-img {
   width: 100%; height: 200px;
