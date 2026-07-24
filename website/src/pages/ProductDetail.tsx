@@ -6,6 +6,7 @@ import { api, getSessionId } from '../api';
 import { useCart } from '../context/CartContext';
 import type { Product, Brand, DeviceModel } from '../types';
 import ProductCard from '../components/ProductCard';
+import MockupPreview from '../components/MockupPreview';
 import toast from 'react-hot-toast';
 import { COLORS } from '../mockups';
 
@@ -361,6 +362,7 @@ export default function ProductDetail() {
             {(() => {
               const allImages = [product.image, ...(product.images || [])].filter(Boolean);
               const safeIdx = Math.min(activeImage, Math.max(0, allImages.length - 1));
+              const designImage = allImages[safeIdx] || '';
               return (
                 <>
                   <div
@@ -376,10 +378,13 @@ export default function ProductDetail() {
                       touchStartX.current = null;
                     }}
                   >
-                    {allImages.length > 0
-                      ? <img src={allImages[safeIdx]} alt={product.name} className="pd-design-img" />
-                      : <div className="pd-design-img mockup-placeholder" />
-                    }
+                    <MockupPreview
+                      category={product.category}
+                      designImage={designImage}
+                      color={selectedColor || product.colors?.[0]}
+                      mockup={product.mockup}
+                      className="pd-design-img"
+                    />
                     {allImages.length > 1 && (
                       <div className="pd-gallery-dots">
                         {allImages.map((_, idx) => (
