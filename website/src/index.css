@@ -1563,29 +1563,29 @@ html.dark .footer { background: #0A0C10; }
 }
 
 
-/* ── Product card hover popup (Amazon-style) ── */
+/* ── Product card hover popup — overlays the hovered card ── */
 .pc-wrap {
   position: relative;
-  /* no overflow:hidden — popup must escape the card */
 }
 .pc-hover-popup {
-  position: absolute; top: 0; z-index: 1200;
-  width: 300px;
+  position: absolute;
+  top: -6px; left: -6px; right: -6px;
+  z-index: 1200;
   background: var(--surface);
   border-radius: var(--radius-xl);
-  box-shadow: 0 8px 40px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.10);
+  box-shadow: 0 12px 48px rgba(0,0,0,.22), 0 2px 8px rgba(0,0,0,.10);
   border: 1px solid var(--border);
   overflow: hidden;
   cursor: pointer;
   pointer-events: all;
-  animation: pcPopIn .15s ease;
+  animation: pcPopIn .18s ease;
 }
 @keyframes pcPopIn {
-  from { opacity: 0; transform: scale(.96) translateY(4px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scaleY(.96); transform-origin: top; }
+  to   { opacity: 1; transform: scaleY(1); }
 }
 .pc-hover-img {
-  width: 100%; height: 200px;
+  width: 100%; height: 220px;
   background: var(--surface-2);
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;

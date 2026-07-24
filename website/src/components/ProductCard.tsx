@@ -17,15 +17,10 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
   const wrapRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState(false);
-  const [flipLeft, setFlipLeft] = useState(false);
   const [addedColor, setAddedColor] = useState<string | null>(null);
 
   const open = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    if (wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect();
-      setFlipLeft(rect.right + 315 > window.innerWidth);
-    }
     setHovered(true);
   };
 
@@ -117,7 +112,6 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
       {hovered && (
         <div
           className="pc-hover-popup"
-          style={{ [flipLeft ? 'right' : 'left']: 'calc(100% + 10px)' }}
           onMouseEnter={keep}
           onMouseLeave={close}
           onClick={() => navigate(`/products/${product.id}`)}
