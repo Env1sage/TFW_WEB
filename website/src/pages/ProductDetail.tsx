@@ -221,6 +221,8 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
 
   // Phone brand/model selection
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -367,6 +369,16 @@ export default function ProductDetail() {
                 <>
                   <div
                     className="pd-gallery-main"
+                    style={{ cursor: zoomed ? 'crosshair' : 'zoom-in', overflow: 'hidden' }}
+                    onMouseEnter={() => setZoomed(true)}
+                    onMouseLeave={() => setZoomed(false)}
+                    onMouseMove={e => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setZoomOrigin({
+                        x: ((e.clientX - r.left) / r.width) * 100,
+                        y: ((e.clientY - r.top) / r.height) * 100,
+                      });
+                    }}
                     onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
                     onTouchEnd={e => {
                       if (touchStartX.current === null) return;
@@ -378,15 +390,24 @@ export default function ProductDetail() {
                       touchStartX.current = null;
                     }}
                   >
-                    <MockupPreview
-                      category={product.category}
-                      designImage={designImage}
-                      color={selectedColor || product.colors?.[0]}
-                      mockup={product.mockup}
-                      className="pd-design-img"
-                    />
+                    <div style={{
+                      width: '100%', height: '100%',
+                      transform: zoomed ? 'scale(2.2)' : 'scale(1)',
+                      transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+                      transition: zoomed ? 'none' : 'transform 0.25s ease',
+                      pointerEvents: 'none',
+                    }}>
+                      <MockupPreview
+                        category={product.category}
+                        designImage={designImage}
+                        color={selectedColor || product.colors?.[0]}
+                        mockup={product.mockup}
+                        className="pd-design-img"
+                      />
+                    </div>
+                    {/* dots stay outside the zoom wrapper so they don't scale */}
                     {allImages.length > 1 && (
-                      <div className="pd-gallery-dots">
+                      <div className="pd-gallery-dots" style={{ pointerEvents: 'auto' }}>
                         {allImages.map((_, idx) => (
                           <span key={idx} className={`pd-gallery-dot ${idx === safeIdx ? 'active' : ''}`} onClick={() => setActiveImage(idx)} />
                         ))}
