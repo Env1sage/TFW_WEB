@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, ShoppingCart, Eye, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,6 +54,8 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
   };
 
   const colors = product.colors.slice(0, 6);
+  // Show mockup front image when product has no photo yet
+  const thumbImage = product.image || product.mockup?.frontImage || '';
 
   return (
     <>
@@ -70,7 +73,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         <div className="product-card-image">
           <MockupPreview
             category={product.category}
-            designImage={product.image}
+            designImage={thumbImage}
             color={product.colors?.[0]}
             mockup={product.mockup}
           />
@@ -116,29 +119,30 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         </div>
       </motion.div>
 
-      {/* Hover preview popup */}
-      <AnimatePresence>
-        {hovered && (
-          <motion.div
-            className="pc-hover-popup"
-            style={{ top: popupPos.top, left: popupPos.left, width: POPUP_W }}
-            initial={{ opacity: 0, scale: 0.94, x: -6 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.94, x: -6 }}
-            transition={{ duration: 0.15 }}
-            onMouseEnter={keepPopup}
-            onMouseLeave={hidePopup}
-            onClick={() => navigate(`/products/${product.id}`)}
-          >
-            {/* Image */}
-            <div className="pc-hover-img">
-              <MockupPreview
-                category={product.category}
-                designImage={product.image}
-                color={product.colors?.[0]}
-                mockup={product.mockup}
-              />
-            </div>
+      {/* Hover preview popup — rendered in body via portal to escape any transform containment */}
+      {createPortal(
+        <AnimatePresence>
+          {hovered && (
+            <motion.div
+              className="pc-hover-popup"
+              style={{ top: popupPos.top, left: popupPos.left, width: POPUP_W }}
+              initial={{ opacity: 0, scale: 0.96, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 6 }}
+              transition={{ duration: 0.15 }}
+              onMouseEnter={keepPopup}
+              onMouseLeave={hidePopup}
+              onClick={() => navigate(`/products/${product.id}`)}
+            >
+              {/* Image */}
+              <div className="pc-hover-img">
+                <MockupPreview
+                  category={product.category}
+                  designImage={thumbImage}
+                  color={product.colors?.[0]}
+                  mockup={product.mockup}
+                />
+              </div>
 
             <div className="pc-hover-body">
               <span className="pc-hover-cat">{product.category}</span>
@@ -195,9 +199,11 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
                 </Link>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 }
