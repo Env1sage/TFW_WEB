@@ -605,6 +605,11 @@ export async function initDB() {
       ALTER TABLE website_mockups ADD COLUMN IF NOT EXISTS color_filter BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE website_device_models ADD COLUMN IF NOT EXISTS in_stock BOOLEAN NOT NULL DEFAULT true;
     `);
+
+    // Remove old watch placeholder image that was hardcoded as the default product image
+    await client.query(`
+      UPDATE website_products SET image = '' WHERE image = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
+    `);
   } finally {
     client.release();
   }

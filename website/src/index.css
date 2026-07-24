@@ -1388,7 +1388,7 @@ html.dark .footer { background: #0A0C10; }
 .product-card-image > img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   transform-origin: center center;
   transform: scale(1);
@@ -5551,7 +5551,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 }
 .dsw-card__img > .mockup-wrap,
 .dsw-card__img > img {
-  width: 100%; height: 100%;
+  width: 100%; height: 100%; object-fit: contain;
   transform: scale(1); transform-origin: center;
   transition: transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94);
   will-change: transform; backface-visibility: hidden;
@@ -5671,7 +5671,10 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 }
 .dsw-preview-wrap .mockup-wrap,
 .dsw-preview-wrap img {
-  width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block;
+  width: 100%; height: auto; display: block; object-fit: contain;
+}
+.dsw-preview-wrap .mockup-canvas {
+  width: 100%; height: auto; display: block;
 }
 .dsw-preview-hint {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);

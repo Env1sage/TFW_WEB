@@ -20,9 +20,9 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   });
 }
 
-// Only apply mockup for locally-uploaded design artwork, not external product photos
+// Only apply mockup compositing for user-uploaded design artwork (not mockup templates or external photos)
 function isDesignArtwork(src: string): boolean {
-  return src.startsWith('/uploads/') || src.startsWith('/api/uploads/');
+  return src.startsWith('/uploads/products/') || src.startsWith('/api/uploads/products/');
 }
 
 /* ── Canvas compositing (from Mens_T-Shirt_Mockup.psd) ──
