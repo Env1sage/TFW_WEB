@@ -471,9 +471,9 @@
    ═══════════════════════════════════════════════════════ */
 .canvas-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: var(--bg);
-  background: radial-gradient(ellipse at 50% 40%, rgba(14,124,97,0.06) 0%, var(--bg) 70%);
-  overflow: hidden; position: relative; padding: 8px;
+  background: var(--surface-2);
+  background: radial-gradient(ellipse at 50% 40%, rgba(14,124,97,0.05) 0%, var(--surface-2, #f3f4f6) 70%);
+  overflow: hidden; position: relative; padding: 16px;
 }
 .canvas-wrap {
   display: inline-block; line-height: 0;

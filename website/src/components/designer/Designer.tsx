@@ -475,9 +475,9 @@ export default function Designer() {
     if (!fc) return;
     const area = document.querySelector('.canvas-area');
     if (!area) return;
-    const maxW = area.clientWidth - 60, maxH = area.clientHeight - 60;
+    const maxW = area.clientWidth - 32, maxH = area.clientHeight - 32;
     if (maxW <= 0 || maxH <= 0) return;
-    const scale = Math.min(maxW / CW, maxH / CH, 1);
+    const scale = Math.min(maxW / CW, maxH / CH);
     const w = Math.round(CW * scale) + 'px', h = Math.round(CH * scale) + 'px';
     if (fc.lowerCanvasEl) { fc.lowerCanvasEl.style.width = w; fc.lowerCanvasEl.style.height = h; }
     if (fc.upperCanvasEl) { fc.upperCanvasEl.style.width = w; fc.upperCanvasEl.style.height = h; }
@@ -490,7 +490,7 @@ export default function Designer() {
     if (!canvasRef.current) return;
     const fc = new fabric.Canvas(canvasRef.current, {
       width: CW, height: CH,
-      backgroundColor: '#e8eaed',
+      backgroundColor: '#ffffff',
       preserveObjectStacking: true,
     });
     fcRef.current = fc;
