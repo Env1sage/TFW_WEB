@@ -50,8 +50,9 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
   try {
     const { name, tagline, tag, gradient, glow, shimmer, symbol, badge, badgeColor, featured, active, sortOrder, coverImage } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const collection = await db.createCollection({
-      id: uuid(), name, tagline: tagline || '', tag: tag || 'Custom',
+      id: uuid(), name, slug, tagline: tagline || '', tag: tag || 'Custom',
       gradient: gradient || 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
       glow: glow || '#0E7C61',
       shimmer: shimmer || 'rgba(255,255,255,0.15)',
