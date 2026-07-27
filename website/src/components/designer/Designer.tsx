@@ -152,9 +152,12 @@ export default function Designer() {
     el.onload = () => {
       const nw = el.naturalWidth || CW;
       const nh = el.naturalHeight || CH;
+      const uniformScale = Math.min(CW / nw, CH / nh);
+      const offsetX = (CW - nw * uniformScale) / 2;
+      const offsetY = (CH - nh * uniformScale) / 2;
       const overlay = new fabric.FabricImage(el, {
-        left: 0, top: 0,
-        scaleX: CW / nw, scaleY: CH / nh,
+        left: offsetX, top: offsetY,
+        scaleX: uniformScale, scaleY: uniformScale,
         originX: 'left', originY: 'top',
         selectable: false, evented: false,
         excludeFromExport: true,
@@ -190,9 +193,12 @@ export default function Designer() {
         try {
           const nw = el.naturalWidth || CW;
           const nh = el.naturalHeight || CH;
+          const uniformScale = Math.min(CW / nw, CH / nh);
+          const offsetX = (CW - nw * uniformScale) / 2;
+          const offsetY = (CH - nh * uniformScale) / 2;
           const fImg = new fabric.FabricImage(el, {
-            left: 0, top: 0,
-            scaleX: CW / nw, scaleY: CH / nh,
+            left: offsetX, top: offsetY,
+            scaleX: uniformScale, scaleY: uniformScale,
             originX: 'left', originY: 'top',
             selectable: false, evented: false,
           });
@@ -1396,35 +1402,7 @@ export default function Designer() {
         />
         <div
           className="canvas-area"
-          onMouseMove={handleCanvasMouseMove}
-          onMouseLeave={() => setCanvasHover(null)}
         >
-          {canvasHover && hoverSnapshot && (
-            <div
-              className="ds-hover-zoom"
-              style={{
-                position: 'fixed',
-                left: canvasHover.left,
-                top: canvasHover.top,
-                zIndex: 2000,
-                pointerEvents: 'none',
-              }}
-            >
-              <img
-                src={hoverSnapshot}
-                alt="Zoom preview"
-                style={{
-                  width: 320, height: 400,
-                  objectFit: 'contain',
-                  display: 'block',
-                  borderRadius: 16,
-                  boxShadow: '0 12px 48px rgba(0,0,0,.28)',
-                  background: '#fff',
-                  border: '1px solid #e5e7eb',
-                }}
-              />
-            </div>
-          )}
           <div
             className="canvas-wrap"
             style={{ position: 'relative' }}
