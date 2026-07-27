@@ -247,7 +247,7 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
                             <div className="order-design-details">
                               <div className="order-item">
                                 <span className="item-name" style={{ textTransform: 'capitalize' }}>
-                                  {PRODUCT_LABELS[dOrder.productType] || dOrder.productType}
+                                  {dOrder.productName || PRODUCT_LABELS[dOrder.productType] || dOrder.productType}
                                 </span>
                                 <span className="item-qty">×{dOrder.quantity}</span>
                               </div>

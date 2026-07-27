@@ -307,10 +307,10 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   console.warn('WARNING: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set — payments will be simulated');
 }
 
-// Get all products (public)
+// Get all products (public — excludes collection-only; pass ?all=1 for admin)
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const { category, subcategory, search, featured, sort, minPrice, maxPrice, brand, model } = _req.query;
+    const { category, subcategory, search, featured, sort, minPrice, maxPrice, brand, model, all } = _req.query;
     const products = await db.getProducts({
       category: category as string,
       subcategory: subcategory as string | undefined,
@@ -321,6 +321,7 @@ router.get('/', async (_req: Request, res: Response) => {
       maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
       brandSlug: brand as string | undefined,
       modelSlug: model as string | undefined,
+      collectionOnly: all === '1' ? undefined : false,
     });
     res.json(products);
   } catch (e: any) {
@@ -655,7 +656,7 @@ router.get('/analytics', authMiddleware, adminMiddleware, async (_req: Request, 
 // --- Design Orders (must be before /:id) ---
 router.post('/design-orders', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { productType, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName, groupOrderId,
+    const { productType, productName: clientProductName, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName, groupOrderId,
             deliveryMethod: dDeliveryMethod, deliveryConfig: dDeliveryConfig, shippingCost: dShippingCost } = req.body;
     if (!productType || !designImages || !quantity) return res.status(400).json({ error: 'Product type, design images, and quantity are required' });
     const userId: string = (req as any).userId;
@@ -687,7 +688,8 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
     }
 
     const order = await db.addDesignOrder({
-      id: orderId, userId, productType, colorHex: colorHex || '#ffffff',
+      id: orderId, userId, productType, productName: clientProductName || mockupName || undefined,
+      colorHex: colorHex || '#ffffff',
       colorName: colorName || 'White', printSize: printSize || 'full',
       sides: sides || [], designImages: persistedDesignImages,
       uploadedImages: uploadedImages || {},

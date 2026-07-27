@@ -52,6 +52,7 @@ export interface Product {
   printAreas?: { name: string; w: string; h: string }[];
   careInstructions?: { text: string }[];
   faqs?: { q: string; a: string }[];
+  collectionOnly?: boolean;
 }
 
 export interface ProductVariant {
@@ -216,6 +217,7 @@ export interface DesignOrder {
   id: string;
   userId: string | null;
   productType: string;
+  productName?: string;
   colorHex: string;
   colorName: string;
   printSize: string;

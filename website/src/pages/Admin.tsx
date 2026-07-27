@@ -55,6 +55,11 @@ const STOCK_STATUS: Record<string, { label: string; dot: string; bg: string; col
   out_of_stock:  { label: 'Out of Stock',  dot: '#ef4444', bg: '#fee2e2', color: '#991b1b' },
 };
 
+const PRODUCT_LABELS: Record<string, string> = {
+  tshirt: 'Custom T-Shirt', hoodie: 'Custom Hoodie', jacket: 'Custom Jacket',
+  cap: 'Custom Cap', pant: 'Custom Pants',
+};
+
 const LEAD_STATUS: Record<string, { label: string; bg: string; color: string }> = {
   new:        { label: 'New',       bg: '#dbeafe', color: '#1d4ed8' },
   contacted:  { label: 'Contacted', bg: '#fef3c7', color: '#92400e' },
@@ -65,7 +70,7 @@ const LEAD_STATUS: Record<string, { label: string; bg: string; color: string }> 
 
 const defaultProduct: Partial<Product> = {
   name: '', description: '', price: 0, category: '', image: '', images: [], customizable: false,
-  featured: false, colors: [], sizes: [], rating: 4.5, reviewCount: 0,
+  featured: false, collectionOnly: false, colors: [], sizes: [], rating: 4.5, reviewCount: 0,
   weightGrams: 200, lengthCm: 30, breadthCm: 20, heightCm: 5,
   highlights: [], fabricInfo: '', printMethods: [], printAreas: [], careInstructions: [], faqs: [],
 };
@@ -361,7 +366,7 @@ export default function Admin() {
     setLoading(true);
     try {
       const [p, o, a, m, d, cats, mockupCats, coup, zones] = await Promise.all([
-        api.getProducts(), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(), api.getCoupons(), api.getShippingZones(),
+        api.getProducts({ all: '1' }), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(), api.getCoupons(), api.getShippingZones(),
       ]);
       setProducts(p); setOrders(o); setAnalytics(a); setMockups(m); setDesignOrders(d); setCategories(cats); setMockupCategories(mockupCats); setCoupons(coup); setShippingZones(zones);
     } catch { toast.error('Failed to load data'); }
@@ -2073,7 +2078,10 @@ export default function Admin() {
                               onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/56x56/e2e8f0/94a3b8?text=No+Img'; }} />
                           </td>
                           <td>
-                            <strong style={{ display: 'block' }}>{p.name}</strong>
+                            <strong style={{ display: 'block' }}>
+                              {p.name}
+                              {p.collectionOnly && <span style={{ marginLeft: 6, fontSize: '0.65rem', padding: '1px 6px', background: '#ede9fe', color: '#5b21b6', borderRadius: 10, verticalAlign: 'middle', fontWeight: 600 }}>Collection</span>}
+                            </strong>
                             <code style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{p.id}</code>
                           </td>
                           <td>{p.category}</td>
@@ -2392,7 +2400,7 @@ export default function Admin() {
                           ) : (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               {firstDesignImage && <img src={firstDesignImage} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#1e293b' }} />}
-                              <span style={{ textTransform: 'capitalize', fontSize: '0.85rem' }}>{dOrders[0]?.productType}</span>
+                              <span style={{ fontSize: '0.85rem' }}>{dOrders[0]?.productName || PRODUCT_LABELS[dOrders[0]?.productType || ''] || dOrders[0]?.productType}</span>
                             </span>
                           )}
                         </div>
@@ -2492,7 +2500,7 @@ export default function Admin() {
                                       <span>Custom Design</span>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, padding: '10px 0' }}>
-                                      <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Product</strong><p style={{ textTransform: 'capitalize', margin: '4px 0 0' }}>{o.productType}</p></div>
+                                      <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Product</strong><p style={{ margin: '4px 0 0' }}>{o.productName || PRODUCT_LABELS[o.productType] || o.productType}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Color</strong><p style={{ margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 14, borderRadius: '50%', background: o.colorHex, border: o.colorHex === '#ffffff' ? '2px solid #555' : 'none', display: 'inline-block' }} />{o.colorName}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Print Size</strong><p style={{ textTransform: 'capitalize', margin: '4px 0 0' }}>{o.printSize}</p></div>
                                       <div><strong style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>Sides</strong><p style={{ margin: '4px 0 0' }}>{(o.sides || []).join(', ')}</p></div>
@@ -3076,7 +3084,10 @@ export default function Admin() {
                           style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.85rem' }}
                         >
                           <option value="">— Select a product to add —</option>
-                          {products.filter(p => !(colProducts[col.id] || []).some((cp: any) => cp.id === p.id)).map(p => (
+                          {products.filter(p => p.collectionOnly && !(colProducts[col.id] || []).some((cp: any) => cp.id === p.id)).length === 0 && (
+                            <option disabled value="">— No collection-exclusive products yet. Create one in Products tab with "Collection Exclusive" checked —</option>
+                          )}
+                          {products.filter(p => p.collectionOnly && !(colProducts[col.id] || []).some((cp: any) => cp.id === p.id)).map(p => (
                             <option key={p.id} value={p.id}>{p.name} ({p.category}) — ₹{p.price}</option>
                           ))}
                         </select>
@@ -4397,6 +4408,7 @@ MSG91_SENDER_ID=TFWALL`}
                         </label>
                         <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
                           <label className="checkbox-label"><input type="checkbox" checked={productForm.featured} onChange={e => setProductForm({ ...productForm, featured: e.target.checked })} /> Featured</label>
+                          <label className="checkbox-label" title="Collection-only products are hidden from general browsing and only appear in specific collections"><input type="checkbox" checked={(productForm as any).collectionOnly ?? false} onChange={e => setProductForm({ ...productForm, collectionOnly: e.target.checked } as any)} /> Collection Exclusive</label>
                         </div>
                       </div>
                     </div>

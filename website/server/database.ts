@@ -624,6 +624,16 @@ export async function initDB() {
     await client.query(`
       UPDATE website_products SET image = '' WHERE image = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
     `);
+
+    // Add product_name to design orders for human-readable display
+    await client.query(`
+      ALTER TABLE website_design_orders ADD COLUMN IF NOT EXISTS product_name TEXT;
+    `);
+
+    // Add collection_only flag — products exclusive to collections don't appear in general browsing
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS collection_only BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
   } finally {
     client.release();
   }
@@ -783,7 +793,7 @@ export interface DBProduct {
   category: string; categoryId?: string; mockupId?: string;
   image: string; images: string[]; customizable: boolean; colors: string[];
   sizes: string[]; stock: number; rating: number; reviewCount: number;
-  featured: boolean; createdAt: string;
+  featured: boolean; createdAt: string; collectionOnly: boolean;
   weightGrams: number; lengthCm: number; breadthCm: number; heightCm: number;
   mockup?: { id: string; frontImage: string; backImage?: string; frontShadow?: string; backShadow?: string; printArea: any };
   highlights: string[];
@@ -804,7 +814,7 @@ function rowToProduct(row: any): DBProduct {
     images: row.images || [], customizable: row.customizable,
     colors: row.colors || [], sizes: row.sizes || [],
     stock: row.stock, rating: parseFloat(row.rating), reviewCount: row.review_count,
-    featured: row.featured, createdAt: row.created_at,
+    featured: row.featured, createdAt: row.created_at, collectionOnly: row.collection_only || false,
     weightGrams: row.weight_grams || 200, lengthCm: row.length_cm || 30,
     breadthCm: row.breadth_cm || 20, heightCm: row.height_cm || 5,
     highlights: row.highlights || [],
@@ -827,9 +837,11 @@ function rowToProduct(row: any): DBProduct {
   return product;
 }
 
-export async function getProducts(opts?: { category?: string; subcategory?: string; search?: string; featured?: boolean; sort?: string; minPrice?: number; maxPrice?: number; brandSlug?: string; modelSlug?: string }): Promise<DBProduct[]> {
+export async function getProducts(opts?: { category?: string; subcategory?: string; search?: string; featured?: boolean; sort?: string; minPrice?: number; maxPrice?: number; brandSlug?: string; modelSlug?: string; collectionOnly?: boolean }): Promise<DBProduct[]> {
   let where = ''; const params: any[] = []; let idx = 1;
   const conditions: string[] = [];
+  if (opts?.collectionOnly === false) { conditions.push(`(p.collection_only = false OR p.collection_only IS NULL)`); }
+  else if (opts?.collectionOnly === true) { conditions.push(`p.collection_only = true`); }
   if (opts?.category && opts.category !== 'all') { conditions.push(`p.category = $${idx}`); params.push(opts.category); idx++; }
   if (opts?.subcategory) { conditions.push(`p.subcategory = $${idx}`); params.push(opts.subcategory); idx++; }
   if (opts?.search) {
@@ -966,9 +978,9 @@ export async function deleteMockupCategory(id: string) {
 export async function addProduct(p: any): Promise<DBProduct> {
   const slug = p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const { rows } = await pool.query(
-    `INSERT INTO website_products (id, slug, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,NOW()) RETURNING *`,
-    [p.id, slug, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5]
+    `INSERT INTO website_products (id, slug, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, collection_only, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW()) RETURNING *`,
+    [p.id, slug, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5, p.collectionOnly ?? false]
   );
   return rowToProduct(rows[0]);
 }
@@ -980,7 +992,7 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
     image: 'image', customizable: 'customizable', stock: 'stock',
     rating: 'rating', reviewCount: 'review_count', featured: 'featured',
     weightGrams: 'weight_grams', lengthCm: 'length_cm', breadthCm: 'breadth_cm', heightCm: 'height_cm',
-    fabricInfo: 'fabric_info',
+    fabricInfo: 'fabric_info', collectionOnly: 'collection_only',
   };
   const jsonFields = ['images', 'colors', 'sizes', 'highlights', 'printMethods', 'printAreas', 'careInstructions', 'faqs'];
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
@@ -1533,7 +1545,7 @@ export async function getDbViewer() {
 
 /* ── Design Order queries ── */
 export interface DBDesignOrder {
-  id: string; userId: string | null; productType: string;
+  id: string; userId: string | null; productType: string; productName?: string;
   colorHex: string; colorName: string; printSize: string;
   sides: string[]; designImages: Record<string, string>;
   uploadedImages: Record<string, string[]>;
@@ -1546,7 +1558,7 @@ export interface DBDesignOrder {
 
 function rowToDesignOrder(row: any): DBDesignOrder {
   return {
-    id: row.id, userId: row.user_id, productType: row.product_type,
+    id: row.id, userId: row.user_id, productType: row.product_type, productName: row.product_name || undefined,
     colorHex: row.color_hex, colorName: row.color_name, printSize: row.print_size,
     sides: row.sides || [], designImages: row.design_images || {},
     uploadedImages: row.uploaded_images || {},
@@ -1570,7 +1582,7 @@ function rowToDesignOrder(row: any): DBDesignOrder {
 }
 
 export async function addDesignOrder(o: {
-  id: string; userId: string | null; productType: string;
+  id: string; userId: string | null; productType: string; productName?: string;
   colorHex: string; colorName: string; printSize: string;
   sides: string[]; designImages: Record<string, string>;
   uploadedImages?: Record<string, string[]>;
@@ -1578,9 +1590,9 @@ export async function addDesignOrder(o: {
   shippingAddress: string; groupOrderId?: string;
 }): Promise<DBDesignOrder> {
   const { rows } = await pool.query(
-    `INSERT INTO website_design_orders (id, user_id, product_type, color_hex, color_name, print_size, sides, design_images, uploaded_images, quantity, unit_price, total, status, shipping_address, group_order_id, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending',$13,$14,NOW()) RETURNING *`,
-    [o.id, o.userId, o.productType, o.colorHex, o.colorName, o.printSize,
+    `INSERT INTO website_design_orders (id, user_id, product_type, product_name, color_hex, color_name, print_size, sides, design_images, uploaded_images, quantity, unit_price, total, status, shipping_address, group_order_id, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',$14,$15,NOW()) RETURNING *`,
+    [o.id, o.userId, o.productType, o.productName || null, o.colorHex, o.colorName, o.printSize,
      JSON.stringify(o.sides), JSON.stringify(o.designImages),
      JSON.stringify(o.uploadedImages || {}),
      o.quantity, o.unitPrice, o.total, o.shippingAddress, o.groupOrderId || null]
