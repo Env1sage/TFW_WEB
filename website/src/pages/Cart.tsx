@@ -386,7 +386,7 @@ export default function Cart() {
     try {
       if (items.length > 0) {
         await api.createOrder(
-          items.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText })),
+          items.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText, phoneBrand: i.phoneBrand, phoneModel: i.phoneModel })),
           shippingAddress,
           { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost }
         );
@@ -487,13 +487,22 @@ export default function Cart() {
       <h3>Order Summary</h3>
       {showItems && (
         <div className="checkout-item-list">
-          {items.map(item => (
-            <div key={item.cartItemId} className="checkout-mini-item">
-              <img src={item.product.image} alt={item.product.name} />
-              <span className="checkout-mini-name">{item.product.name} ×{item.quantity}</span>
-              <span className="checkout-mini-price">₹{(item.product.price * item.quantity).toFixed(0)}</span>
-            </div>
-          ))}
+          {items.map(item => {
+            const miniThumb = item.product.image || item.product.images?.[0] || (item.product.mockup as any)?.frontImage || '';
+            return (
+              <div key={item.cartItemId} className="checkout-mini-item">
+                {miniThumb
+                  ? <img src={miniThumb} alt={item.product.name} />
+                  : <div className="checkout-mini-img-placeholder"><Package size={18} /></div>}
+                <span className="checkout-mini-name">
+                  {item.product.name}
+                  {item.phoneBrand && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-3)' }}>{item.phoneBrand}{item.phoneModel ? ` · ${item.phoneModel}` : ''}</span>}
+                  {' '}×{item.quantity}
+                </span>
+                <span className="checkout-mini-price">₹{(item.product.price * item.quantity).toFixed(0)}</span>
+              </div>
+            );
+          })}
           {designItems.map(d => (
             <div key={d.id} className="checkout-mini-item">
               <div className="checkout-mini-img-placeholder"><Palette size={16} /></div>
@@ -741,14 +750,19 @@ export default function Cart() {
         <div className="cart-layout">
           <div className="cart-items">
             <AnimatePresence>
-              {items.map(item => (
+              {items.map(item => {
+                const cartThumb = item.product.image || item.product.images?.[0] || (item.product.mockup as any)?.frontImage || '';
+                return (
                 <motion.div key={item.cartItemId} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
-                  <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
+                  {cartThumb
+                    ? <img src={cartThumb} alt={item.product.name} className="cart-item-img" />
+                    : <div className="cart-item-img" style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} style={{ color: 'var(--text-3)' }} /></div>}
                   <div className="cart-item-info">
                     <Link to={`/products/${item.product.id}`}><h3>{item.product.name}</h3></Link>
                     <p className="cart-item-meta">
                       {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' ? '1px solid var(--border)' : 'none' }} />}
                       {item.size && <span>{item.size}</span>}
+                      {item.phoneBrand && <span className="cart-phone-tag">{item.phoneBrand}{item.phoneModel ? ` · ${item.phoneModel}` : ''}</span>}
                       {item.product.customizable && (
                         <Link to={item.product.mockupId ? `/design-studio/product/${item.product.id}` : '/design-studio'} className="cart-customize-btn"><Palette size={12} /> Customise</Link>
                       )}
@@ -765,7 +779,7 @@ export default function Cart() {
                     <button className="icon-btn danger" onClick={() => removeItem(item.cartItemId)}><Trash2 size={16} /></button>
                   </div>
                 </motion.div>
-              ))}
+              );})}
             </AnimatePresence>
 
             <AnimatePresence>

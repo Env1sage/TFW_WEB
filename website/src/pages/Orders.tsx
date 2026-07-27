@@ -197,6 +197,7 @@ ${invoice.discountAmount > 0 ? `<p style="color:#6b7280">Subtotal: \u20b9${(invo
                                   <div className="order-item-meta">
                                     {item.size && <span className="item-size">{item.size}</span>}
                                     {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' || item.color === '#fff' ? '1px solid #ddd' : 'none' }} />}
+                                    {item.phoneBrand && <span className="item-size">{item.phoneBrand}{item.phoneModel ? ` · ${item.phoneModel}` : ''}</span>}
                                     <span className="item-qty">×{item.quantity}</span>
                                   </div>
                                 </div>
