@@ -7,6 +7,7 @@ function genId() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7
 export interface DesignCartItem {
   id: string;           // unique client-side id (Date.now string)
   productType: string;
+  productName?: string;
   colorHex: string;
   colorName: string;
   printSize: string;

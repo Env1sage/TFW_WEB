@@ -445,7 +445,12 @@ export default function Cart() {
         modal: { ondismiss: () => setProcessing(false) },
       };
       const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', (r: any) => { toast.error(r.error?.description || 'Payment failed'); setProcessing(false); });
+      rzp.on('payment.failed', (r: any) => {
+        const desc = r.error?.description || 'Payment failed';
+        const isAuthErr = desc.toLowerCase().includes('authentication');
+        toast.error(isAuthErr ? 'Payment authentication failed. Please try a different card or contact your bank.' : desc);
+        setProcessing(false);
+      });
       rzp.open();
     } catch (e: any) {
       toast.error(e.message || 'Payment init failed');
@@ -503,13 +508,19 @@ export default function Cart() {
               </div>
             );
           })}
-          {designItems.map(d => (
-            <div key={d.id} className="checkout-mini-item">
-              <div className="checkout-mini-img-placeholder"><Palette size={16} /></div>
-              <span className="checkout-mini-name">{PRODUCT_LABELS[d.productType] || d.productType} ×{d.quantity}</span>
-              <span className="checkout-mini-price">₹{d.total.toLocaleString('en-IN')}</span>
-            </div>
-          ))}
+          {designItems.map(d => {
+            const firstDesignImg = Object.values(d.designImages || {}).find(img => img);
+            const displayName = PRODUCT_LABELS[d.productType] || d.productName || 'Custom Design';
+            return (
+              <div key={d.id} className="checkout-mini-item">
+                {firstDesignImg
+                  ? <img src={firstDesignImg} alt={displayName} style={{ objectFit: 'contain', background: 'var(--surface-2)' }} />
+                  : <div className="checkout-mini-img-placeholder"><Palette size={16} /></div>}
+                <span className="checkout-mini-name">{displayName} ×{d.quantity}</span>
+                <span className="checkout-mini-price">₹{d.total.toLocaleString('en-IN')}</span>
+              </div>
+            );
+          })}
           <div className="summary-divider" />
         </div>
       )}
@@ -796,7 +807,7 @@ export default function Cart() {
                     )}
                     <div className="cart-item-info">
                       <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {PRODUCT_LABELS[d.productType] || d.productType}
+                        {PRODUCT_LABELS[d.productType] || d.productName || 'Custom Design'}
                         <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'var(--primary-50)', color: 'var(--primary)', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>Custom</span>
                       </h3>
                       <p className="cart-item-meta">

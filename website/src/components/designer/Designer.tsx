@@ -1232,6 +1232,7 @@ export default function Designer() {
     // Store design data in sessionStorage for the cart page
     const designData = {
       productType: activeProductType,
+      productName: productName,
       colorHex: activeColorHex,
       colorName: activeColorName,
       printSize: activePrintSize,

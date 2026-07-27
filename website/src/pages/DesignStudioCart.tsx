@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 
 interface DesignCartData {
   productType: string;
+  productName?: string;
   colorHex: string;
   colorName: string;
   printSize: string;
@@ -63,7 +64,7 @@ export default function DesignStudioCart() {
         <motion.div style={{ textAlign: 'center', maxWidth: 500, padding: 32 }} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
           <div style={{ fontSize: 64, marginBottom: 16 }}>&#10003;</div>
           <h2>Order Placed Successfully!</h2>
-          <p>Your custom {PRODUCT_LABELS[data.productType] || data.productType} is being prepared.</p>
+          <p>Your custom {PRODUCT_LABELS[data.productType] || data.productName || 'Custom Design'} is being prepared.</p>
           <p className="order-id-text">Order ID: {orderId.slice(0, 8)}</p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link to="/" className="dsc-btn-primary">Go Home</Link>
@@ -117,7 +118,7 @@ export default function DesignStudioCart() {
               <div className="dsc-detail-grid">
                 <div>
                   <span className="dsc-detail-label">Product</span>
-                  <p className="dsc-detail-value">{PRODUCT_LABELS[data.productType] || data.productType}</p>
+                  <p className="dsc-detail-value">{PRODUCT_LABELS[data.productType] || data.productName || 'Custom Design'}</p>
                 </div>
                 <div>
                   <span className="dsc-detail-label">Color</span>
