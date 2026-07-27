@@ -758,13 +758,13 @@ export default function Cart() {
                     ? <img src={cartThumb} alt={item.product.name} className="cart-item-img" />
                     : <div className="cart-item-img" style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} style={{ color: 'var(--text-3)' }} /></div>}
                   <div className="cart-item-info">
-                    <Link to={`/products/${item.product.id}`}><h3>{item.product.name}</h3></Link>
+                    <Link to={`/products/${(item.product as any).slug || item.product.id}`}><h3>{item.product.name}</h3></Link>
                     <p className="cart-item-meta">
                       {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' ? '1px solid var(--border)' : 'none' }} />}
                       {item.size && <span>{item.size}</span>}
                       {item.phoneBrand && <span className="cart-phone-tag">{item.phoneBrand}{item.phoneModel ? ` · ${item.phoneModel}` : ''}</span>}
                       {item.product.customizable && (
-                        <Link to={item.product.mockupId ? `/design-studio/product/${item.product.id}` : '/design-studio'} className="cart-customize-btn"><Palette size={12} /> Customise</Link>
+                        <Link to={item.product.mockupId ? `/design-studio/product/${(item.product as any).slug || item.product.id}` : '/design-studio'} className="cart-customize-btn"><Palette size={12} /> Customise</Link>
                       )}
                     </p>
                     <span className="cart-item-price">₹{item.product.price.toFixed(0)}</span>

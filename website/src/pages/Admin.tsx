@@ -2106,7 +2106,7 @@ export default function Admin() {
                             >
                               {outOfStock ? <Eye size={15} /> : <EyeOff size={15} />}
                             </button>
-                            <button className="icon-btn" title="Preview product page" onClick={() => window.open(`/products/${p.id}`, '_blank')}><ExternalLink size={15} /></button>
+                            <button className="icon-btn" title="Preview product page" onClick={() => window.open(`/products/${p.slug || p.id}`, '_blank')}><ExternalLink size={15} /></button>
                             <button className="icon-btn" title="Edit product" onClick={() => openEditProduct(p)}><Edit3 size={16} /></button>
                             <button className="icon-btn danger" title="Delete product" onClick={() => handleDeleteProduct(p.id)}><Trash2 size={16} /></button>
                           </td>
@@ -4345,7 +4345,7 @@ MSG91_SENDER_ID=TFWALL`}
                   <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     {editingProduct && (
-                      <a href={`/products/${editingProduct.id}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82rem', padding: '6px 12px' }}>
+                      <a href={`/products/${editingProduct.slug || editingProduct.id}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82rem', padding: '6px 12px' }}>
                         <ExternalLink size={14} /> Preview
                       </a>
                     )}
@@ -4649,7 +4649,7 @@ MSG91_SENDER_ID=TFWALL`}
                   <div className="modal-actions">
                     <button type="button" className="btn btn-ghost" onClick={closeProductForm}>Cancel</button>
                     {editingProduct && (
-                      <button type="button" className="btn btn-ghost" onClick={() => window.open(`/products/${editingProduct.id}`, '_blank')}>
+                      <button type="button" className="btn btn-ghost" onClick={() => window.open(`/products/${editingProduct.slug || editingProduct.id}`, '_blank')}>
                         <ExternalLink size={14} /> Preview Page
                       </button>
                     )}

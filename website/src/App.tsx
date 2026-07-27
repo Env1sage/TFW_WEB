@@ -95,7 +95,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<Products />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/products/:slug" element={<ProductDetail />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
               <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
@@ -108,7 +108,7 @@ function AppContent() {
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
               <Route path="/design-studio" element={<DesignStudioLanding />} />
-              <Route path="/design-studio/product/:id" element={<DesignStudioProduct />} />
+              <Route path="/design-studio/product/:slug" element={<DesignStudioProduct />} />
               <Route path="/collections" element={<Collections />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />

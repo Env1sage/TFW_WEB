@@ -212,7 +212,7 @@ const getCareIcon = (icon: string) => {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function ProductDetail() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -262,12 +262,14 @@ export default function ProductDetail() {
   const { addItem } = useCart();
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     setLoading(true);
     setError(null);
     setBrands([]); setModels([]); setSelectedBrand(null); setSelectedModel(null);
-    api.getProduct(id).then(p => {
+    let loadedProductId = '';
+    api.getProduct(slug).then(p => {
       if (!p) throw new Error('Product not found');
+      loadedProductId = p.id;
       setProduct(p);
       if (p.colors?.length) setSelectedColor(p.colors[0]);
       if (p.sizes?.length) setSelectedSize(p.sizes[0]);
@@ -283,11 +285,11 @@ export default function ProductDetail() {
       // Load related products
       return api.getProducts({ category: p.category });
     }).then(all => {
-      if (all) setRelated((all as Product[]).filter((x: Product) => x.id !== id).slice(0, 4));
+      if (all) setRelated((all as Product[]).filter((x: Product) => x.id !== loadedProductId).slice(0, 4));
     }).catch((err) => {
       setError(err.message || 'Failed to load product');
     }).finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
 
   useEffect(() => {
     if (!selectedBrand) { setModels([]); setSelectedModel(null); return; }

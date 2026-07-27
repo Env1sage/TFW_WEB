@@ -76,7 +76,7 @@ function StepBar({ step }: { step: number }) {
 }
 
 export default function DesignStudioProduct() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [product, setProduct]         = useState<Product | null>(null);
   const [loading, setLoading]         = useState(true);
@@ -87,9 +87,9 @@ export default function DesignStudioProduct() {
   const [showFabric, setShowFabric]       = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     setLoading(true);
-    api.getProduct(id)
+    api.getProduct(slug)
       .then(p => {
         if (!p) throw new Error('not found');
         setProduct(p);
@@ -97,7 +97,7 @@ export default function DesignStudioProduct() {
         if (cols.length) setSelectedColor(cols[0]);
         if (p.sizes?.length) setSelectedSize(p.sizes[0]);
       })
-      .catch(() => api.getMockupPublic(id).then((m: any) => {
+      .catch(() => api.getMockupPublic(slug).then((m: any) => {
         const p = mockupToProduct(m);
         setProduct(p);
         if (p.colors.length) setSelectedColor(p.colors[0]);
@@ -105,14 +105,15 @@ export default function DesignStudioProduct() {
       }))
       .catch(err => setError(err.message || 'Failed to load product'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
 
   const handleDesign = () => {
-    if (!id) return;
+    if (!product) return;
+    const customizerTarget = product.mockup?.id || product.mockupId || product.id;
     const params = new URLSearchParams();
     if (selectedColor) { params.set('color', selectedColor); params.set('colorName', getColorName(selectedColor)); }
     if (selectedSize)  params.set('size', selectedSize);
-    navigate(`/design-studio/customize/${id}?${params.toString()}`);
+    navigate(`/design-studio/customize/${customizerTarget}?${params.toString()}`);
   };
 
   if (loading) return <div className="page-spinner"><div className="spinner" /></div>;

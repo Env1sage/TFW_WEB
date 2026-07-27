@@ -372,6 +372,13 @@ export async function initDB() {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_slug ON website_collections(slug);
     `);
 
+    // Products slug migration
+    await client.query(`
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS slug TEXT;
+      UPDATE website_products SET slug = LOWER(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '-', 'g')) WHERE slug IS NULL OR slug = '';
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_products_slug ON website_products(slug);
+    `);
+
     // Phone-based OTP auth migrations
     await client.query(`
       ALTER TABLE website_users ALTER COLUMN email DROP NOT NULL;
@@ -772,7 +779,7 @@ export async function markOtpVerified(sessionId: string) {
 
 /* ── Product queries ── */
 export interface DBProduct {
-  id: string; name: string; description: string; price: number;
+  id: string; slug: string; name: string; description: string; price: number;
   category: string; categoryId?: string; mockupId?: string;
   image: string; images: string[]; customizable: boolean; colors: string[];
   sizes: string[]; stock: number; rating: number; reviewCount: number;
@@ -789,7 +796,7 @@ export interface DBProduct {
 
 function rowToProduct(row: any): DBProduct {
   const product: DBProduct = {
-    id: row.id, name: row.name, description: row.description,
+    id: row.id, slug: row.slug || row.id, name: row.name, description: row.description,
     price: parseFloat(row.price), category: row.category,
     categoryId: row.category_id || undefined,
     mockupId: row.mockup_id || undefined,
@@ -863,13 +870,13 @@ export async function getProducts(opts?: { category?: string; subcategory?: stri
   return rows.map(rowToProduct);
 }
 
-export async function getProductById(id: string): Promise<DBProduct | null> {
+export async function getProductById(idOrSlug: string): Promise<DBProduct | null> {
   const { rows } = await pool.query(
     `SELECT p.*, m.id AS m_id, m.front_image AS m_front_image, m.back_image AS m_back_image,
             m.front_shadow AS m_front_shadow, m.back_shadow AS m_back_shadow, m.print_area AS m_print_area
      FROM website_products p
      LEFT JOIN website_mockups m ON m.id = p.mockup_id
-     WHERE p.id = $1`, [id]);
+     WHERE p.id = $1 OR p.slug = $1`, [idOrSlug]);
   return rows.length ? rowToProduct(rows[0]) : null;
 }
 
@@ -957,17 +964,18 @@ export async function deleteMockupCategory(id: string) {
 }
 
 export async function addProduct(p: any): Promise<DBProduct> {
+  const slug = p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const { rows } = await pool.query(
-    `INSERT INTO website_products (id, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,NOW()) RETURNING *`,
-    [p.id, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5]
+    `INSERT INTO website_products (id, slug, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,NOW()) RETURNING *`,
+    [p.id, slug, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5]
   );
   return rowToProduct(rows[0]);
 }
 
 export async function updateProduct(id: string, patch: Record<string, any>): Promise<DBProduct | null> {
   const fieldMap: Record<string, string> = {
-    name: 'name', description: 'description', price: 'price', category: 'category',
+    name: 'name', slug: 'slug', description: 'description', price: 'price', category: 'category',
     categoryId: 'category_id', mockupId: 'mockup_id',
     image: 'image', customizable: 'customizable', stock: 'stock',
     rating: 'rating', reviewCount: 'review_count', featured: 'featured',

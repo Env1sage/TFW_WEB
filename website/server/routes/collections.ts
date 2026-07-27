@@ -34,7 +34,7 @@ router.get('/:id/products', async (req, res) => {
     const rows = await db.getCollectionProducts(col.id);
     // Shape into Product-like objects matching the frontend Product type
     const products = rows.map((r: any) => ({
-      id: r.id, sku: r.sku, name: r.name, description: r.description,
+      id: r.id, slug: r.slug || r.id, sku: r.sku, name: r.name, description: r.description,
       price: parseFloat(r.price), category: r.category, categoryId: r.category_id,
       image: r.image, images: r.images || [],
       customizable: r.customizable, colors: r.colors || [], sizes: r.sizes || [],

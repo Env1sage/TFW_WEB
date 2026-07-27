@@ -30,7 +30,7 @@ export default function CollectionDetail() {
       .then(([col, prods]) => { setCollection(col); setProducts(prods); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
 
   if (loading) {
     return (
@@ -130,7 +130,7 @@ export default function CollectionDetail() {
                 transition={{ duration: 0.45, delay: (i % 4) * 0.07 }}
               >
                 {/* Image */}
-                <Link to={`/products/${product.id}`} className="cd-card-img-wrap">
+                <Link to={`/products/${product.slug || product.id}`} className="cd-card-img-wrap">
                   <img src={product.image} alt={product.name} className="cd-card-img" loading="lazy" />
                   {product.featured && <span className="cd-card-badge">Featured</span>}
                 </Link>
@@ -138,7 +138,7 @@ export default function CollectionDetail() {
                 {/* Body */}
                 <div className="cd-card-body">
                   <span className="cd-card-category">{product.category}</span>
-                  <Link to={`/products/${product.id}`}><h3 className="cd-card-name">{product.name}</h3></Link>
+                  <Link to={`/products/${product.slug || product.id}`}><h3 className="cd-card-name">{product.name}</h3></Link>
 
                   {/* Color swatches */}
                   {product.colors.length > 0 && (

@@ -96,7 +96,7 @@ function DSCard({ product, index }: { product: Product; index: number }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
-      onClick={() => navigate(`/design-studio/product/${product.id}`)}
+      onClick={() => navigate(`/design-studio/product/${(product as any).slug || product.id}`)}
     >
       <div className="dsw-card__img">
         <img src={product.image} alt={product.name} className="dsw-card__photo" />

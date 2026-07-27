@@ -23,7 +23,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      onClick={() => navigate(`/products/${product.id}`)}
+      onClick={() => navigate(`/products/${product.slug || product.id}`)}
       style={{ cursor: 'pointer' }}
     >
       <div className="product-card-image">
@@ -44,7 +44,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             >
               <ShoppingCart size={15} /> {product.stock === 0 ? 'Out of Stock' : 'Quick Add'}
             </button>
-            <Link to={`/products/${product.id}`} className="btn btn-outline-dark" style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <Link to={`/products/${product.slug || product.id}`} className="btn btn-outline-dark" style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
               <Eye size={15} /> View Details
             </Link>
           </div>
