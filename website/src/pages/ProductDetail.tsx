@@ -230,6 +230,12 @@ export default function ProductDetail() {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
   const [brandsLoading, setBrandsLoading] = useState(false);
+  const [brandSearch, setBrandSearch] = useState('');
+  const [brandOpen, setBrandOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState('');
+  const [modelOpen, setModelOpen] = useState(false);
+  const brandDropRef = useRef<HTMLDivElement>(null);
+  const modelDropRef = useRef<HTMLDivElement>(null);
   const [modelsLoading, setModelsLoading] = useState(false);
 
   // Accordions
@@ -292,6 +298,15 @@ export default function ProductDetail() {
       .catch(() => setModels([]))
       .finally(() => setModelsLoading(false));
   }, [selectedBrand]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (brandDropRef.current && !brandDropRef.current.contains(e.target as Node)) setBrandOpen(false);
+      if (modelDropRef.current && !modelDropRef.current.contains(e.target as Node)) setModelOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleAdd = () => {
     if (!product) return;
@@ -479,41 +494,107 @@ export default function ProductDetail() {
                   <span className="pd-device-title">Select your phone</span>
                   {brandsLoading && <span className="pd-device-loading">loading…</span>}
                 </div>
+                {/* Brand dropdown */}
                 <div className="pd-option-group" style={{ marginBottom: selectedBrand ? 0 : undefined }}>
                   <label>Brand</label>
-                  <div className="pd-brand-grid">
-                    {brands.map(b => (
-                      <button
-                        key={b.id}
-                        className={`pd-brand-btn ${selectedBrand?.id === b.id ? 'active' : ''}`}
-                        onClick={() => setSelectedBrand(selectedBrand?.id === b.id ? null : b)}
-                      >
-                        {b.logo && <img src={b.logo} alt={b.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />}
-                        {b.name}
-                      </button>
-                    ))}
+                  <div className="pd-device-drop" ref={brandDropRef}>
+                    <button
+                      type="button"
+                      className={`pd-device-trigger ${selectedBrand ? 'selected' : ''}`}
+                      onClick={() => { setBrandOpen(v => !v); setBrandSearch(''); }}
+                    >
+                      {selectedBrand
+                        ? <>{selectedBrand.logo && <img src={selectedBrand.logo} alt={selectedBrand.name} className="pd-device-trigger-logo" />}{selectedBrand.name}</>
+                        : 'Select brand…'}
+                      {selectedBrand
+                        ? <X size={14} onClick={e => { e.stopPropagation(); setSelectedBrand(null); setBrandOpen(false); }} />
+                        : <ChevronDown size={14} className={brandOpen ? 'rotated' : ''} />}
+                    </button>
+                    {brandOpen && (
+                      <div className="pd-device-dropdown">
+                        <div className="pd-device-search-wrap">
+                          <input
+                            autoFocus
+                            type="text"
+                            className="pd-device-search"
+                            placeholder="Search brand…"
+                            value={brandSearch}
+                            onChange={e => setBrandSearch(e.target.value)}
+                          />
+                        </div>
+                        <div className="pd-device-list">
+                          {brands
+                            .filter(b => b.name.toLowerCase().includes(brandSearch.toLowerCase()))
+                            .map(b => (
+                              <button
+                                key={b.id}
+                                type="button"
+                                className={`pd-device-option ${selectedBrand?.id === b.id ? 'active' : ''}`}
+                                onClick={() => { setSelectedBrand(b); setBrandOpen(false); setBrandSearch(''); }}
+                              >
+                                {b.logo && <img src={b.logo} alt={b.name} className="pd-device-option-logo" />}
+                                {b.name}
+                              </button>
+                            ))}
+                          {brands.filter(b => b.name.toLowerCase().includes(brandSearch.toLowerCase())).length === 0 && (
+                            <span className="pd-device-empty">No brands match</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Model dropdown */}
                 {selectedBrand && (
                   <div className="pd-option-group">
                     <label>Model
                       {modelsLoading && <span className="pd-option-value" style={{ fontSize: '0.72rem' }}> loading…</span>}
-                      {selectedModel && <span className="pd-option-value">{selectedModel.displayName}</span>}
                     </label>
-                    <div className="pd-model-grid">
-                      {models.map(m => (
-                        <button
-                          key={m.id}
-                          className={`pd-model-btn ${selectedModel?.id === m.id ? 'active' : ''} ${!m.inStock ? 'oos' : ''}`}
-                          disabled={!m.inStock}
-                          onClick={() => setSelectedModel(selectedModel?.id === m.id ? null : m)}
-                        >
-                          {m.displayName}
-                          {!m.inStock && <span className="pd-model-oos"> Out of Stock</span>}
-                        </button>
-                      ))}
-                      {!modelsLoading && models.length === 0 && (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>No models available</span>
+                    <div className="pd-device-drop" ref={modelDropRef}>
+                      <button
+                        type="button"
+                        className={`pd-device-trigger ${selectedModel ? 'selected' : ''}`}
+                        onClick={() => { if (!modelsLoading) { setModelOpen(v => !v); setModelSearch(''); } }}
+                        disabled={modelsLoading}
+                      >
+                        {selectedModel ? selectedModel.displayName : modelsLoading ? 'Loading models…' : 'Select model…'}
+                        {selectedModel
+                          ? <X size={14} onClick={e => { e.stopPropagation(); setSelectedModel(null); setModelOpen(false); }} />
+                          : <ChevronDown size={14} className={modelOpen ? 'rotated' : ''} />}
+                      </button>
+                      {modelOpen && (
+                        <div className="pd-device-dropdown">
+                          <div className="pd-device-search-wrap">
+                            <input
+                              autoFocus
+                              type="text"
+                              className="pd-device-search"
+                              placeholder="Search model…"
+                              value={modelSearch}
+                              onChange={e => setModelSearch(e.target.value)}
+                            />
+                          </div>
+                          <div className="pd-device-list">
+                            {models
+                              .filter(m => m.displayName.toLowerCase().includes(modelSearch.toLowerCase()))
+                              .map(m => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  className={`pd-device-option ${selectedModel?.id === m.id ? 'active' : ''} ${!m.inStock ? 'oos' : ''}`}
+                                  disabled={!m.inStock}
+                                  onClick={() => { if (m.inStock) { setSelectedModel(m); setModelOpen(false); setModelSearch(''); } }}
+                                >
+                                  {m.displayName}
+                                  {!m.inStock && <span className="pd-device-oos-tag">Out of stock</span>}
+                                </button>
+                              ))}
+                            {models.filter(m => m.displayName.toLowerCase().includes(modelSearch.toLowerCase())).length === 0 && (
+                              <span className="pd-device-empty">{models.length === 0 ? 'No models available' : 'No models match'}</span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
