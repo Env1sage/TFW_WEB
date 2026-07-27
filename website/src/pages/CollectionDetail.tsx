@@ -16,7 +16,7 @@ const SORTS = [
 ];
 
 export default function CollectionDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { addItem } = useCart();
   const [collection, setCollection] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,8 +25,8 @@ export default function CollectionDetail() {
   const [selectedColor, setSelectedColor] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!id) return;
-    Promise.all([api.getCollection(id), api.getCollectionProducts(id)])
+    if (!slug) return;
+    Promise.all([api.getCollection(slug), api.getCollectionProducts(slug)])
       .then(([col, prods]) => { setCollection(col); setProducts(prods); })
       .catch(() => {})
       .finally(() => setLoading(false));

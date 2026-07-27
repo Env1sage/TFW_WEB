@@ -113,7 +113,7 @@ function AppContent() {
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/refund" element={<RefundPolicy />} />
-              <Route path="/collections/:id" element={<CollectionDetail />} />
+              <Route path="/collections/:slug" element={<CollectionDetail />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/faq" element={<FAQ />} />

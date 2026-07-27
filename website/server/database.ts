@@ -365,6 +365,13 @@ export async function initDB() {
       ALTER TABLE website_collections ADD COLUMN IF NOT EXISTS cover_image TEXT NOT NULL DEFAULT '';
     `);
 
+    // Collections slug migration
+    await client.query(`
+      ALTER TABLE website_collections ADD COLUMN IF NOT EXISTS slug TEXT;
+      UPDATE website_collections SET slug = LOWER(REGEXP_REPLACE(name, '[^a-zA-Z0-9]+', '-', 'g')) WHERE slug IS NULL OR slug = '';
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_slug ON website_collections(slug);
+    `);
+
     // Phone-based OTP auth migrations
     await client.query(`
       ALTER TABLE website_users ALTER COLUMN email DROP NOT NULL;
@@ -1722,16 +1729,22 @@ export async function updateInquiryStatus(id: string, status: string, adminNotes
 
 /* ── Collection queries ── */
 export interface DBCollection {
-  id: string; name: string; tagline: string; tag: string;
+  id: string; name: string; slug: string; tagline: string; tag: string;
   gradient: string; glow: string; shimmer: string; symbol: string;
   badge: string; badgeColor: string; featured: boolean; active: boolean;
   sortOrder: number; createdAt: string; productCount?: number;
   coverImage: string;
 }
 
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 function rowToCollection(row: any): DBCollection {
   return {
-    id: row.id, name: row.name, tagline: row.tagline, tag: row.tag,
+    id: row.id, name: row.name,
+    slug: row.slug || toSlug(row.name),
+    tagline: row.tagline, tag: row.tag,
     gradient: row.gradient, glow: row.glow, shimmer: row.shimmer, symbol: row.symbol,
     badge: row.badge, badgeColor: row.badge_color, featured: row.featured,
     active: row.active, sortOrder: row.sort_order, createdAt: row.created_at,
@@ -1753,28 +1766,29 @@ export async function getCollections(activeOnly = true): Promise<DBCollection[]>
   return rows.map(rowToCollection);
 }
 
-export async function getCollectionById(id: string): Promise<DBCollection | null> {
+export async function getCollectionById(idOrSlug: string): Promise<DBCollection | null> {
   const { rows } = await pool.query(`
     SELECT c.*, COUNT(cp.product_id) as product_count
     FROM website_collections c
     LEFT JOIN website_collection_products cp ON cp.collection_id = c.id
-    WHERE c.id = $1
+    WHERE c.id = $1 OR c.slug = $1
     GROUP BY c.id
-  `, [id]);
+  `, [idOrSlug]);
   return rows.length ? rowToCollection(rows[0]) : null;
 }
 
 export async function createCollection(c: Omit<DBCollection, 'createdAt' | 'productCount'>): Promise<DBCollection> {
+  const slug = c.slug || toSlug(c.name);
   const { rows } = await pool.query(`
-    INSERT INTO website_collections (id, name, tagline, tag, gradient, glow, shimmer, symbol, badge, badge_color, featured, active, sort_order, cover_image, created_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW()) RETURNING *
-  `, [c.id, c.name, c.tagline, c.tag, c.gradient, c.glow, c.shimmer, c.symbol, c.badge, c.badgeColor, c.featured, c.active, c.sortOrder, c.coverImage || '']);
+    INSERT INTO website_collections (id, name, slug, tagline, tag, gradient, glow, shimmer, symbol, badge, badge_color, featured, active, sort_order, cover_image, created_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW()) RETURNING *
+  `, [c.id, c.name, slug, c.tagline, c.tag, c.gradient, c.glow, c.shimmer, c.symbol, c.badge, c.badgeColor, c.featured, c.active, c.sortOrder, c.coverImage || '']);
   return rowToCollection(rows[0]);
 }
 
 export async function updateCollection(id: string, patch: Partial<DBCollection>): Promise<DBCollection | null> {
   const fieldMap: Record<string, string> = {
-    name: 'name', tagline: 'tagline', tag: 'tag', gradient: 'gradient',
+    name: 'name', slug: 'slug', tagline: 'tagline', tag: 'tag', gradient: 'gradient',
     glow: 'glow', shimmer: 'shimmer', symbol: 'symbol', badge: 'badge',
     badgeColor: 'badge_color', featured: 'featured', active: 'active', sortOrder: 'sort_order',
     coverImage: 'cover_image',

@@ -54,7 +54,7 @@ function CollectionCard({ c, index }: { c: any; index: number }) {
             <span className="col-card-count">
               <Star size={12} fill="currentColor" /> {c.productCount || 0} products
             </span>
-            <Link to={`/collections/${c.id}`} className="col-card-cta">
+            <Link to={`/collections/${c.slug}`} className="col-card-cta">
               Explore <ArrowRight size={14} />
             </Link>
           </div>
@@ -113,7 +113,6 @@ export default function Collections() {
           </motion.p>
           <motion.div className="col-hero-actions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.34 }}>
             <a href="#collections" className="btn btn-primary btn-lg col-hero-btn">Browse Collections <ArrowRight size={18} /></a>
-            <Link to="/design-studio" className="btn btn-outline btn-lg col-hero-btn-ghost"><Palette size={16} /> Design Your Own</Link>
           </motion.div>
           <motion.div className="col-hero-stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.5 }}>
             {[

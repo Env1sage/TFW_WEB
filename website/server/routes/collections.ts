@@ -29,7 +29,9 @@ router.get('/:id', async (req, res) => {
 
 router.get('/:id/products', async (req, res) => {
   try {
-    const rows = await db.getCollectionProducts(req.params.id);
+    const col = await db.getCollectionById(req.params.id);
+    if (!col) return res.status(404).json({ error: 'Collection not found' });
+    const rows = await db.getCollectionProducts(col.id);
     // Shape into Product-like objects matching the frontend Product type
     const products = rows.map((r: any) => ({
       id: r.id, sku: r.sku, name: r.name, description: r.description,
