@@ -166,6 +166,7 @@
   border-top: 1px solid var(--border);
   background: var(--surface);
   box-shadow: 0 -8px 30px rgba(0,0,0,.12);
+  z-index: 200; /* must be above .mobile-panel-overlay (150) */
 }
 .lp-wrap.open { transform: translateY(0); }
 

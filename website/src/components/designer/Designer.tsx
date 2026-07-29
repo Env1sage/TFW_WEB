@@ -74,7 +74,7 @@ export default function Designer() {
   const [imgReady, setImgReady] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Partial<Record<PrintSide, string>>>({});
   const [previewSide, setPreviewSide] = useState<PrintSide>('FRONT');
-  const [activeTab, setActiveTab] = useState<TabId | null>('product');
+  const [activeTab, setActiveTab] = useState<TabId | null>(() => window.innerWidth < 700 ? null : 'product');
   const [uploadEnabled, setUploadEnabled] = useState(true);
 
   const colors = COLORS.map(c => ({ name: c.name, hex: c.hex }));
