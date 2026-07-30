@@ -586,9 +586,19 @@ export default function Designer() {
     fc.on('mouse:up', () => { panning = false; });
 
     autoScale();
-    window.addEventListener('resize', autoScale);
+    // Only re-scale when viewport WIDTH changes — mobile browsers fire resize constantly
+    // as the address bar hides/shows (height-only changes), causing the canvas to visibly
+    // zoom in and out. Ignoring height-only changes fixes this.
+    let prevWidth = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth !== prevWidth) {
+        prevWidth = window.innerWidth;
+        autoScale();
+      }
+    };
+    window.addEventListener('resize', onResize);
     return () => {
-      window.removeEventListener('resize', autoScale);
+      window.removeEventListener('resize', onResize);
       canvasEl.removeEventListener('touchstart', onTouchStart);
       canvasEl.removeEventListener('touchmove', onTouchMove);
       canvasEl.removeEventListener('touchend', onTouchEnd);
