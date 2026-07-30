@@ -152,7 +152,7 @@ function CartLoginGate() {
 
 /* ── Progress stepper ─────────────────────────────────────────────────────── */
 function StepBar({ step }: { step: 1 | 2 | 3 }) {
-  const steps = ['Cart', 'Delivery', 'Payment'];
+  const steps = ['Cart', 'Address', 'Payment'];
   return (
     <div className="cart-step-bar">
       {steps.map((label, i) => {
@@ -300,9 +300,9 @@ export default function Cart() {
   // Total order weight across all cart items
   const cartWeightGrams = items.reduce((sum, i) => sum + ((i.product.weightGrams || 200) * i.quantity), 0);
 
-  // Lookup zone shipping rate when pincode is complete
+  // Lookup zone shipping rate when pincode is complete (fires during step 2 address entry)
   useEffect(() => {
-    if (form.pincode.length !== 6 || selectedDelivery?.type !== 'standard') {
+    if (form.pincode.length !== 6) {
       setZoneRate(null);
       return;
     }
@@ -316,7 +316,7 @@ export default function Cart() {
       finally { if (!cancelled) setZoneRateLoading(false); }
     }, 400);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [form.pincode, total, selectedDelivery?.type]);
+  }, [form.pincode, total]);
 
   const loadDeliveryOptions = useCallback(async () => {
     setDeliveryLoading(true);
@@ -348,9 +348,10 @@ export default function Cart() {
     ? !!(form.fullName && form.email && form.phone)
     : !!(form.fullName && form.email && form.phone && form.addressLine1 && form.city && form.state && form.pincode.length === 6);
 
-  // Shipping cost: zone rate when pincode is entered for standard delivery, else delivery option fee
-  const shippingCost = (selectedDelivery?.type === 'standard' && zoneRate !== null)
-    ? zoneRate.charge
+  // Shipping cost: zone rate for standard delivery, delivery option fee otherwise
+  const shippingCost = selectedDelivery?.type === 'store_pickup' ? 0
+    : selectedDelivery?.type === 'hyperlocal' ? (selectedDelivery.fee ?? 99)
+    : zoneRate !== null ? zoneRate.charge
     : selectedDelivery?.fee ?? (total >= 999 ? 0 : 49);
   const discount    = appliedCoupon?.discountAmount || 0;
   const finalTotal  = Math.max(0, total + shippingCost - discount);
@@ -374,16 +375,15 @@ export default function Cart() {
 
   const handleProceedToDelivery = () => {
     if (!user) { navigate('/login?redirect=/cart'); return; }
-    loadDeliveryOptions();
     setStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleProceedToCheckout = () => {
-    if (!selectedDelivery) { toast.error('Please select a delivery method'); return; }
+    if (!formValid) { toast.error('Please fill in all required address fields'); return; }
+    loadDeliveryOptions();
     setStep(3);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Track checkout start
     api.trackEvent({ type: 'checkout_start', sessionId: getSessionId() });
   };
 
@@ -552,7 +552,7 @@ export default function Cart() {
       <div className="summary-row">
         <span>
           Shipping
-          {zoneRate && selectedDelivery?.type === 'standard'
+          {zoneRate
             ? <span className="summary-method-badge">{zoneRate.zoneName} · {zoneRate.estimatedDays}</span>
             : selectedDelivery && <span className="summary-method-badge">{selectedDelivery.label}</span>
           }
@@ -560,7 +560,9 @@ export default function Cart() {
         <span>
           {zoneRateLoading
             ? <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>calculating…</span>
-            : shippingCost === 0 ? 'Free' : `₹${shippingCost}`
+            : form.pincode.length === 6 || selectedDelivery
+              ? shippingCost === 0 ? 'Free' : `₹${shippingCost}`
+              : <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>enter pincode</span>
           }
         </span>
       </div>
@@ -584,32 +586,21 @@ export default function Cart() {
     </motion.div>
   );
 
-  // ── STEP 3: Details + Payment ──────────────────────────────────────────────
-  if (step === 3) {
+  // ── STEP 2: Delivery Address ───────────────────────────────────────────────
+  if (step === 2) {
     return (
       <div className="cart-page checkout-step">
         <div className="container">
           <motion.div className="page-header" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <button className="back-link" onClick={() => setStep(2)}><ArrowLeft size={16} /> Change Delivery</button>
-            <h1>Checkout</h1>
+            <button className="back-link" onClick={() => setStep(1)}><ArrowLeft size={16} /> Back to Cart</button>
+            <h1>Delivery Address</h1>
           </motion.div>
-          <StepBar step={3} />
+          <StepBar step={2} />
 
           <div className="checkout-layout">
             <motion.div className="checkout-address-panel" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-
-              {/* Delivery method badge */}
-              <div className="checkout-delivery-badge">
-                {(() => { const Icon = METHOD_ICONS[selectedDelivery?.type ?? 'standard']; return <Icon size={14} />; })()}
-                <span>{selectedDelivery?.label ?? 'Standard Shipping'}</span>
-                <span className="checkout-delivery-eta">· {selectedDelivery?.eta}</span>
-                <button className="checkout-change-delivery" onClick={() => setStep(2)}>Change</button>
-              </div>
-
               <div className="checkout-section-card">
-                <h2 className="checkout-section-title">
-                  {isStorePickup ? 'Your Details' : 'Delivery Address'}
-                </h2>
+                <h2 className="checkout-section-title">Your Details</h2>
                 <div className="checkout-form">
                   <div className="checkout-form-row">
                     <div>
@@ -625,90 +616,51 @@ export default function Cart() {
                     <label>Email Address * <span style={{ color: 'var(--text-3)', fontWeight: 400, fontSize: '0.85em' }}>(order updates &amp; invoice)</span></label>
                     <input type="email" placeholder="you@example.com" value={form.email} onChange={set('email')} />
                   </div>
-
-                  {/* Store pickup: show store location info, no address fields */}
-                  {isStorePickup && selectedDelivery?.storeInfo && (
-                    <div className="checkout-pickup-info">
-                      <MapPin size={15} />
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 600 }}>{selectedDelivery.storeInfo.name}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-2)' }}>
-                          {selectedDelivery.storeInfo.address}, {selectedDelivery.storeInfo.city} - {selectedDelivery.storeInfo.pincode}
-                        </p>
-                        {selectedDelivery.storeInfo.landmark && (
-                          <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>Landmark: {selectedDelivery.storeInfo.landmark}</p>
-                        )}
-                        <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--primary)', fontWeight: 500 }}>
-                          <Clock size={11} /> {selectedDelivery.storeInfo.hours}
-                        </p>
-                      </div>
+                  <div>
+                    <label>Address Line 1 *</label>
+                    <input type="text" placeholder="House no., Street, Area" value={form.addressLine1} onChange={set('addressLine1')} />
+                  </div>
+                  <div>
+                    <label>Address Line 2 <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>(optional)</span></label>
+                    <input type="text" placeholder="Landmark, Colony" value={form.addressLine2} onChange={set('addressLine2')} />
+                  </div>
+                  <div className="checkout-form-row">
+                    <div>
+                      <label>City *</label>
+                      <input type="text" placeholder="City" value={form.city} onChange={set('city')} />
                     </div>
-                  )}
-
-                  {/* Full address for standard + hyperlocal */}
-                  {!isStorePickup && (
-                    <>
-                      <div>
-                        <label>Address Line 1 *</label>
-                        <input type="text" placeholder="House no., Street, Area" value={form.addressLine1} onChange={set('addressLine1')} />
-                      </div>
-                      <div>
-                        <label>Address Line 2 <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>(optional)</span></label>
-                        <input type="text" placeholder="Landmark, Colony" value={form.addressLine2} onChange={set('addressLine2')} />
-                      </div>
-                      <div className="checkout-form-row">
-                        <div>
-                          <label>City *</label>
-                          <input type="text" placeholder="City" value={form.city} onChange={set('city')} />
-                        </div>
-                        <div>
-                          <label>Pincode *</label>
-                          <input type="text" placeholder="6-digit pincode" value={form.pincode} onChange={e => setForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} maxLength={6} />
-                        </div>
-                      </div>
-                      <div>
-                        <label>State *</label>
-                        <select value={form.state} onChange={set('state')}>
-                          <option value="">Select State</option>
-                          {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                    </>
-                  )}
+                    <div>
+                      <label>Pincode *</label>
+                      <input type="text" placeholder="6-digit pincode" value={form.pincode} onChange={e => setForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} maxLength={6} />
+                    </div>
+                  </div>
+                  <div>
+                    <label>State *</label>
+                    <select value={form.state} onChange={set('state')}>
+                      <option value="">Select State</option>
+                      {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
 
               <div className="checkout-trust-row">
                 <span><Lock size={14} /> Secure Payment</span>
-                {isStorePickup
-                  ? <span><Store size={14} /> In-store Pickup</span>
-                  : isHyperlocal
-                    ? <span><Zap size={14} /> Same-Day Delivery</span>
-                    : <span><Truck size={14} /> 3–5 Business Days</span>
-                }
+                <span><Truck size={14} /> Nationwide Delivery</span>
                 <span><CheckCircle size={14} /> 100% Authentic</span>
               </div>
             </motion.div>
 
             <div>
-              <OrderSummary showItems />
-              <div className="checkout-pay-note">
-                <CreditCard size={15} /> UPI · Card · Net Banking · Wallets
-              </div>
+              <OrderSummary />
               <button
                 className="btn btn-primary btn-block btn-lg"
-                onClick={handleMakePayment}
-                disabled={!formValid || processing}
-                style={{ marginTop: 12 }}
+                style={{ marginTop: 16 }}
+                onClick={handleProceedToCheckout}
+                disabled={!formValid}
               >
-                {processing
-                  ? <><div className="spinner-sm" /> Processing…</>
-                  : <><CreditCard size={18} /> Make Payment · ₹{finalTotal.toFixed(0)}</>
-                }
+                Continue to Delivery <ChevronRight size={18} />
               </button>
-              {selectedDelivery?.type === 'standard' && selectedDelivery.freeAbove && shippingCost > 0 && (
-                <p className="free-ship-note">Add ₹{(selectedDelivery.freeAbove - total).toFixed(0)} more for free shipping!</p>
-              )}
             </div>
           </div>
         </div>
@@ -716,19 +668,26 @@ export default function Cart() {
     );
   }
 
-  // ── STEP 2: Delivery Method Selection ─────────────────────────────────────
-  if (step === 2) {
+  // ── STEP 3: Choose Delivery + Payment ─────────────────────────────────────
+  if (step === 3) {
     return (
       <div className="cart-page checkout-step">
         <div className="container">
           <motion.div className="page-header" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <button className="back-link" onClick={() => setStep(1)}><ArrowLeft size={16} /> Back to Cart</button>
+            <button className="back-link" onClick={() => setStep(2)}><ArrowLeft size={16} /> Change Address</button>
             <h1>Choose Delivery</h1>
           </motion.div>
-          <StepBar step={2} />
+          <StepBar step={3} />
 
           <div className="checkout-layout">
             <motion.div className="checkout-address-panel" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+
+              {/* Address summary badge */}
+              <div className="checkout-delivery-badge" style={{ marginBottom: 16 }}>
+                <MapPin size={14} />
+                <span style={{ flex: 1 }}>{form.addressLine1}, {form.city} – {form.pincode}</span>
+                <button className="checkout-change-delivery" onClick={() => setStep(2)}>Change</button>
+              </div>
 
               {deliveryLoading ? (
                 <div className="delivery-loading">
@@ -736,7 +695,6 @@ export default function Cart() {
                   <span>Checking available options…</span>
                 </div>
               ) : deliveryOptions.length === 0 ? (
-                /* Fallback: API unavailable — show standard option */
                 <DeliveryCard
                   option={{ type: 'standard', label: 'Standard Shipping', description: 'Reliable national courier delivery', fee: total >= 999 ? 0 : 49, freeAbove: 999, eta: '3–5 business days', available: true }}
                   selected
@@ -762,25 +720,62 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* Hyperlocal notice */}
               {selectedDelivery?.type === 'hyperlocal' && (
                 <div className="delivery-hyperlocal-note">
                   <Package size={14} />
                   <span>Same-day delivery is available within {(deliveryOptions.find(o => o.type === 'hyperlocal') as any)?.maxRadiusKm ?? 15} km of our store. Order by 4 PM for today&apos;s delivery.</span>
                 </div>
               )}
+
+              {isStorePickup && selectedDelivery?.storeInfo && (
+                <div className="checkout-pickup-info" style={{ marginTop: 12 }}>
+                  <MapPin size={15} />
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{selectedDelivery.storeInfo.name}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-2)' }}>
+                      {selectedDelivery.storeInfo.address}, {selectedDelivery.storeInfo.city} - {selectedDelivery.storeInfo.pincode}
+                    </p>
+                    {selectedDelivery.storeInfo.landmark && (
+                      <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>Landmark: {selectedDelivery.storeInfo.landmark}</p>
+                    )}
+                    <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--primary)', fontWeight: 500 }}>
+                      <Clock size={11} /> {selectedDelivery.storeInfo.hours}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="checkout-trust-row" style={{ marginTop: 16 }}>
+                <span><Lock size={14} /> Secure Payment</span>
+                {isStorePickup
+                  ? <span><Store size={14} /> In-store Pickup</span>
+                  : isHyperlocal
+                    ? <span><Zap size={14} /> Same-Day Delivery</span>
+                    : <span><Truck size={14} /> 3–5 Business Days</span>
+                }
+                <span><CheckCircle size={14} /> 100% Authentic</span>
+              </div>
             </motion.div>
 
             <div>
-              <OrderSummary />
+              <OrderSummary showItems />
+              <div className="checkout-pay-note">
+                <CreditCard size={15} /> UPI · Card · Net Banking · Wallets
+              </div>
               <button
                 className="btn btn-primary btn-block btn-lg"
-                style={{ marginTop: 16 }}
-                onClick={handleProceedToCheckout}
-                disabled={!selectedDelivery}
+                onClick={handleMakePayment}
+                disabled={!selectedDelivery || processing}
+                style={{ marginTop: 12 }}
               >
-                Continue <ChevronRight size={18} />
+                {processing
+                  ? <><div className="spinner-sm" /> Processing…</>
+                  : <><CreditCard size={18} /> Make Payment · ₹{finalTotal.toFixed(0)}</>
+                }
               </button>
+              {zoneRate?.freeAbove && shippingCost > 0 && (
+                <p className="free-ship-note">Add ₹{(zoneRate.freeAbove - total).toFixed(0)} more for free shipping!</p>
+              )}
             </div>
           </div>
         </div>
@@ -908,11 +903,8 @@ export default function Cart() {
             )}
 
             <button className="btn btn-primary btn-block btn-lg" onClick={handleProceedToDelivery}>
-              Choose Delivery <ChevronRight size={18} />
+              Proceed to Checkout <ChevronRight size={18} />
             </button>
-            <p className="cart-delivery-preview-note">
-              <Store size={12} /> Pickup · <Zap size={12} /> Same-Day · <Truck size={12} /> Standard
-            </p>
           </motion.div>
         </div>
 
