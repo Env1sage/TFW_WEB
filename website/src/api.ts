@@ -470,4 +470,14 @@ export const api = {
     request<{ success: boolean }>(`/delivery/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify(value) }),
   adminCreateHyperlocalTask: (data: { orderId: string; provider: 'dunzo' | 'porter'; pickupAddress: string; dropAddress: string; packageDescription?: string }) =>
     request<any>('/delivery/admin/hyperlocal/create-task', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Global colour palette (backed by website_settings key=color_palette)
+  getPalette: async (): Promise<{ name: string; hex: string }[]> => {
+    try {
+      const data = await request<{ key: string; value: string }>('/settings/color_palette');
+      return JSON.parse(data.value);
+    } catch { return []; }
+  },
+  savePalette: (colors: { name: string; hex: string }[]) =>
+    request<void>('/settings/color_palette', { method: 'PUT', body: JSON.stringify({ value: JSON.stringify(colors) }) }),
 };

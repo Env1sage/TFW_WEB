@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package, Plus, Edit3, Trash2, X, Save, ShoppingCart,
-  BarChart3, Users, IndianRupee, TrendingUp, Image, Eye, EyeOff, Database, Palette, Download, Upload, Tag, Copy, Check, ChevronDown, ChevronUp, MapPin, Mail, User, Clock, Hash, LogOut, Truck, Percent, DollarSign, Calendar, Sparkles, Settings, ToggleLeft, ToggleRight, UserPlus, Phone, Filter, RefreshCw, Boxes, AlertTriangle, XCircle, PackageCheck, History, Layers, ChevronLeft, ChevronRight, Bell, Send, Store, Zap, ExternalLink,
+  BarChart3, Users, IndianRupee, TrendingUp, Image, Eye, EyeOff, Database, Palette, Download, Upload, Tag, Copy, Check, ChevronDown, ChevronUp, MapPin, Mail, User, Clock, Hash, LogOut, Truck, Percent, DollarSign, Calendar, Sparkles, Settings, ToggleLeft, ToggleRight, UserPlus, Phone, Filter, RefreshCw, Boxes, AlertTriangle, XCircle, PackageCheck, History, Layers, ChevronLeft, ChevronRight, Bell, Send, ExternalLink,
 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -119,7 +119,7 @@ function normalizePrintArea(pa: any): { layouts: PrintLayout[]; allowMultipleLay
   return { layouts, allowMultipleLayouts: false, allowBackPrint: layouts.some(l => l.side === 'BACK') };
 }
 
-type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'collections' | 'database' | 'shiprocket' | 'email' | 'colors' | 'settings' | 'leads' | 'inventory' | 'notifications' | 'brands' | 'banners' | 'shipping' | 'delivery';
+type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'collections' | 'database' | 'shiprocket' | 'email' | 'colors' | 'settings' | 'leads' | 'inventory' | 'notifications' | 'brands' | 'banners' | 'shipping';
 
 const defaultCoupon: Partial<Coupon> = {
   code: '', description: '', discountType: 'percentage', discountValue: 0,
@@ -160,12 +160,6 @@ export default function Admin() {
     active: true, sortOrder: 0, startDate: '', endDate: '',
   };
   const [bannerForm, setBannerForm] = useState({ ...defaultBannerForm });
-  // Delivery Settings
-  const [deliverySettings, setDeliverySettings] = useState<Record<string, any>>({});
-  const [deliveryLoading, setDeliveryLoading] = useState(false);
-  const [savingDelivery, setSavingDelivery] = useState<string | null>(null);
-  const [storePickupForm, setStorePickupForm] = useState<any>({});
-  const [hyperlocalForm, setHyperlocalForm] = useState<any>({});
   const [colForm, setColForm] = useState({ name: '', tagline: '', tag: 'Custom', gradient: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)', glow: '#0E7C61', shimmer: 'rgba(255,255,255,0.15)', symbol: '✨', badge: 'New', badgeColor: '#C6A75E', featured: false, active: true });
   const [editingCol, setEditingCol] = useState<any | null>(null);
   const [colProducts, setColProducts] = useState<Record<string, any[]>>({});
@@ -219,10 +213,9 @@ export default function Admin() {
   const [savingMockup, setSavingMockup] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [colorPickerValue, setColorPickerValue] = useState('#ff0000');
-  // Global colour palette (persisted in localStorage)
-  const [globalColors, setGlobalColors] = useState<{name: string, hex: string}[]>(() => {
-    try { return JSON.parse(localStorage.getItem('tfw_global_colors') || '[]'); } catch { return []; }
-  });
+  // Global colour palette (backed by DB via /api/settings/color_palette)
+  const [globalColors, setGlobalColors] = useState<{name: string, hex: string}[]>([]);
+  const [paletteLoading, setPaletteLoading] = useState(false);
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('#000000');
 
@@ -364,7 +357,11 @@ export default function Admin() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    setPaletteLoading(true);
+    api.getPalette().then(setGlobalColors).catch(() => {}).finally(() => setPaletteLoading(false));
+  }, []);
 
   const loadCollections = async () => {
     setColLoading(true);
@@ -404,28 +401,6 @@ export default function Admin() {
     try { setBannerList(await api.adminGetAllBanners()); }
     catch { toast.error('Failed to load banners'); }
     finally { setBannerLoading(false); }
-  };
-
-  const loadDeliverySettings = async () => {
-    setDeliveryLoading(true);
-    try {
-      const s = await api.adminGetDeliverySettings();
-      setDeliverySettings(s);
-      setStorePickupForm(s.store_pickup || {});
-      setHyperlocalForm(s.hyperlocal || {});
-    } catch { toast.error('Failed to load delivery settings'); }
-    finally { setDeliveryLoading(false); }
-  };
-
-  const saveDeliverySection = async (key: 'store_pickup' | 'hyperlocal') => {
-    setSavingDelivery(key);
-    try {
-      const payload = key === 'store_pickup' ? storePickupForm : hyperlocalForm;
-      await api.adminUpdateDeliverySetting(key, payload);
-      toast.success(`${key === 'store_pickup' ? 'Store Pickup' : 'Hyperlocal'} settings saved`);
-      await loadDeliverySettings();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSavingDelivery(null); }
   };
 
   const BADGE_TYPES = [
@@ -674,8 +649,9 @@ export default function Admin() {
     setShowProductForm(true);
   };
   const closeProductForm = () => { setShowProductForm(false); setEditingProduct(null); };
-  const saveGlobalColors = (cols: {name: string, hex: string}[]) => {
-    setGlobalColors(cols); localStorage.setItem('tfw_global_colors', JSON.stringify(cols));
+  const saveGlobalColors = async (cols: {name: string, hex: string}[]) => {
+    setGlobalColors(cols);
+    try { await api.savePalette(cols); } catch { toast.error('Failed to save palette'); }
   };
   const addGlobalColor = () => {
     if (!newColorName.trim()) return;
@@ -1296,7 +1272,6 @@ export default function Admin() {
           <button className={`tab ${tab === 'brands' ? 'active' : ''}`} onClick={() => { setTab('brands'); if (!brands.length) loadBrands(); }}><Tag size={16} /> Brands &amp; Models</button>
           <button className={`tab ${tab === 'banners' ? 'active' : ''}`} onClick={() => { setTab('banners'); if (!bannerList.length) loadBanners(); }}><Image size={16} /> Banners</button>
           <button className={`tab ${tab === 'shipping' ? 'active' : ''}`} onClick={() => setTab('shipping')}><Truck size={16} /> Shipping Rates</button>
-          <button className={`tab ${tab === 'delivery' ? 'active' : ''}`} onClick={() => { setTab('delivery'); if (!Object.keys(deliverySettings).length) loadDeliverySettings(); }}><MapPin size={16} /> Delivery Options</button>
           <button className={`tab ${tab === 'database' ? 'active' : ''}`} onClick={() => { setTab('database'); if (!dbData) loadDb(); }}><Database size={16} /> Database</button>
           <button className={`tab ${tab === 'shiprocket' ? 'active' : ''}`} onClick={() => setTab('shiprocket')}><Truck size={16} /> Shiprocket</button>
           <button className={`tab ${tab === 'email' ? 'active' : ''}`} onClick={() => { setTab('email'); loadSmsConfig(); }}><Mail size={16} /> Email</button>
@@ -3428,7 +3403,7 @@ MSG91_SENDER_ID=TFWALL`}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ maxWidth: 640 }}>
             <div style={{ marginBottom: 24 }}>
               <h2 style={{ margin: '0 0 6px' }}>Colour Palette</h2>
-              <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', margin: 0 }}>Define available colours. These appear as one-click swatches when adding or editing a product.</p>
+              <p style={{ color: 'var(--text-2)', fontSize: '0.9rem', margin: 0 }}>Define the global colour palette. Only these colours will appear on product pages and in the Design Studio.</p>
             </div>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 28 }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -3449,7 +3424,9 @@ MSG91_SENDER_ID=TFWALL`}
                 <button className="btn btn-primary" style={{ whiteSpace: 'nowrap', alignSelf: 'flex-end', marginBottom: 0 }} onClick={addGlobalColor} type="button">+ Add</button>
               </div>
             </div>
-            {globalColors.length === 0 ? (
+            {paletteLoading ? (
+              <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>Loading palette…</p>
+            ) : globalColors.length === 0 ? (
               <p style={{ color: 'var(--text-3)', fontSize: '0.9rem' }}>No colours added yet. Use the form above to build your palette.</p>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
@@ -5269,180 +5246,6 @@ MSG91_SENDER_ID=TFWALL`}
                 </div>
               )}
             </div>
-          </motion.div>
-        )}
-
-        {/* ── Delivery Options Tab ──────────────────────────────────────── */}
-        {tab === 'delivery' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <h2 style={{ margin: '0 0 4px' }}>Delivery Options</h2>
-                <p style={{ color: 'var(--text-2)', fontSize: '0.88rem', margin: 0 }}>
-                  Configure Store Pickup, Hyperlocal (Dunzo/Porter), and Standard Shipping availability.
-                </p>
-              </div>
-              <button className="icon-btn" title="Refresh" onClick={loadDeliverySettings}><RefreshCw size={15} /></button>
-            </div>
-
-            {deliveryLoading && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-2)' }}>Loading…</div>}
-
-            {!deliveryLoading && (
-              <div style={{ display: 'grid', gap: 20 }}>
-
-                {/* ── Section 1: Store Pickup ── */}
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Store size={18} style={{ color: 'var(--primary)' }} />
-                      <div>
-                        <span style={{ fontWeight: 600 }}>Store Pickup</span>
-                        <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-3)' }}>Customer collects from your physical store — no shipping fee</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: '0.8rem', color: storePickupForm.enabled ? '#22c55e' : 'var(--text-3)' }}>
-                        {storePickupForm.enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                      <select value={storePickupForm.enabled ? 'true' : 'false'} style={{ fontSize: '0.82rem', padding: '4px 8px' }}
-                        onChange={e => setStorePickupForm((f: any) => ({ ...f, enabled: e.target.value === 'true' }))}>
-                        <option value="true">Enabled</option>
-                        <option value="false">Disabled</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div style={{ padding: '16px 18px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12, marginBottom: 16 }}>
-                      <div className="form-group">
-                        <label>Store Name</label>
-                        <input type="text" placeholder="e.g. TheFramedWall Store" value={storePickupForm.storeName || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, storeName: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Phone</label>
-                        <input type="text" placeholder="Store contact number" value={storePickupForm.phone || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, phone: e.target.value }))} />
-                      </div>
-                      <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label>Address Line</label>
-                        <input type="text" placeholder="Street, Building, Area" value={storePickupForm.address || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, address: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>City</label>
-                        <input type="text" placeholder="City" value={storePickupForm.city || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, city: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>State</label>
-                        <input type="text" placeholder="State" value={storePickupForm.state || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, state: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Pincode</label>
-                        <input type="text" maxLength={6} placeholder="6-digit" value={storePickupForm.pincode || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, pincode: e.target.value.replace(/\D/g,'') }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Landmark</label>
-                        <input type="text" placeholder="Near landmark" value={storePickupForm.landmark || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, landmark: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Store Hours</label>
-                        <input type="text" placeholder="Mon–Sat, 10am–8pm" value={storePickupForm.hours || ''} onChange={e => setStorePickupForm((f: any) => ({ ...f, hours: e.target.value }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Ready In (days)</label>
-                        <input type="number" min={0} max={7} value={storePickupForm.readyInDays ?? 1} onChange={e => setStorePickupForm((f: any) => ({ ...f, readyInDays: Number(e.target.value) }))} />
-                      </div>
-                    </div>
-                    <button className="btn btn-primary" onClick={() => saveDeliverySection('store_pickup')} disabled={savingDelivery === 'store_pickup'}>
-                      {savingDelivery === 'store_pickup' ? <div className="spinner-sm" /> : <><Save size={14} /> Save Store Pickup</>}
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Section 2: Hyperlocal ── */}
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Zap size={18} style={{ color: '#f59e0b' }} />
-                      <div>
-                        <span style={{ fontWeight: 600 }}>Hyperlocal Delivery</span>
-                        <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-3)' }}>Same-day city delivery via Dunzo or Porter</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: '0.8rem', color: hyperlocalForm.enabled ? '#22c55e' : 'var(--text-3)' }}>
-                        {hyperlocalForm.enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                      <select value={hyperlocalForm.enabled ? 'true' : 'false'} style={{ fontSize: '0.82rem', padding: '4px 8px' }}
-                        onChange={e => setHyperlocalForm((f: any) => ({ ...f, enabled: e.target.value === 'true' }))}>
-                        <option value="true">Enabled</option>
-                        <option value="false">Disabled</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div style={{ padding: '16px 18px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12, marginBottom: 20 }}>
-                      <div className="form-group">
-                        <label>Flat Fee (₹) <span style={{ color: 'var(--text-3)', fontSize: '0.8em' }}>(fallback if API unavailable)</span></label>
-                        <input type="number" min={0} value={hyperlocalForm.flatFee ?? 99} onChange={e => setHyperlocalForm((f: any) => ({ ...f, flatFee: Number(e.target.value) }))} />
-                      </div>
-                      <div className="form-group">
-                        <label>Max Radius (km)</label>
-                        <input type="number" min={1} max={100} value={hyperlocalForm.maxRadiusKm ?? 15} onChange={e => setHyperlocalForm((f: any) => ({ ...f, maxRadiusKm: Number(e.target.value) }))} />
-                      </div>
-                    </div>
-
-                    {/* Dunzo */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginBottom: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <input type="checkbox" id="dunzo-enabled" checked={!!hyperlocalForm.dunzo?.enabled}
-                          onChange={e => setHyperlocalForm((f: any) => ({ ...f, dunzo: { ...f.dunzo, enabled: e.target.checked } }))} />
-                        <label htmlFor="dunzo-enabled" style={{ fontWeight: 600, margin: 0, cursor: 'pointer' }}>Dunzo</label>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>— requires enterprise account at dunzo.com</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div className="form-group">
-                          <label>Client ID</label>
-                          <input type="text" placeholder="Dunzo client_id" value={hyperlocalForm.dunzo?.clientId || ''} onChange={e => setHyperlocalForm((f: any) => ({ ...f, dunzo: { ...f.dunzo, clientId: e.target.value } }))} />
-                        </div>
-                        <div className="form-group">
-                          <label>API Key / Secret</label>
-                          <input type="text" placeholder="Dunzo client_secret" value={hyperlocalForm.dunzo?.apiKey || ''} onChange={e => setHyperlocalForm((f: any) => ({ ...f, dunzo: { ...f.dunzo, apiKey: e.target.value } }))} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Porter */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginBottom: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <input type="checkbox" id="porter-enabled" checked={!!hyperlocalForm.porter?.enabled}
-                          onChange={e => setHyperlocalForm((f: any) => ({ ...f, porter: { ...f.porter, enabled: e.target.checked } }))} />
-                        <label htmlFor="porter-enabled" style={{ fontWeight: 600, margin: 0, cursor: 'pointer' }}>Porter</label>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>— requires business account at porter.in</span>
-                      </div>
-                      <div className="form-group" style={{ maxWidth: 320 }}>
-                        <label>API Key</label>
-                        <input type="text" placeholder="Porter Bearer token" value={hyperlocalForm.porter?.apiKey || ''} onChange={e => setHyperlocalForm((f: any) => ({ ...f, porter: { ...f.porter, apiKey: e.target.value } }))} />
-                      </div>
-                    </div>
-
-                    <button className="btn btn-primary" onClick={() => saveDeliverySection('hyperlocal')} disabled={savingDelivery === 'hyperlocal'}>
-                      {savingDelivery === 'hyperlocal' ? <div className="spinner-sm" /> : <><Save size={14} /> Save Hyperlocal</>}
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Section 3: Standard (read-only pointer) ── */}
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <Truck size={18} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 600 }}>Standard Shipping</span>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                      Always enabled. Rates and free-shipping thresholds are managed in <strong>Shipping Rates → Shipping Zones & Charges</strong>.
-                    </p>
-                  </div>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#22c55e' }}>Always on</span>
-                </div>
-
-              </div>
-            )}
           </motion.div>
         )}
 

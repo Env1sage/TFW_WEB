@@ -5,7 +5,7 @@ import * as fabric from 'fabric';
 import type { TabId } from './LeftPanel';
 import { compressImage } from '../../utils/imageCompression';
 import {
-  COLORS, PRINT_SIZES, CW, CH,
+  PRINT_SIZES, CW, CH,
   preloadMockupImages, preloadAdditionalImages, getCachedImage,
   buildTemplateFromDBMockup, computePrintArea,
   type MockupTemplate, type PrintSide, type PrintSize, type PrintLayout,
@@ -76,8 +76,7 @@ export default function Designer() {
   const [previewSide, setPreviewSide] = useState<PrintSide>('FRONT');
   const [activeTab, setActiveTab] = useState<TabId | null>(() => window.innerWidth < 700 ? null : 'product');
   const [uploadEnabled, setUploadEnabled] = useState(true);
-
-  const colors = COLORS.map(c => ({ name: c.name, hex: c.hex }));
+  const [colors, setColors] = useState<{ name: string; hex: string }[]>([]);
 
   const sideStateRef = useRef<Record<PrintSide, SideState>>({
     FRONT: { json: null, history: [], redo: [] },
@@ -591,6 +590,7 @@ export default function Designer() {
 
   useEffect(() => {
     api.getSetting('upload_enabled').then(r => setUploadEnabled(r.value !== 'false')).catch(() => {});
+    api.getPalette().then(setColors).catch(() => {});
   }, []);
 
   useEffect(() => { loadMockup(); }, [loadMockup]);

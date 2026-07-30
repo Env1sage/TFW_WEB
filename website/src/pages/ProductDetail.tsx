@@ -8,10 +8,8 @@ import type { Product, Brand, DeviceModel } from '../types';
 import ProductCard from '../components/ProductCard';
 import MockupPreview from '../components/MockupPreview';
 import toast from 'react-hot-toast';
-import { COLORS } from '../mockups';
-
-function colorName(hex: string): string {
-  return COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
+function colorName(hex: string, palette: { name: string; hex: string }[]): string {
+  return palette.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
 }
 
 // ── Data tables ────────────────────────────────────────────────────────────────
@@ -213,6 +211,7 @@ const getCareIcon = (icon: string) => {
 
 export default function ProductDetail() {
   const { slug } = useParams();
+  const [palette, setPalette] = useState<{ name: string; hex: string }[]>([]);
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,6 +265,7 @@ export default function ProductDetail() {
     setLoading(true);
     setError(null);
     setBrands([]); setModels([]); setSelectedBrand(null); setSelectedModel(null);
+    api.getPalette().then(setPalette).catch(() => {});
     let loadedProductId = '';
     api.getProduct(slug).then(p => {
       if (!p) throw new Error('Product not found');
@@ -290,6 +290,16 @@ export default function ProductDetail() {
       setError(err.message || 'Failed to load product');
     }).finally(() => setLoading(false));
   }, [slug]);
+
+  // Adjust selectedColor to a palette-valid color once palette loads
+  useEffect(() => {
+    if (!product?.colors?.length || !palette.length) return;
+    const palHexes = new Set(palette.map(c => c.hex.toLowerCase()));
+    if (!palHexes.has(selectedColor.toLowerCase())) {
+      const valid = product.colors.find((c: string) => palHexes.has(c.toLowerCase()));
+      setSelectedColor(valid ?? '');
+    }
+  }, [palette, product]);
 
   useEffect(() => {
     if (!selectedBrand) { setModels([]); setSelectedModel(null); return; }
@@ -604,27 +614,33 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {/* Color selector */}
-            {product.colors.length > 0 && (
-              <div className="pd-option-group">
-                <label>Colour
-                  {selectedColor && <span className="pd-option-value">{colorName(selectedColor)}</span>}
-                </label>
-                <div className="pd-colors">
-                  {[...new Set(product.colors)].map(c => (
-                    <button
-                      key={c}
-                      className={`pd-color ${selectedColor === c ? 'active' : ''}`}
-                      style={{ background: c, border: c === '#ffffff' ? '2px solid var(--border)' : '2px solid transparent' }}
-                      onClick={() => setSelectedColor(c)}
-                      title={c}
-                    >
-                      {selectedColor === c && <Check size={12} />}
-                    </button>
-                  ))}
+            {/* Color selector — only show colours present in the global palette */}
+            {(() => {
+              const paletteHexes = new Set(palette.map(p => p.hex.toLowerCase()));
+              const visibleColors = [...new Set(product.colors)].filter(c =>
+                palette.length === 0 || paletteHexes.has(c.toLowerCase())
+              );
+              return visibleColors.length > 0 ? (
+                <div className="pd-option-group">
+                  <label>Colour
+                    {selectedColor && <span className="pd-option-value">{colorName(selectedColor, palette)}</span>}
+                  </label>
+                  <div className="pd-colors">
+                    {visibleColors.map(c => (
+                      <button
+                        key={c}
+                        className={`pd-color ${selectedColor === c ? 'active' : ''}`}
+                        style={{ background: c, border: c === '#ffffff' ? '2px solid var(--border)' : '2px solid transparent' }}
+                        onClick={() => setSelectedColor(c)}
+                        title={colorName(c, palette)}
+                      >
+                        {selectedColor === c && <Check size={12} />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null;
+            })()}
 
             {/* Size selector */}
             {product.sizes.length > 0 && (
