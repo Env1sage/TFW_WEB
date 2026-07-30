@@ -31,6 +31,27 @@
   will-change: transform;
 }
 
+/* Full-image mode: image fills the entire slide */
+.promo-banner-slide--img {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  min-height: 340px;
+}
+
+/* Dark gradient overlay so text stays readable over any image */
+.promo-slide-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 0.38) 50%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+  z-index: 1;
+}
+
 /* ── Left content ── */
 .promo-slide-content {
   position: relative;
@@ -273,17 +294,23 @@
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .promo-banner-slide {
-    flex-direction: column-reverse;
+    flex-direction: column;
     align-items: flex-start;
-    padding: 1.5rem 1.25rem 2rem;
+    padding: 2rem 1.25rem 2.5rem;
     min-height: auto;
     gap: 1rem;
   }
 
-  .promo-slide-image-wrap {
-    width: 100%;
-    height: 180px;
-    border-radius: 12px;
+  .promo-banner-slide--img {
+    min-height: 220px;
+  }
+
+  .promo-slide-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.25) 100%
+    );
   }
 
   .promo-title { font-size: clamp(1.25rem, 5vw, 1.7rem); }

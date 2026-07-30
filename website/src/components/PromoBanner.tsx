@@ -126,8 +126,12 @@ export default function PromoBanner() {
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={banner.id + idx}
-            className="promo-banner-slide"
-            style={{
+            className={`promo-banner-slide${banner.imageUrl ? ' promo-banner-slide--img' : ''}`}
+            style={banner.imageUrl ? {
+              backgroundImage: `url(${banner.imageUrl})`,
+              color: '#ffffff',
+              '--accent': banner.accentColor,
+            } as React.CSSProperties : {
               background: banner.bgGradient,
               color: banner.textColor,
               '--accent': banner.accentColor,
@@ -139,7 +143,10 @@ export default function PromoBanner() {
             exit="exit"
             transition={{ duration: 0.42, ease: [0.4, 0, 0.2, 1] }}
           >
-            {/* Left — Text */}
+            {/* Dark gradient overlay for readability when using a full image */}
+            {banner.imageUrl && <div className="promo-slide-overlay" />}
+
+            {/* Text content */}
             <div className="promo-slide-content">
               <span className="promo-badge" style={{ background: banner.accentColor }}>
                 {badge.icon}
@@ -166,7 +173,7 @@ export default function PromoBanner() {
                   <Link
                     to={banner.ctaUrl2}
                     className="promo-cta-secondary"
-                    style={{ borderColor: banner.textColor, color: banner.textColor }}
+                    style={{ borderColor: '#ffffff', color: '#ffffff' }}
                   >
                     {banner.ctaLabel2}
                   </Link>
@@ -174,22 +181,13 @@ export default function PromoBanner() {
               </div>
             </div>
 
-            {/* Right — Image */}
-            {banner.imageUrl && (
-              <div className="promo-slide-image-wrap">
-                <img
-                  src={banner.imageUrl}
-                  alt={banner.title}
-                  className="promo-slide-image"
-                  loading="lazy"
-                  draggable={false}
-                />
-              </div>
+            {/* Decorative blobs — only shown when no full image */}
+            {!banner.imageUrl && (
+              <>
+                <div className="promo-blob promo-blob-1" style={{ background: banner.accentColor }} />
+                <div className="promo-blob promo-blob-2" style={{ background: banner.accentColor }} />
+              </>
             )}
-
-            {/* Decorative blobs */}
-            <div className="promo-blob promo-blob-1" style={{ background: banner.accentColor }} />
-            <div className="promo-blob promo-blob-2" style={{ background: banner.accentColor }} />
           </motion.div>
         </AnimatePresence>
 

@@ -3718,7 +3718,7 @@ MSG91_SENDER_ID=TFWALL`}
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                             <label style={{ margin: 0 }}>Banner Image</label>
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', background: 'var(--surface-2,rgba(0,0,0,0.06))', borderRadius: 6, padding: '2px 8px' }}>
-                              Recommended: <strong>1200 × 1000 px</strong> (6:5 ratio) · PNG / JPG / WebP · max 10 MB
+                              Recommended: <strong>1920 × 600 px</strong> (16:5 ratio) · PNG / JPG / WebP · max 10 MB
                             </span>
                           </div>
                           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
