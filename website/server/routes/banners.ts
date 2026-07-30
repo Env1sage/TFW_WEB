@@ -1,7 +1,30 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware } from '../middleware/auth.js';
+
+const BANNER_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'banners');
+if (!fs.existsSync(BANNER_UPLOADS_DIR)) fs.mkdirSync(BANNER_UPLOADS_DIR, { recursive: true });
+
+const bannerStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, BANNER_UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  },
+});
+
+const uploadBanner = multer({
+  storage: bannerStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only PNG, JPEG, and WebP images are allowed'));
+  },
+});
 
 const router = Router();
 
@@ -33,6 +56,15 @@ function shapeBanner(r: any) {
     createdAt: r.created_at,
   };
 }
+
+/* ── Upload ── */
+router.post('/upload', authMiddleware, adminOnly, (req: Request, res: Response) => {
+  uploadBanner.single('image')(req, res, (err: any) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    res.json({ url: `/uploads/banners/${req.file.filename}` });
+  });
+});
 
 /* ── Public ── */
 router.get('/', async (_req, res) => {

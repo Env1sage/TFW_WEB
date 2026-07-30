@@ -3715,8 +3715,58 @@ MSG91_SENDER_ID=TFWALL`}
                           <input value={bannerForm.badgeText} onChange={e => setBannerForm({ ...bannerForm, badgeText: e.target.value })} placeholder="Upto 40% Off" />
                         </div>
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                          <label>Image URL</label>
-                          <input value={bannerForm.imageUrl} onChange={e => setBannerForm({ ...bannerForm, imageUrl: e.target.value })} placeholder="https://…/banner.jpg" />
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <label style={{ margin: 0 }}>Banner Image</label>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', background: 'var(--surface-2,rgba(0,0,0,0.06))', borderRadius: 6, padding: '2px 8px' }}>
+                              Recommended: <strong>1200 × 1000 px</strong> (6:5 ratio) · PNG / JPG / WebP · max 10 MB
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              <Upload size={14} />
+                              Upload Image
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                style={{ display: 'none' }}
+                                onChange={async e => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    const { url } = await api.uploadBannerImage(file);
+                                    setBannerForm(f => ({ ...f, imageUrl: url }));
+                                    toast.success('Image uploaded');
+                                  } catch (err: any) {
+                                    toast.error(err.message || 'Upload failed');
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                            <input
+                              value={bannerForm.imageUrl}
+                              onChange={e => setBannerForm({ ...bannerForm, imageUrl: e.target.value })}
+                              placeholder="or paste image URL…"
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+                          {bannerForm.imageUrl && (
+                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                              <img
+                                src={bannerForm.imageUrl}
+                                alt="Banner preview"
+                                style={{ height: 90, width: 'auto', maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)', objectFit: 'cover', display: 'block' }}
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                              <button
+                                onClick={() => setBannerForm({ ...bannerForm, imageUrl: '' })}
+                                style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
+                                title="Remove image"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Background gradient */}

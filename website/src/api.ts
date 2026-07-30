@@ -397,6 +397,19 @@ export const api = {
   createBanner: (data: any) => request<any>('/banners', { method: 'POST', body: JSON.stringify(data) }),
   updateBanner: (id: string, data: any) => request<any>(`/banners/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteBanner: (id: string) => request<{ success: boolean }>(`/banners/${id}`, { method: 'DELETE' }),
+  uploadBannerImage: async (file: File): Promise<{ url: string }> => {
+    const token = getToken();
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await fetch(`${BASE}/banners/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  },
 
   // Admin Brands
   adminGetAllBrands: () => request<any[]>('/brands/admin/all'),
