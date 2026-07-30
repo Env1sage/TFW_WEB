@@ -44,6 +44,11 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      OTP_BYPASS: ${OTP_BYPASS:-false}
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+      MSG91_OTP_TEMPLATE_ID: ${MSG91_OTP_TEMPLATE_ID:-}
+      MSG91_SENDER_ID: ${MSG91_SENDER_ID:-TFWALL}
     volumes:
       - uploads_data:/app/uploads
     networks:

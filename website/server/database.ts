@@ -994,13 +994,17 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
     weightGrams: 'weight_grams', lengthCm: 'length_cm', breadthCm: 'breadth_cm', heightCm: 'height_cm',
     fabricInfo: 'fabric_info', collectionOnly: 'collection_only',
   };
-  const jsonFields = ['images', 'colors', 'sizes', 'highlights', 'printMethods', 'printAreas', 'careInstructions', 'faqs'];
+  const jsonFields: Record<string, string> = {
+    images: 'images', colors: 'colors', sizes: 'sizes', highlights: 'highlights',
+    printMethods: 'print_methods', printAreas: 'print_areas',
+    careInstructions: 'care_instructions', faqs: 'faqs',
+  };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {
     if (key in patch) { sets.push(`${col} = $${idx}`); vals.push(patch[key]); idx++; }
   }
-  for (const key of jsonFields) {
-    if (key in patch) { sets.push(`${key} = $${idx}`); vals.push(JSON.stringify(patch[key])); idx++; }
+  for (const [key, col] of Object.entries(jsonFields)) {
+    if (key in patch) { sets.push(`${col} = $${idx}`); vals.push(JSON.stringify(patch[key])); idx++; }
   }
   if (sets.length === 0) return getProductById(id);
   vals.push(id);
