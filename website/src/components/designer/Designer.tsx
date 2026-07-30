@@ -540,35 +540,17 @@ export default function Designer() {
       if (Math.abs(ox - cx) < 10) obj.set({ left: cx - obj.getScaledWidth() / 2 });
       if (Math.abs(oy - cy) < 10) obj.set({ top: cy - obj.getScaledHeight() / 2 });
     });
-    // ── Pinch-to-zoom (touch) ──
-    let lastDist = 0;
+    // Pinch-to-zoom on the canvas viewport is intentionally removed —
+    // it zoomed the entire view including the fixed mockup background.
+    // Individual design elements (images, text) are still scalable by
+    // selecting them and dragging Fabric.js's corner handles.
     const canvasEl = fc.upperCanvasEl || fc.lowerCanvasEl;
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        lastDist = Math.hypot(dx, dy);
-        e.preventDefault();
-      }
-    };
+    const onTouchStart = (_e: TouchEvent) => {};
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        if (lastDist === 0) { lastDist = dist; return; }
-        const delta = dist / lastDist;
-        lastDist = dist;
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        const rect = canvasEl.getBoundingClientRect();
-        const z = Math.min(3, Math.max(0.3, fc.getZoom() * delta));
-        fc.zoomToPoint(new fabric.Point(midX - rect.left, midY - rect.top), z);
-        fc.requestRenderAll();
-        e.preventDefault();
-      }
+      // Prevent accidental page scroll while touching inside the canvas
+      if (e.touches.length > 0) e.preventDefault();
     };
-    const onTouchEnd = () => { lastDist = 0; };
+    const onTouchEnd = () => {};
     canvasEl.addEventListener('touchstart', onTouchStart, { passive: false });
     canvasEl.addEventListener('touchmove', onTouchMove, { passive: false });
     canvasEl.addEventListener('touchend', onTouchEnd);
