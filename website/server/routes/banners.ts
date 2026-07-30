@@ -2,9 +2,13 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
 import { authMiddleware } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const BANNER_UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'uploads', 'banners');
 if (!fs.existsSync(BANNER_UPLOADS_DIR)) fs.mkdirSync(BANNER_UPLOADS_DIR, { recursive: true });
