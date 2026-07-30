@@ -160,15 +160,6 @@ export default function Admin() {
     active: true, sortOrder: 0, startDate: '', endDate: '',
   };
   const [bannerForm, setBannerForm] = useState({ ...defaultBannerForm });
-  // Shipping Calculator
-  const [shippingConfigs, setShippingConfigs] = useState<any[]>([]);
-  const [shippingLoading, setShippingLoading] = useState(false);
-  const [editingCarrier, setEditingCarrier] = useState<string | null>(null);
-  const [carrierForm, setCarrierForm] = useState<any>({});
-  const [savingCarrier, setSavingCarrier] = useState(false);
-  const [shippingTestForm, setShippingTestForm] = useState({ fromPin: '', toPin: '110001', weightGrams: 500, lengthCm: 20, widthCm: 15, heightCm: 5, declaredValue: 500 });
-  const [shippingTestResult, setShippingTestResult] = useState<any>(null);
-  const [testingRates, setTestingRates] = useState(false);
   // Delivery Settings
   const [deliverySettings, setDeliverySettings] = useState<Record<string, any>>({});
   const [deliveryLoading, setDeliveryLoading] = useState(false);
@@ -415,13 +406,6 @@ export default function Admin() {
     finally { setBannerLoading(false); }
   };
 
-  const loadShippingConfigs = async () => {
-    setShippingLoading(true);
-    try { setShippingConfigs(await api.adminGetShippingConfig()); }
-    catch { toast.error('Failed to load shipping config'); }
-    finally { setShippingLoading(false); }
-  };
-
   const loadDeliverySettings = async () => {
     setDeliveryLoading(true);
     try {
@@ -442,33 +426,6 @@ export default function Admin() {
       await loadDeliverySettings();
     } catch (e: any) { toast.error(e.message); }
     finally { setSavingDelivery(null); }
-  };
-
-  const saveCarrierConfig = async () => {
-    if (!editingCarrier) return;
-    setSavingCarrier(true);
-    try {
-      // Parse zone_rates JSON if string
-      const payload = { ...carrierForm };
-      if (typeof payload.zone_rates === 'string') {
-        try { payload.zoneRates = JSON.parse(payload.zone_rates); delete payload.zone_rates; } catch { toast.error('Zone rates must be valid JSON'); return; }
-      }
-      await api.adminUpdateShippingConfig(editingCarrier, {
-        enabled:           payload.enabled,
-        apiKey:            payload.api_key     ?? '',
-        apiSecret:         payload.api_secret  ?? '',
-        apiUrl:            payload.api_url      ?? '',
-        sourcePincode:     payload.source_pincode ?? '',
-        volumetricDivisor: Number(payload.volumetric_divisor) || 5000,
-        markupPercent:     Number(payload.markup_percent)     || 0,
-        markupFlat:        Number(payload.markup_flat)        || 0,
-        zoneRates:         payload.zoneRates ?? undefined,
-      });
-      toast.success(`${editingCarrier} config saved`);
-      setEditingCarrier(null);
-      await loadShippingConfigs();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSavingCarrier(false); }
   };
 
   const BADGE_TYPES = [
@@ -1338,7 +1295,7 @@ export default function Admin() {
           <button className={`tab ${tab === 'collections' ? 'active' : ''}`} onClick={() => { setTab('collections'); if (!collections.length) loadCollections(); }}><Sparkles size={16} /> Collections</button>
           <button className={`tab ${tab === 'brands' ? 'active' : ''}`} onClick={() => { setTab('brands'); if (!brands.length) loadBrands(); }}><Tag size={16} /> Brands &amp; Models</button>
           <button className={`tab ${tab === 'banners' ? 'active' : ''}`} onClick={() => { setTab('banners'); if (!bannerList.length) loadBanners(); }}><Image size={16} /> Banners</button>
-          <button className={`tab ${tab === 'shipping' ? 'active' : ''}`} onClick={() => { setTab('shipping'); if (!shippingConfigs.length) loadShippingConfigs(); }}><Truck size={16} /> Shipping Rates</button>
+          <button className={`tab ${tab === 'shipping' ? 'active' : ''}`} onClick={() => setTab('shipping')}><Truck size={16} /> Shipping Rates</button>
           <button className={`tab ${tab === 'delivery' ? 'active' : ''}`} onClick={() => { setTab('delivery'); if (!Object.keys(deliverySettings).length) loadDeliverySettings(); }}><MapPin size={16} /> Delivery Options</button>
           <button className={`tab ${tab === 'database' ? 'active' : ''}`} onClick={() => { setTab('database'); if (!dbData) loadDb(); }}><Database size={16} /> Database</button>
           <button className={`tab ${tab === 'shiprocket' ? 'active' : ''}`} onClick={() => setTab('shiprocket')}><Truck size={16} /> Shiprocket</button>
@@ -5259,209 +5216,16 @@ MSG91_SENDER_ID=TFWALL`}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h2 style={{ margin: '0 0 4px' }}>Shipping Rate Calculator</h2>
+                <h2 style={{ margin: '0 0 4px' }}>Shipping Zones &amp; Charges</h2>
                 <p style={{ color: 'var(--text-2)', fontSize: '0.88rem', margin: 0 }}>
-                  Configure carriers, credentials, markup, and zone rates. Test live rate lookups.
+                  Zones are matched by pincode prefix at checkout. Specific zones are checked first; the catch-all handles the rest.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="icon-btn" title="Flush rate cache" onClick={async () => { try { await api.adminFlushShippingCache(); toast.success('Rate cache flushed'); } catch (e: any) { toast.error(e.message); } }}>
-                  <RefreshCw size={15} />
-                </button>
-                <button className="icon-btn" title="Refresh" onClick={loadShippingConfigs}><RefreshCw size={15} /></button>
-              </div>
+              <button className="icon-btn" title="Refresh" onClick={() => api.getShippingZones().then(setShippingZones).catch(() => {})}><RefreshCw size={15} /></button>
             </div>
 
-            {shippingLoading && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-2)' }}>Loading…</div>}
-
-            {!shippingLoading && (
-              <div style={{ display: 'grid', gap: 16 }}>
-                {/* ── Carrier Cards ── */}
-                {shippingConfigs.map((cfg: any) => {
-                  const isEditing = editingCarrier === cfg.carrier;
-                  const CARRIER_LABELS: Record<string, string> = { shiprocket: 'Shiprocket', delhivery: 'Delhivery', bluedart: 'Blue Dart', dtdc: 'DTDC' };
-                  const CARRIER_DESC: Record<string, string> = {
-                    shiprocket: 'Aggregator — real-time rates from 20+ couriers via API',
-                    delhivery:  'Direct API integration — surface & express rates',
-                    bluedart:   'Enterprise API; falls back to zone-rate table if no credentials',
-                    dtdc:       'Enterprise API; falls back to zone-rate table if no credentials',
-                  };
-                  return (
-                    <div key={cfg.carrier} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                      {/* Header Row */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: isEditing ? '1px solid var(--border)' : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: cfg.enabled ? '#22c55e' : '#e5e7eb' }} />
-                          <div>
-                            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{CARRIER_LABELS[cfg.carrier] || cfg.carrier}</span>
-                            <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-3)' }}>{CARRIER_DESC[cfg.carrier]}</p>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: '0.78rem', color: cfg.enabled ? '#22c55e' : 'var(--text-3)' }}>{cfg.enabled ? 'Enabled' : 'Disabled'}</span>
-                          <button className="btn" style={{ fontSize: '0.8rem', padding: '4px 12px' }} onClick={() => {
-                            if (isEditing) { setEditingCarrier(null); return; }
-                            setCarrierForm({
-                              ...cfg,
-                              zone_rates: JSON.stringify(cfg.zone_rates || {}, null, 2),
-                            });
-                            setEditingCarrier(cfg.carrier);
-                          }}>
-                            {isEditing ? 'Cancel' : <><Edit3 size={13} style={{ marginRight: 4 }} />Configure</>}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Edit Form */}
-                      {isEditing && (
-                        <div style={{ padding: '16px 18px' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, marginBottom: 16 }}>
-                            {/* Enable toggle */}
-                            <div className="form-group">
-                              <label>Status</label>
-                              <select value={carrierForm.enabled ? 'true' : 'false'} onChange={e => setCarrierForm((f: any) => ({ ...f, enabled: e.target.value === 'true' }))}>
-                                <option value="true">Enabled</option>
-                                <option value="false">Disabled</option>
-                              </select>
-                            </div>
-                            {/* API Key */}
-                            <div className="form-group">
-                              <label>API Key / Token</label>
-                              <input type="text" placeholder="Leave blank to keep existing" value={carrierForm.api_key || ''} onChange={e => setCarrierForm((f: any) => ({ ...f, api_key: e.target.value }))} />
-                            </div>
-                            {/* API Secret / Password */}
-                            <div className="form-group">
-                              <label>{cfg.carrier === 'shiprocket' ? 'Password' : 'API Secret / License ID'}</label>
-                              <input type="text" placeholder="Leave blank to keep existing" value={carrierForm.api_secret || ''} onChange={e => setCarrierForm((f: any) => ({ ...f, api_secret: e.target.value }))} />
-                            </div>
-                            {/* Source Pincode */}
-                            <div className="form-group">
-                              <label>Source Pincode</label>
-                              <input type="text" maxLength={6} placeholder="e.g. 411001" value={carrierForm.source_pincode || ''} onChange={e => setCarrierForm((f: any) => ({ ...f, source_pincode: e.target.value.replace(/\D/g,'') }))} />
-                            </div>
-                            {/* Volumetric Divisor */}
-                            <div className="form-group">
-                              <label>Volumetric Divisor (cm³/kg)</label>
-                              <input type="number" min={1000} max={10000} step={500} value={carrierForm.volumetric_divisor || 5000} onChange={e => setCarrierForm((f: any) => ({ ...f, volumetric_divisor: e.target.value }))} />
-                            </div>
-                            {/* Markup % */}
-                            <div className="form-group">
-                              <label>Markup %</label>
-                              <input type="number" min={0} max={100} step={0.5} value={carrierForm.markup_percent || 0} onChange={e => setCarrierForm((f: any) => ({ ...f, markup_percent: e.target.value }))} />
-                            </div>
-                            {/* Markup Flat */}
-                            <div className="form-group">
-                              <label>Markup Flat (₹)</label>
-                              <input type="number" min={0} step={1} value={carrierForm.markup_flat || 0} onChange={e => setCarrierForm((f: any) => ({ ...f, markup_flat: e.target.value }))} />
-                            </div>
-                          </div>
-                          {/* Zone Rates (for BlueDart / DTDC) */}
-                          {['bluedart', 'dtdc'].includes(cfg.carrier) && (
-                            <div className="form-group" style={{ marginBottom: 16 }}>
-                              <label>Zone Rates JSON (₹/first kg) — keys: local, regional, national, remote</label>
-                              <textarea rows={4} style={{ fontFamily: 'monospace', fontSize: '0.82rem' }} value={carrierForm.zone_rates || ''} onChange={e => setCarrierForm((f: any) => ({ ...f, zone_rates: e.target.value }))} />
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button className="btn btn-primary" onClick={saveCarrierConfig} disabled={savingCarrier}>
-                              {savingCarrier ? <div className="spinner-sm" /> : <><Save size={14} /> Save</>}
-                            </button>
-                            <button className="btn" onClick={() => setEditingCarrier(null)}>Cancel</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Summary row when collapsed */}
-                      {!isEditing && (
-                        <div style={{ display: 'flex', gap: 24, padding: '8px 18px 12px', fontSize: '0.8rem', color: 'var(--text-3)' }}>
-                          <span>Markup: {cfg.markup_percent || 0}% + ₹{cfg.markup_flat || 0}</span>
-                          <span>Divisor: {cfg.volumetric_divisor || 5000}</span>
-                          {cfg.source_pincode && <span>From: {cfg.source_pincode}</span>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* ── Test Rate Calculator ── */}
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-                  <h3 style={{ margin: '0 0 14px', fontSize: '1rem' }}>Test Rate Lookup</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10, marginBottom: 12 }}>
-                    <div className="form-group">
-                      <label>From Pincode</label>
-                      <input type="text" maxLength={6} placeholder="411001" value={shippingTestForm.fromPin} onChange={e => setShippingTestForm(f => ({ ...f, fromPin: e.target.value.replace(/\D/g,'') }))} />
-                    </div>
-                    <div className="form-group">
-                      <label>To Pincode</label>
-                      <input type="text" maxLength={6} placeholder="110001" value={shippingTestForm.toPin} onChange={e => setShippingTestForm(f => ({ ...f, toPin: e.target.value.replace(/\D/g,'') }))} />
-                    </div>
-                    <div className="form-group">
-                      <label>Weight (g)</label>
-                      <input type="number" min={1} value={shippingTestForm.weightGrams} onChange={e => setShippingTestForm(f => ({ ...f, weightGrams: Number(e.target.value) }))} />
-                    </div>
-                    <div className="form-group">
-                      <label>L (cm)</label>
-                      <input type="number" min={1} value={shippingTestForm.lengthCm} onChange={e => setShippingTestForm(f => ({ ...f, lengthCm: Number(e.target.value) }))} />
-                    </div>
-                    <div className="form-group">
-                      <label>W (cm)</label>
-                      <input type="number" min={1} value={shippingTestForm.widthCm} onChange={e => setShippingTestForm(f => ({ ...f, widthCm: Number(e.target.value) }))} />
-                    </div>
-                    <div className="form-group">
-                      <label>H (cm)</label>
-                      <input type="number" min={1} value={shippingTestForm.heightCm} onChange={e => setShippingTestForm(f => ({ ...f, heightCm: Number(e.target.value) }))} />
-                    </div>
-                    <div className="form-group">
-                      <label>Declared Value (₹)</label>
-                      <input type="number" min={1} value={shippingTestForm.declaredValue} onChange={e => setShippingTestForm(f => ({ ...f, declaredValue: Number(e.target.value) }))} />
-                    </div>
-                  </div>
-                  <button className="btn btn-primary" style={{ marginBottom: 16 }} disabled={testingRates} onClick={async () => {
-                    setTestingRates(true); setShippingTestResult(null);
-                    try {
-                      const res = await api.adminTestShippingRates(shippingTestForm);
-                      setShippingTestResult(res);
-                    } catch (e: any) { toast.error(e.message); }
-                    finally { setTestingRates(false); }
-                  }}>
-                    {testingRates ? <><div className="spinner-sm" style={{ marginRight: 6 }} />Fetching…</> : <><Truck size={14} /> Get Rates</>}
-                  </button>
-
-                  {shippingTestResult && (
-                    <div>
-                      {/* Weight summary */}
-                      <div style={{ display: 'flex', gap: 20, padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, marginBottom: 12, fontSize: '0.82rem', flexWrap: 'wrap' }}>
-                        <span>Dead: <strong>{shippingTestResult.weights?.deadWeightKg} kg</strong></span>
-                        <span>Volumetric: <strong>{shippingTestResult.weights?.volumetricWeightKg} kg</strong></span>
-                        <span>Chargeable: <strong>{shippingTestResult.weights?.chargeableWeightKg} kg</strong></span>
-                      </div>
-                      {/* Rate rows */}
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {(shippingTestResult.carriers || []).map((r: any, i: number) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: r.available ? 'var(--bg)' : 'transparent', border: '1px solid var(--border)', borderRadius: 8, opacity: r.available ? 1 : 0.5 }}>
-                            <div>
-                              <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.courierName}</span>
-                              <span style={{ marginLeft: 8, fontSize: '0.75rem', color: 'var(--text-3)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4 }}>{r.source}</span>
-                              <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-3)' }}>{r.estimatedDays} · {r.mode}</p>
-                            </div>
-                            {r.available
-                              ? <span style={{ fontWeight: 700, color: 'var(--primary)' }}>₹{r.totalRate}</span>
-                              : <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>{r.error || 'Unavailable'}</span>
-                            }
-                          </div>
-                        ))}
-                        {(shippingTestResult.carriers || []).length === 0 && (
-                          <p style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>No carriers returned rates. Ensure at least one carrier is enabled.</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Shipping Zones Section */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, marginTop: 28 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <IndianRupee size={16} /> Shipping Zones &amp; Charges

@@ -427,6 +427,12 @@ export const api = {
   deleteModel: (modelId: string) =>
     request<{ success: boolean }>(`/brands/models/${modelId}`, { method: 'DELETE' }),
 
+  // Zone-based shipping rate (used at checkout by pincode)
+  getZoneRate: (pincode: string, orderTotal: number) =>
+    request<{ charge: number; free: boolean; freeAbove?: number; zoneName: string; estimatedDays: string }>(
+      '/shipping/zone-rate', { method: 'POST', body: JSON.stringify({ pincode, orderTotal }) }
+    ),
+
   // Shipping Rates (multi-carrier)
   getShippingRates: (data: { fromPin?: string; toPin: string; weightGrams: number; lengthCm?: number; widthCm?: number; heightCm?: number; declaredValue?: number }) =>
     request<{ weights: any; carriers: any[] }>('/shipping/rates', { method: 'POST', body: JSON.stringify(data) }),

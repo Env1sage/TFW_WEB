@@ -411,6 +411,47 @@ async function getAllRates(
 // ══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * POST /api/shipping/zone-rate
+ * Body: { pincode, orderTotal }
+ * Returns the matched zone's shipping charge for a given delivery pincode.
+ * Used by checkout to show the exact shipping fee before payment.
+ */
+router.post('/zone-rate', async (req: Request, res: Response) => {
+  try {
+    const { pincode, orderTotal = 0 } = req.body;
+    if (!pincode || !/^\d{6}$/.test(String(pincode))) {
+      return res.status(400).json({ error: 'Valid 6-digit pincode required' });
+    }
+    const zones = await db.getShippingZones();
+    const pin = String(pincode);
+
+    // Specific pin-pattern zones first (non-catch-all), then catch-all
+    const specific = zones.filter(z => z.active && z.pinPatterns && z.pinPatterns.length > 0);
+    const catchAll = zones.filter(z => z.active && (!z.pinPatterns || z.pinPatterns.length === 0));
+
+    const matched =
+      specific.find(z => z.pinPatterns.some((p: string) => pin.startsWith(p))) ||
+      catchAll[0] ||
+      null;
+
+    if (!matched) {
+      return res.json({ charge: 49, free: false, zoneName: 'Default', estimatedDays: '5-7 days' });
+    }
+
+    const isFree = Number(orderTotal) >= matched.freeAbove && matched.freeAbove > 0;
+    res.json({
+      charge: isFree ? 0 : matched.shippingCharge,
+      free: isFree,
+      freeAbove: matched.freeAbove,
+      zoneName: matched.label,
+      estimatedDays: matched.estimatedDays,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
  * POST /api/shipping/rates
  * Body: { fromPin, toPin, weightGrams, lengthCm, widthCm, heightCm, declaredValue? }
  * Returns live rates from all enabled carriers + weight breakdown.

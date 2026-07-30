@@ -280,6 +280,10 @@ export default function Cart() {
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<'dunzo' | 'porter'>('dunzo');
 
+  // Zone-based shipping rate (looked up by pincode)
+  const [zoneRate, setZoneRate] = useState<{ charge: number; free: boolean; freeAbove?: number; zoneName: string; estimatedDays: string } | null>(null);
+  const [zoneRateLoading, setZoneRateLoading] = useState(false);
+
   // Misc
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -295,6 +299,24 @@ export default function Cart() {
 
   // Total order weight across all cart items
   const cartWeightGrams = items.reduce((sum, i) => sum + ((i.product.weightGrams || 200) * i.quantity), 0);
+
+  // Lookup zone shipping rate when pincode is complete
+  useEffect(() => {
+    if (form.pincode.length !== 6 || selectedDelivery?.type !== 'standard') {
+      setZoneRate(null);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setZoneRateLoading(true);
+      try {
+        const r = await api.getZoneRate(form.pincode, total);
+        if (!cancelled) setZoneRate(r);
+      } catch { if (!cancelled) setZoneRate(null); }
+      finally { if (!cancelled) setZoneRateLoading(false); }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [form.pincode, total, selectedDelivery?.type]);
 
   const loadDeliveryOptions = useCallback(async () => {
     setDeliveryLoading(true);
@@ -326,8 +348,10 @@ export default function Cart() {
     ? !!(form.fullName && form.email && form.phone)
     : !!(form.fullName && form.email && form.phone && form.addressLine1 && form.city && form.state && form.pincode.length === 6);
 
-  // Shipping cost comes from the selected delivery option
-  const shippingCost = selectedDelivery?.fee ?? (total >= 999 ? 0 : 49);
+  // Shipping cost: zone rate when pincode is entered for standard delivery, else delivery option fee
+  const shippingCost = (selectedDelivery?.type === 'standard' && zoneRate !== null)
+    ? zoneRate.charge
+    : selectedDelivery?.fee ?? (total >= 999 ? 0 : 49);
   const discount    = appliedCoupon?.discountAmount || 0;
   const finalTotal  = Math.max(0, total + shippingCost - discount);
 
@@ -526,9 +550,25 @@ export default function Cart() {
       )}
       <div className="summary-row"><span>Subtotal</span><span>₹{total.toFixed(0)}</span></div>
       <div className="summary-row">
-        <span>Shipping {selectedDelivery && <span className="summary-method-badge">{selectedDelivery.label}</span>}</span>
-        <span>{shippingCost === 0 ? 'Free' : `₹${shippingCost}`}</span>
+        <span>
+          Shipping
+          {zoneRate && selectedDelivery?.type === 'standard'
+            ? <span className="summary-method-badge">{zoneRate.zoneName} · {zoneRate.estimatedDays}</span>
+            : selectedDelivery && <span className="summary-method-badge">{selectedDelivery.label}</span>
+          }
+        </span>
+        <span>
+          {zoneRateLoading
+            ? <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>calculating…</span>
+            : shippingCost === 0 ? 'Free' : `₹${shippingCost}`
+          }
+        </span>
       </div>
+      {zoneRate?.freeAbove && shippingCost > 0 && (
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', textAlign: 'right', marginTop: -8, marginBottom: 4 }}>
+          Free above ₹{zoneRate.freeAbove}
+        </div>
+      )}
       {appliedCoupon && (
         <div className="summary-row" style={{ color: 'var(--success, #16a34a)' }}>
           <span>Discount ({appliedCoupon.code})</span><span>-₹{discount.toFixed(0)}</span>
