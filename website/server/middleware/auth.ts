@@ -9,33 +9,42 @@ if (!JWT_SECRET || JWT_SECRET.trim().length === 0) { console.error('FATAL: JWT_S
 export const ROLES = ['user', 'order_manager', 'product_manager', 'admin', 'super_admin'] as const;
 export type UserRole = typeof ROLES[number];
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+/* Single DB lookup per request — sets fresh role (SEC-019) and validates token version (SEC-020) */
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'No token provided' });
 
   try {
     const decoded = jwt.verify(header.slice(7), JWT_SECRET!) as any;
     if (decoded.pending2FA) return res.status(401).json({ error: '2FA verification pending' });
-    (req as any).userId = decoded.id;
-    (req as any).userRole = decoded.role;
+
+    const user = await db.findUserById(decoded.id);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    if ((decoded.tv ?? 0) !== user.tokenVersion) {
+      return res.status(401).json({ error: 'Session expired, please log in again' });
+    }
+
+    (req as any).userId = user.id;
+    (req as any).userRole = user.role; // always fresh from DB
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
-export async function adminMiddleware(req: Request, res: Response, next: NextFunction) {
-  const user = await db.findUserById((req as any).userId);
-  if (!user || !['admin', 'super_admin'].includes(user.role)) return res.status(403).json({ error: 'Admin access required' });
+/* Role checked against req.userRole which is already fresh from DB via authMiddleware */
+export function adminMiddleware(req: Request, res: Response, next: NextFunction) {
+  const role = (req as any).userRole;
+  if (!role || !['admin', 'super_admin'].includes(role)) return res.status(403).json({ error: 'Admin access required' });
   next();
 }
 
-/** Middleware factory: allow only specific roles (super_admin always passes) */
 export function requireRole(...allowed: UserRole[]) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const user = await db.findUserById((req as any).userId);
-    if (!user) return res.status(403).json({ error: 'User not found' });
-    if (user.role === 'super_admin' || allowed.includes(user.role as UserRole)) return next();
+  return (req: Request, res: Response, next: NextFunction) => {
+    const role = (req as any).userRole as UserRole;
+    if (!role) return res.status(403).json({ error: 'Unauthorized' });
+    if (role === 'super_admin' || allowed.includes(role)) return next();
     res.status(403).json({ error: `Requires role: ${allowed.join(' or ')}` });
   };
 }

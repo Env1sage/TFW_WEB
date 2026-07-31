@@ -399,6 +399,11 @@ export async function initDB() {
       );
     `);
 
+    // JWT revocation — token version per user (SEC-020)
+    await client.query(`
+      ALTER TABLE website_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+    `);
+
     // Inventory management columns on products
     await client.query(`
       ALTER TABLE website_products ADD COLUMN IF NOT EXISTS low_stock_threshold INT NOT NULL DEFAULT 10;
@@ -712,7 +717,7 @@ async function seedProducts(client: pg.PoolClient) {
 export interface DBUser {
   id: string; name: string; email: string | null; phone?: string; password: string | null;
   role: string; twoFactorSecret?: string; twoFactorEnabled: boolean;
-  googleId?: string; avatar?: string; createdAt: string;
+  googleId?: string; avatar?: string; createdAt: string; tokenVersion: number;
 }
 
 function rowToUser(row: any): DBUser {
@@ -721,6 +726,7 @@ function rowToUser(row: any): DBUser {
     password: row.password, role: row.role,
     twoFactorSecret: row.two_factor_secret || undefined,
     twoFactorEnabled: row.two_factor_enabled, googleId: row.google_id || undefined,
+    tokenVersion: row.token_version ?? 0,
     avatar: row.avatar || undefined, createdAt: row.created_at,
   };
 }
@@ -768,12 +774,17 @@ export async function updateUser(id: string, patch: Record<string, any>): Promis
   return rows.length ? rowToUser(rows[0]) : null;
 }
 
+export async function incrementTokenVersion(userId: string): Promise<void> {
+  await pool.query(`UPDATE website_users SET token_version = token_version + 1 WHERE id = $1`, [userId]);
+}
+
 /* ── OTP session queries ── */
 export async function createOtpSession(id: string, phone: string, otp: string, expiresAt: Date) {
+  const hashedOtp = await bcrypt.hash(otp, 10);
   await pool.query(
     `INSERT INTO website_otp_sessions (id, phone, otp, expires_at, created_at) VALUES ($1,$2,$3,$4,NOW())
      ON CONFLICT (phone) DO UPDATE SET id=$1, otp=$3, expires_at=$4, verified=false, created_at=NOW()`,
-    [id, phone, otp, expiresAt]
+    [id, phone, hashedOtp, expiresAt]
   );
 }
 

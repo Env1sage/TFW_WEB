@@ -8,7 +8,7 @@ interface AuthState {
   sendOtp: (phone: string) => Promise<{ sessionId: string; bypassOtp?: string }>;
   verifyOtp: (sessionId: string, otp: string) => Promise<{ isNewUser: boolean; role?: string }>;
   login: (email: string, password: string) => Promise<{ role?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { role: res.user?.role };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await api.logout(); } catch {}
     localStorage.removeItem('tfw_token');
     setUser(null);
   };

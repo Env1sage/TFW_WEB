@@ -299,6 +299,17 @@ const uploadProduct = multer({
   },
 });
 
+async function validateMagicBytes(filePath: string): Promise<boolean> {
+  const fd = await fs.promises.open(filePath, 'r');
+  const buf = Buffer.alloc(12);
+  try { await fd.read(buf, 0, 12, 0); } finally { await fd.close(); }
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true; // JPEG
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true; // PNG
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+      buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return true; // WebP
+  return false;
+}
+
 const router = Router();
 
 // Razorpay config
@@ -340,11 +351,14 @@ router.get('/', async (_req: Request, res: Response) => {
 
 // Product image upload
 router.post('/upload', authMiddleware, requireRole('admin', 'product_manager'), (req: Request, res: Response) => {
-  uploadProduct.single('image')(req, res, (err: any) => {
+  uploadProduct.single('image')(req, res, async (err: any) => {
     if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const url = `/uploads/products/${req.file.filename}`;
-    res.json({ url });
+    if (!(await validateMagicBytes(req.file.path))) {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+      return res.status(400).json({ error: 'Invalid file content' });
+    }
+    res.json({ url: `/uploads/products/${req.file.filename}` });
   });
 });
 
@@ -1162,11 +1176,14 @@ router.put('/orders/:id/status', authMiddleware, requireRole('admin', 'order_man
 
 // Mockup image upload
 router.post('/mockups/upload', authMiddleware, requireRole('admin', 'product_manager'), (req: Request, res: Response) => {
-  uploadMockup.single('image')(req, res, (err: any) => {
+  uploadMockup.single('image')(req, res, async (err: any) => {
     if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const url = `/uploads/mockups/${req.file.filename}`;
-    res.json({ url });
+    if (!(await validateMagicBytes(req.file.path))) {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+      return res.status(400).json({ error: 'Invalid file content' });
+    }
+    res.json({ url: `/uploads/mockups/${req.file.filename}` });
   });
 });
 

@@ -56,6 +56,8 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ token: string; user: any }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
+  logout: () => request<any>('/auth/logout', { method: 'POST' }),
+
   getProfile: () => request<any>('/auth/me'),
 
   updateProfile: (data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }) =>
