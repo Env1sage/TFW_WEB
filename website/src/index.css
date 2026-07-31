@@ -6562,10 +6562,10 @@ html.dark .glass-card {
 /* ── Hero eyebrow slide in ── */
 .hero-eyebrow { animation: slide-up-fade 0.55s ease both; }
 
-/* ── Stat text white gradient ── */
+/* ── Stat text ── */
 .stat strong {
-  background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.78) 100%);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  color: var(--primary);
+  -webkit-text-fill-color: var(--primary);
   font-size: 1.5rem;
 }
 
