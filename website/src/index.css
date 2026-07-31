@@ -520,7 +520,7 @@ html.dark .footer { background: #0A0C10; }
 .footer-col a { color: #94a3b8; font-size: 0.88rem; padding: 0.2rem 0; transition: color var(--transition); }
 .footer-col a:hover { color: #fff; }
 .social-links { display: flex; gap: 0.75rem; }
-.social-links a { color: #94a3b8; display: flex; align-items: center; }
+.social-links a { color: #94a3b8; }
 .social-links a:hover { color: var(--primary); }
 .footer-bottom {
   border-top: 1px solid #334155; padding-top: 1.25rem;
