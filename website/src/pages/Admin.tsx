@@ -212,7 +212,6 @@ export default function Admin() {
   const [mockupForm, setMockupForm] = useState(defaultMockup);
   const [savingMockup, setSavingMockup] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
-  const [colorPickerValue, setColorPickerValue] = useState('#ff0000');
   // Global colour palette (backed by DB via /api/settings/color_palette)
   const [globalColors, setGlobalColors] = useState<{name: string, hex: string}[]>([]);
   const [paletteLoading, setPaletteLoading] = useState(false);
@@ -4534,17 +4533,16 @@ MSG91_SENDER_ID=TFWALL`}
                             No palette yet. <button type="button" onClick={() => { closeProductForm(); setTab('colors'); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, padding: 0, fontSize: '0.8rem' }}>Build palette →</button>
                           </p>
                         )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          {(productForm.colors || []).map((hex, i) => (
-                            <span key={i} title={`${hex} — click to remove`} style={{ width: 24, height: 24, borderRadius: '50%', background: hex, border: '1.5px solid rgba(0,0,0,.18)', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
-                              onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter((_,idx)=>idx!==i) }))} />
-                          ))}
-                          <input type="color" value={colorPickerValue} style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid var(--border)', cursor: 'pointer', padding: 2 }} title="Custom colour" onChange={e => setColorPickerValue(e.target.value)} />
-                          <button type="button" className="btn btn-ghost" style={{ padding: '3px 10px', fontSize: '.76rem', minHeight: 'unset', borderRadius: 20 }}
-                            onClick={() => { if (colorPickerValue && !(productForm.colors||[]).includes(colorPickerValue)) setProductForm(f => ({ ...f, colors: [...(f.colors||[]), colorPickerValue] })); }}>
-                            + Custom
-                          </button>
-                        </div>
+                        {/* Show any legacy colours on the product that aren't in the current palette so admin can remove them */}
+                        {(productForm.colors || []).filter(hex => !globalColors.some(gc => gc.hex === hex)).length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>Not in palette (click to remove):</span>
+                            {(productForm.colors || []).filter(hex => !globalColors.some(gc => gc.hex === hex)).map((hex, i) => (
+                              <span key={i} title={`${hex} — click to remove`} style={{ width: 24, height: 24, borderRadius: '50%', background: hex, border: '2px solid #f97316', cursor: 'pointer', display: 'inline-block', flexShrink: 0 }}
+                                onClick={() => setProductForm(f => ({ ...f, colors: (f.colors||[]).filter(c => c !== hex) }))} />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
