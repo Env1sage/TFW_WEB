@@ -1395,14 +1395,14 @@ export default function Admin() {
                           </td>
                           <td style={{ padding: '10px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              {item.image
-                                ? <img src={item.image} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0 }} />
+                              {(item.image || ((item as any).images?.[0]))
+                                ? <img src={item.image || (item as any).images?.[0]} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0 }} />
                                 : <div style={{ width: 36, height: 36, borderRadius: 6, background: 'var(--bg-2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Boxes size={14} style={{ opacity: 0.3 }} /></div>
                               }
                               <span style={{ fontWeight: 600, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.name}>{item.name}</span>
                             </div>
                           </td>
-                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-2)' }}>{item.sku || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-2)' }}>{(item as any).slug || item.sku || '—'}</td>
                           <td style={{ padding: '10px 14px', fontSize: '0.82rem' }}>{item.category || '—'}</td>
                           <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                             <button className="icon-btn" title={`${(item.variants ?? []).length} variants`} onClick={() => openVariants(item)} style={{ position: 'relative' }}>
