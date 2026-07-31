@@ -4707,58 +4707,44 @@ MSG91_SENDER_ID=TFWALL`}
                       <strong>Use transparent background (PNG only).</strong> Mockup images must have a transparent background so the selected product colour shows through correctly. Do <em>not</em> upload images with a white, grey, or any solid background.
                     </div>
                   </div>
-                  {/* ── Mockup Images ── */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    {(['frontImage', 'backImage'] as const).map(field => {
-                      const isFront = field === 'frontImage';
-                      const imgUrl = (mockupForm as any)[field] as string;
-                      const uploading = uploadingField === field;
-                      const removing = removingBgField === field;
-                      return (
-                        <div key={field} style={{ border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-                          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.83rem' }}>
-                              {isFront ? '🖼 Front' : '🔄 Back'}
-                              {isFront && <span style={{ color: '#ef4444', marginLeft: 4 }}>*</span>}
-                              {!isFront && <span style={{ color: 'var(--text-3)', fontWeight: 400, fontSize: '0.72rem', marginLeft: 6 }}>optional</span>}
-                            </span>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px' }}>transparent PNG</span>
-                          </div>
-                          <div style={{ background: 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 0 0 / 14px 14px', minHeight: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {imgUrl
-                              ? <img src={imgUrl} alt={isFront ? 'Front' : 'Back'} style={{ maxHeight: 150, maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
-                              : <div style={{ textAlign: 'center', color: 'var(--text-3)', padding: 16 }}>
-                                  <Upload size={22} style={{ opacity: 0.25, display: 'block', margin: '0 auto 4px' }} />
-                                  <span style={{ fontSize: '0.72rem' }}>No image</span>
-                                </div>
-                            }
-                          </div>
-                          <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                            <div style={{ display: 'flex', gap: 7 }}>
-                              <label className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', cursor: 'pointer', fontSize: '0.78rem', padding: '5px 8px' }}>
-                                {uploading ? <div className="spinner-sm" /> : <><Upload size={12} /> Upload PNG</>}
-                                <input type="file" accept="image/png" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleMockupImageUpload(field, f); e.target.value = ''; }} />
-                              </label>
-                              {imgUrl && (
-                                <button type="button" className="btn btn-ghost" style={{ fontSize: '0.78rem', padding: '5px 8px', whiteSpace: 'nowrap' }}
-                                  title="Remove background using remove.bg AI" onClick={() => handleRemoveBg(field)} disabled={removing}>
-                                  {removing ? <><div className="spinner-sm" /> Removing…</> : <>✂ Remove BG</>}
-                                </button>
-                              )}
-                            </div>
-                            <input type="text" value={imgUrl || ''} onChange={e => setMockupForm({ ...mockupForm, [field]: e.target.value })}
-                              placeholder="or paste image URL…"
-                              style={{ fontSize: '0.73rem', padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-2)', color: 'var(--text)', width: '100%' }} />
-                            {imgUrl && (
-                              <button type="button" onClick={() => setMockupForm({ ...mockupForm, [field]: '' })}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '0.7rem', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                                ✕ Remove image
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="form-group">
+                    <label>Front Image * <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— transparent PNG required</span></label>
+                    <div className="image-input-group">
+                      <input type="text" value={mockupForm.frontImage} onChange={e => setMockupForm({ ...mockupForm, frontImage: e.target.value })} placeholder="https://... or upload a transparent PNG →" required />
+                      <label className="btn btn-ghost upload-btn" title="Upload transparent PNG">
+                        {uploadingField === 'frontImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
+                        <input type="file" accept="image/png" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleMockupImageUpload('frontImage', f); e.target.value = ''; }} />
+                      </label>
+                    </div>
+                    {mockupForm.frontImage && (
+                      <>
+                        <img src={mockupForm.frontImage} alt="Front preview" className="form-preview" style={{ background: 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 0 0 / 16px 16px' }} />
+                        <button type="button" className="btn btn-ghost" style={{ marginTop: 6, fontSize: '0.8rem' }}
+                          onClick={() => handleRemoveBg('frontImage')} disabled={removingBgField === 'frontImage'}>
+                          {removingBgField === 'frontImage' ? <><div className="spinner-sm" /> Removing background…</> : <>✂ Remove Background</>}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {/* ── Back Image ── */}
+                  <div className="form-group">
+                    <label>Back Image (optional) <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.8rem' }}>— transparent PNG required</span></label>
+                    <div className="image-input-group">
+                      <input type="text" value={mockupForm.backImage || ''} onChange={e => setMockupForm({ ...mockupForm, backImage: e.target.value })} placeholder="https://... or upload a transparent PNG →" />
+                      <label className="btn btn-ghost upload-btn" title="Upload transparent PNG">
+                        {uploadingField === 'backImage' ? <div className="spinner-sm" /> : <><Upload size={14} /> Upload</>}
+                        <input type="file" accept="image/png" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleMockupImageUpload('backImage', f); e.target.value = ''; }} />
+                      </label>
+                    </div>
+                    {mockupForm.backImage && (
+                      <>
+                        <img src={mockupForm.backImage} alt="Back preview" className="form-preview" style={{ background: 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 0 0 / 16px 16px' }} />
+                        <button type="button" className="btn btn-ghost" style={{ marginTop: 6, fontSize: '0.8rem' }}
+                          onClick={() => handleRemoveBg('backImage')} disabled={removingBgField === 'backImage'}>
+                          {removingBgField === 'backImage' ? <><div className="spinner-sm" /> Removing background…</> : <>✂ Remove Background</>}
+                        </button>
+                      </>
+                    )}
                   </div>
                   {/* ── Print Layouts & Pricing ── */}
                   <div className="form-group pae-section">

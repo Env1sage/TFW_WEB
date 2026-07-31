@@ -1187,7 +1187,9 @@ router.post('/mockups/remove-bg', authMiddleware, requireRole('admin', 'product_
     formData.append('size', 'auto');
 
     if (imageUrl.startsWith('/uploads/')) {
-      const localPath = path.join(MOCKUP_UPLOADS_DIR, '..', imageUrl.replace(/^\/uploads\//, ''));
+      // Resolve local file: MOCKUP_UPLOADS_DIR is .../uploads/mockups, go up one to get uploads/
+      const uploadsRoot = path.join(MOCKUP_UPLOADS_DIR, '..');
+      const localPath = path.join(uploadsRoot, imageUrl.replace(/^\/uploads\//, ''));
       const fileBuffer = await fs.promises.readFile(localPath);
       const blob = new Blob([fileBuffer], { type: 'image/png' });
       formData.append('image_file', blob, 'image.png');
