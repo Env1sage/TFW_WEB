@@ -3046,8 +3046,8 @@ export default function Admin() {
                             <tbody>
                               {(colProducts[col.id] || []).map((p: any) => (
                                 <tr key={p.id}>
-                                  <td><img src={p.image} alt={p.name} className="table-thumb" /></td>
-                                  <td><code style={{ fontSize: '0.75rem' }}>{p.id}</code></td>
+                                  <td><img src={p.image || (p.images && p.images[0]) || ''} alt={p.name} className="table-thumb" /></td>
+                                  <td><code style={{ fontSize: '0.75rem' }}>{p.slug || p.id}</code></td>
                                   <td>{p.name}</td>
                                   <td>{p.category}</td>
                                   <td>₹{parseFloat(p.price).toFixed(0)}</td>
