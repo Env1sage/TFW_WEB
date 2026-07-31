@@ -5434,10 +5434,10 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 }
 .dsw-step__label { white-space: nowrap; }
 .dsw-step__line {
-  flex: 1; min-width: 28px; height: 2px;
+  width: 40px; flex-shrink: 0; height: 2px;
   background: var(--border); margin: 0 0.75rem; border-radius: 2px;
 }
-.dsw-step.done .dsw-step__line { background: var(--success); }
+.dsw-step__line.done { background: var(--success); }
 
 /* ── Landing page layout ──────────────── */
 .dsw-page { padding: 1.5rem 0 5rem; }

@@ -63,13 +63,15 @@ function StepBar({ step }: { step: number }) {
   return (
     <div className="dsw-steps">
       {steps.map((label, i) => (
-        <div key={i} className={`dsw-step ${i === step ? 'active' : i < step ? 'done' : ''}`}>
-          <div className="dsw-step__bubble">
-            {i < step ? <CheckCircle size={13} /> : i + 1}
+        <>
+          <div key={i} className={`dsw-step ${i === step ? 'active' : i < step ? 'done' : ''}`}>
+            <div className="dsw-step__bubble">
+              {i < step ? <CheckCircle size={13} /> : i + 1}
+            </div>
+            <span className="dsw-step__label">{label}</span>
           </div>
-          <span className="dsw-step__label">{label}</span>
-          {i < steps.length - 1 && <div className="dsw-step__line" />}
-        </div>
+          {i < steps.length - 1 && <div key={`line-${i}`} className={`dsw-step__line ${i < step ? 'done' : ''}`} />}
+        </>
       ))}
     </div>
   );
