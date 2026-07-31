@@ -196,6 +196,9 @@ export const api = {
     return data;
   },
 
+  removeMockupBackground: (imageUrl: string) =>
+    request<{ url: string }>('/products/mockups/remove-bg', { method: 'POST', body: JSON.stringify({ imageUrl }) }),
+
   createMockup: (data: any) =>
     request<any>('/products/mockups', { method: 'POST', body: JSON.stringify(data) }),
 
