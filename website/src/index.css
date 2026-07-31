@@ -5401,7 +5401,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
 /* ── Step bar ─────────────────────────── */
 .dsw-steps {
-  display: flex; align-items: center; gap: 0;
+  display: flex; align-items: center; justify-content: center; gap: 0;
   margin: 2rem 0 0.5rem;
   padding: 1rem 1.5rem;
   background: var(--surface);
