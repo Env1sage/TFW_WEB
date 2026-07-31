@@ -53,7 +53,7 @@ router.post('/send-otp', async (req: Request, res: Response) => {
     await db.createOtpSession(sessionId, phone, otp, expiresAt);
     if (!bypass) await sendOtpSMS(phone, otp);
 
-    res.json({ sessionId, message: 'OTP sent', ...(bypass && { bypassOtp: otp }) });
+    res.json({ sessionId, message: 'OTP sent' });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to send OTP' });
   }

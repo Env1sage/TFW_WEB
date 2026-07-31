@@ -39,6 +39,15 @@ async function sendMail(to: string, subject: string, html: string) {
 
 // ─── Helpers ──────────────────────────────────────────
 
+function escapeHtml(s: unknown): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatCurrency(n: number) {
   return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
@@ -115,7 +124,7 @@ function absoluteImageUrl(url: string): string {
 /** Render order items as Shopify-style product rows */
 function orderItemCards(items: any[]) {
   const cards = items.map(item => {
-    const name = item.productName || item.productId || 'Product';
+    const name = escapeHtml(item.productName || item.productId || 'Product');
     const colorName = hexToColorName(item.color || '');
     const size = item.size || '';
     const qty = item.quantity || 1;
@@ -297,8 +306,11 @@ interface OrderEmailData {
 }
 
 export async function sendOrderConfirmation(data: OrderEmailData) {
+  const safeName = escapeHtml(data.customerName);
+  const safeEmail = escapeHtml(data.customerEmail);
+  const safeAddress = escapeHtml(data.shippingAddress).replace(/\n/g, '<br>');
   const body = `
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${data.customerName}!</h2>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111;">Thank you, ${safeName}!</h2>
     <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your order has been confirmed and we're getting it ready.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -341,7 +353,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
         <td style="padding-top:16px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
       </tr>
       <tr>
-        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${safeAddress}</td>
       </tr>
     </table>
 
@@ -359,6 +371,9 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
 
 export async function sendAdminOrderNotification(data: OrderEmailData) {
   if (!ADMIN_EMAIL) return;
+  const safeName = escapeHtml(data.customerName);
+  const safeEmail = escapeHtml(data.customerEmail);
+  const safeAddress = escapeHtml(data.shippingAddress).replace(/\n/g, '<br>');
 
   const body = `
     <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111;">New Order Received</h2>
@@ -367,7 +382,7 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;margin-bottom:20px;">
       <tr><td style="padding:14px 16px;">
         <p style="margin:0;font-size:13px;"><strong>Order:</strong> #${data.orderId.slice(0,8).toUpperCase()}</p>
-        <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${data.customerName} — ${data.customerEmail}</p>
+        <p style="margin:6px 0 0;font-size:13px;"><strong>Customer:</strong> ${safeName} — ${safeEmail}</p>
         <p style="margin:6px 0 0;font-size:15px;"><strong>Total:</strong> <span style="color:#0E7C61;font-weight:700;">${formatCurrency(data.total)}</span></p>
       </td></tr>
     </table>
@@ -381,7 +396,7 @@ export async function sendAdminOrderNotification(data: OrderEmailData) {
         <td style="padding-top:14px;font-size:13px;font-weight:700;color:#111;">Shipping address</td>
       </tr>
       <tr>
-        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${data.shippingAddress.replace(/\n/g, '<br>')}</td>
+        <td style="padding-top:6px;font-size:13px;color:#6b7280;line-height:1.7;">${safeAddress}</td>
       </tr>
     </table>
 

@@ -112,17 +112,30 @@ async function getDunzoToken(cfg: any): Promise<string> {
   return _dunzoToken!;
 }
 
+async function getStoreCoords(): Promise<{ lat: number; lng: number }> {
+  const lat = parseFloat(process.env.STORE_LAT || '');
+  const lng = parseFloat(process.env.STORE_LNG || '');
+  if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  try {
+    const { rows } = await (await import('../database.js')).pool.query(
+      `SELECT value FROM website_settings WHERE key IN ('store_lat','store_lng')`,
+    );
+    const map = Object.fromEntries(rows.map((r: any) => [r.key, parseFloat(r.value)]));
+    if (!isNaN(map['store_lat']) && !isNaN(map['store_lng'])) return { lat: map['store_lat'], lng: map['store_lng'] };
+  } catch { /* fall through */ }
+  return { lat: 0, lng: 0 };
+}
+
 async function getDunzoQuote(cfg: any, fromPin: string, toPin: string): Promise<number | null> {
   try {
     const token = await getDunzoToken(cfg);
-    // Dunzo needs lat/lng — we use pincode as city proxy for now
-    // and fall back to flat fee if coordinates aren't available
+    const storeCoords = await getStoreCoords();
     const res = await fetch('https://apis.dunzo.in/api/v0/request/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        pickup_details:   [{ lat: 0, lng: 0, reference_id: fromPin }],
-        drop_details:     [{ lat: 0, lng: 0, reference_id: toPin }],
+        pickup_details:   [{ lat: storeCoords.lat, lng: storeCoords.lng, reference_id: fromPin }],
+        drop_details:     [{ lat: storeCoords.lat, lng: storeCoords.lng, reference_id: toPin }],
         payment_method: 'ONLINE',
       }),
     });
@@ -137,13 +150,14 @@ async function getPorterQuote(cfg: any, fromPin: string, toPin: string): Promise
   try {
     const apiKey = cfg.apiKey || process.env.PORTER_API_KEY || '';
     if (!apiKey) return null;
+    const storeCoords = await getStoreCoords();
     const res = await fetch('https://papi.porter.in/v1/get_quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        pickup_details:   { lat: 12.9716, lng: 77.5946 },  // placeholder — real impl needs geocoding
-        drop_details:     { lat: 12.9716, lng: 77.5946 },
-        vehicle_type:     { id: '2' },                     // 2 = Bike (< 10 kg)
+        pickup_details:   { lat: storeCoords.lat, lng: storeCoords.lng },
+        drop_details:     { lat: storeCoords.lat, lng: storeCoords.lng },
+        vehicle_type:     { id: '2' },
       }),
     });
     const data = await res.json() as any;

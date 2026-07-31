@@ -400,7 +400,7 @@ export default function Cart() {
     return { fee: selectedDelivery.fee, freeAbove: selectedDelivery.freeAbove, eta: selectedDelivery.eta };
   };
 
-  const placeAfterPayment = async (paymentData: { razorpayOrderId?: string; paymentId?: string }) => {
+  const placeAfterPayment = async (paymentData: { razorpayOrderId?: string; paymentId?: string; paymentToken?: string }) => {
     const shippingAddress = buildAddress();
     const deliveryMethod  = selectedDelivery?.type ?? 'standard';
     const deliveryConfig  = buildDeliveryConfig();
@@ -412,7 +412,7 @@ export default function Cart() {
         await api.createOrder(
           items.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText, phoneBrand: i.phoneBrand, phoneModel: i.phoneModel })),
           shippingAddress,
-          { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost }
+          { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, paymentToken: paymentData.paymentToken, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost }
         );
       }
       for (const d of designItems) {
@@ -447,7 +447,12 @@ export default function Cart() {
       const rpOrder = await api.createRazorpayOrder(finalTotal);
 
       if (rpOrder.simulated) {
-        await placeAfterPayment({ razorpayOrderId: rpOrder.orderId, paymentId: `sim_pay_${Date.now()}` });
+        const simVerif = await api.verifyRazorpayPayment({
+          razorpay_order_id: rpOrder.orderId,
+          razorpay_payment_id: `sim_pay_${Date.now()}`,
+          razorpay_signature: '',
+        });
+        await placeAfterPayment({ razorpayOrderId: rpOrder.orderId, paymentToken: simVerif.paymentToken });
         return;
       }
 
@@ -458,7 +463,7 @@ export default function Cart() {
           try {
             const verif = await api.verifyRazorpayPayment(response);
             if (verif.verified) {
-              await placeAfterPayment({ razorpayOrderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id });
+              await placeAfterPayment({ razorpayOrderId: response.razorpay_order_id, paymentToken: verif.paymentToken });
             } else {
               toast.error('Payment verification failed'); setProcessing(false);
             }

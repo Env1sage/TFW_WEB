@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -36,25 +37,38 @@ const ALLOWED_ORIGINS = [
   'https://www.theframedwall.com',
 ];
 
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com'],
+      connectSrc: ["'self'", 'https://api.razorpay.com'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      frameSrc: ['https://api.razorpay.com'],
+    },
+  },
+}));
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    // Allow any localhost port in development
-    if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '1mb' }));
+// Design studio routes send base64 image data — needs larger limit
+app.use('/api/products/design-orders', express.json({ limit: '50mb' }));
+app.use('/api/products/saved-designs', express.json({ limit: '50mb' }));
 app.use(cookieParser());
 
 // Rate limiting
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Too many attempts, please try again after 15 minutes' } });
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: { error: 'Too many requests, please slow down' } });
 app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/auth/verify-2fa', authLimiter);
+app.use('/api/auth/send-otp', authLimiter);
 app.use('/api/products/corporate-inquiry', rateLimit({ windowMs: 60 * 60 * 1000, max: 5, message: { error: 'Too many inquiries, try again later' } }));
 app.use('/api', apiLimiter);
 

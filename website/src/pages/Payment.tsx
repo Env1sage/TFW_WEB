@@ -43,7 +43,7 @@ export default function Payment() {
       .finally(() => setLoadingOrder(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const placeAfterPayment = async (paymentData: { razorpayOrderId?: string; paymentId?: string }) => {
+  const placeAfterPayment = async (paymentData: { razorpayOrderId?: string; paymentId?: string; paymentToken?: string }) => {
     if (!state) return;
     setProcessing(true);
     try {
@@ -60,6 +60,7 @@ export default function Payment() {
         promises.push(api.createOrder(orderItems, state.shippingAddress, {
           razorpayOrderId: paymentData.razorpayOrderId,
           paymentId:       paymentData.paymentId,
+          paymentToken:    paymentData.paymentToken,
           couponCode:      state.appliedCoupon?.code,
           discountAmount:  state.appliedCoupon?.discountAmount,
         }));
@@ -99,12 +100,17 @@ export default function Payment() {
   };
 
   /* ── Real Razorpay checkout popup ── */
-  const handleRazorpayPayment = () => {
+  const handleRazorpayPayment = async () => {
     if (!rpOrder || !user || !state) return;
 
     // Simulated mode (Razorpay keys not configured on server)
     if (rpOrder.simulated) {
-      placeAfterPayment({ razorpayOrderId: rpOrder.orderId, paymentId: `sim_pay_${Date.now()}` });
+      const simVerif = await api.verifyRazorpayPayment({
+        razorpay_order_id: rpOrder.orderId,
+        razorpay_payment_id: `sim_pay_${Date.now()}`,
+        razorpay_signature: '',
+      });
+      placeAfterPayment({ razorpayOrderId: rpOrder.orderId, paymentToken: simVerif.paymentToken });
       return;
     }
 
@@ -123,7 +129,7 @@ export default function Payment() {
           if (verif.verified) {
             await placeAfterPayment({
               razorpayOrderId: response.razorpay_order_id,
-              paymentId:       response.razorpay_payment_id,
+              paymentToken:    verif.paymentToken,
             });
           } else {
             toast.error('Payment verification failed');

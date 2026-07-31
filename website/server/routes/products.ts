@@ -6,6 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as db from '../database.js';
+import { pool } from '../database.js';
 import { authMiddleware, adminMiddleware, requireRole } from '../middleware/auth.js';
 import { upsertLead } from './auth.js';
 import { sendOrderConfirmation, sendAdminOrderNotification, sendDesignOrderConfirmation, sendAdminDesignOrderNotification, sendCombinedOrderConfirmation, sendAdminCombinedOrderNotification, sendNewsletterWelcome, sendAdminNewsletterNotification, sendOrderStatusUpdate, sendTestEmail } from '../email.js';
@@ -303,9 +304,17 @@ const router = Router();
 // Razorpay config
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
+const JWT_SECRET = process.env.JWT_SECRET!;
 if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   console.warn('WARNING: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set — payments will be simulated');
 }
+
+// Pending Razorpay orders: orderId → { amountPaise, expiresAt }
+const pendingRazorpayOrders = new Map<string, { amountPaise: number; expiresAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  pendingRazorpayOrders.forEach((v, k) => { if (v.expiresAt < now) pendingRazorpayOrders.delete(k); });
+}, 5 * 60 * 1000);
 
 // Get all products (public — excludes collection-only; pass ?all=1 for admin)
 router.get('/', async (_req: Request, res: Response) => {
@@ -629,6 +638,11 @@ router.get('/orders/:id/invoice', authMiddleware, async (req: Request, res: Resp
   try {
     const invoice = await db.getOrderForInvoice(String(req.params.id));
     if (!invoice) return res.status(404).json({ error: 'Order not found' });
+    const userId = (req as any).userId;
+    const role = (req as any).userRole;
+    if (invoice.user_id !== userId && !['admin', 'super_admin', 'order_manager'].includes(role)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     res.json(invoice);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -892,20 +906,23 @@ router.post('/razorpay/create-order', authMiddleware, async (req: Request, res: 
   try {
     const { amount } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valid amount required' });
+    const amountPaise = Math.round(amount * 100);
 
     // If Razorpay keys not configured, return simulated order
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      return res.json({ orderId: `sim_${uuid().slice(0, 12)}`, amount: Math.round(amount * 100), currency: 'INR', keyId: '', simulated: true });
+      const simId = `sim_${uuid().slice(0, 12)}`;
+      pendingRazorpayOrders.set(simId, { amountPaise, expiresAt: Date.now() + 30 * 60 * 1000 });
+      return res.json({ orderId: simId, amount: amountPaise, currency: 'INR', keyId: '', simulated: true });
     }
 
-    // Create a Razorpay order via API
     const Razorpay = await import('razorpay').then(m => m.default || m);
     const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
     const order = await rzp.orders.create({
-      amount: Math.round(amount * 100), // amount in paise
+      amount: amountPaise,
       currency: 'INR',
       receipt: `rcpt_${uuid().slice(0, 8)}`,
     });
+    pendingRazorpayOrders.set(order.id, { amountPaise, expiresAt: Date.now() + 30 * 60 * 1000 });
     res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId: RAZORPAY_KEY_ID });
   } catch (e: any) {
     console.error('Razorpay order error:', e?.error?.description || e?.message || JSON.stringify(e));
@@ -917,20 +934,32 @@ router.post('/razorpay/create-order', authMiddleware, async (req: Request, res: 
 router.post('/razorpay/verify', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const pending = pendingRazorpayOrders.get(razorpay_order_id);
 
-    // If simulated (no real Razorpay keys), skip verification
+    // Simulated order (no live Razorpay keys)
     if (razorpay_order_id?.startsWith('sim_')) {
-      return res.json({ verified: true, simulated: true });
+      const jwt = await import('jsonwebtoken');
+      const token = jwt.default.sign(
+        { orderId: razorpay_order_id, paymentId: `sim_pay_${uuid().slice(0, 8)}`, amountPaise: pending?.amountPaise ?? 0 },
+        JWT_SECRET, { expiresIn: '30m' },
+      );
+      return res.json({ verified: true, simulated: true, paymentToken: token });
     }
 
     const body = razorpay_order_id + '|' + razorpay_payment_id;
     const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(body).digest('hex');
 
-    if (expectedSignature === razorpay_signature) {
-      res.json({ verified: true });
-    } else {
-      res.status(400).json({ verified: false, error: 'Invalid payment signature' });
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ verified: false, error: 'Invalid payment signature' });
     }
+
+    const jwt = await import('jsonwebtoken');
+    const token = jwt.default.sign(
+      { orderId: razorpay_order_id, paymentId: razorpay_payment_id, amountPaise: pending?.amountPaise ?? 0 },
+      JWT_SECRET, { expiresIn: '30m' },
+    );
+    pendingRazorpayOrders.delete(razorpay_order_id);
+    res.json({ verified: true, paymentToken: token });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -939,9 +968,23 @@ router.post('/razorpay/verify', authMiddleware, async (req: Request, res: Respon
 // Create order (auth required)
 router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { items, shippingAddress, razorpayOrderId, paymentId, couponCode, discountAmount, groupOrderId,
+    const { items, shippingAddress, razorpayOrderId, paymentId, paymentToken, couponCode, discountAmount, groupOrderId,
             deliveryMethod, deliveryConfig, shippingCost: clientShippingCost } = req.body;
     if (!items?.length || !shippingAddress) return res.status(400).json({ error: 'Items and address required' });
+
+    // Verify payment token issued by /razorpay/verify
+    let verifiedPaymentId: string | undefined;
+    let verifiedAmountPaise = 0;
+    if (paymentToken) {
+      try {
+        const jwt = await import('jsonwebtoken');
+        const decoded = jwt.default.verify(paymentToken, JWT_SECRET) as any;
+        verifiedPaymentId = decoded.paymentId;
+        verifiedAmountPaise = decoded.amountPaise ?? 0;
+      } catch {
+        return res.status(400).json({ error: 'Invalid or expired payment token' });
+      }
+    }
 
     let total = 0;
     const orderItems = [];
@@ -953,15 +996,38 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       orderItems.push({ ...item, price, productName: product.name, productImage: product.image });
     }
 
-    // Apply discount
-    const discount = discountAmount || 0;
+    // Server-side coupon validation and discount recompute
+    let discount = 0;
+    if (couponCode) {
+      const coupon = await db.getCouponByCode(couponCode);
+      if (!coupon || !coupon.active) return res.status(400).json({ error: 'Invalid or expired coupon' });
+      if (coupon.validUntil && new Date(coupon.validUntil) < new Date()) return res.status(400).json({ error: 'Coupon has expired' });
+      if (total < coupon.minOrderAmount) return res.status(400).json({ error: `Minimum order amount for this coupon is ₹${coupon.minOrderAmount}` });
+      discount = coupon.discountType === 'percentage'
+        ? Math.round(total * coupon.discountValue / 100 * 100) / 100
+        : Math.min(coupon.discountValue, total);
+    }
     const finalTotal = Math.max(0, Math.round((total - discount) * 100) / 100);
 
-    // Increment coupon use count
+    // Atomically consume coupon slot — rejects if max_uses already reached
     if (couponCode) {
-      await db.incrementCouponUseCount(couponCode);
+      const { rowCount } = await pool.query(
+        `UPDATE website_coupons SET use_count = use_count + 1
+         WHERE UPPER(code) = UPPER($1)
+           AND active = true
+           AND (max_uses IS NULL OR use_count < max_uses)`,
+        [couponCode],
+      );
+      if (!rowCount) return res.status(400).json({ error: 'Coupon has reached its usage limit' });
     }
 
+    // Verify paid amount covers order total (100 paise tolerance for float rounding)
+    const finalTotalPaise = Math.round(finalTotal * 100);
+    if (verifiedPaymentId && verifiedAmountPaise < finalTotalPaise - 100) {
+      return res.status(400).json({ error: 'Payment amount does not match order total' });
+    }
+
+    const resolvedPaymentId = verifiedPaymentId || paymentId;
     const resolvedDeliveryMethod = deliveryMethod || 'standard';
     const order = await db.addOrder({
       id: uuid(),
@@ -971,8 +1037,8 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       status: 'pending',
       shippingAddress,
       razorpayOrderId: razorpayOrderId || undefined,
-      paymentId: paymentId || undefined,
-      paymentStatus: paymentId ? 'paid' : 'simulated',
+      paymentId: resolvedPaymentId || undefined,
+      paymentStatus: verifiedPaymentId ? 'paid' : 'simulated',
       couponCode: couponCode || undefined,
       discountAmount: discount,
       groupOrderId: groupOrderId || undefined,

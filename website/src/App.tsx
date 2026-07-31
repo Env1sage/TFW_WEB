@@ -24,8 +24,6 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import TwoFactorSetup from './pages/TwoFactorSetup';
-import TwoFactorVerify from './pages/TwoFactorVerify';
 import Profile from './pages/Profile';
 import Orders from './pages/Orders';
 import Admin from './pages/Admin';
@@ -45,7 +43,6 @@ import DesignStudioProduct from './pages/DesignStudioProduct';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 import OrderTracking from './pages/OrderTracking';
-import GoogleCallback from './pages/GoogleCallback';
 import AdminLogin from './pages/AdminLogin';
 import CategoryBrands from './pages/CategoryBrands';
 import BrandModels from './pages/BrandModels';
@@ -102,9 +99,6 @@ function AppContent() {
               <Route path="/orders/:id/track" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/2fa-verify" element={<TwoFactorVerify />} />
-              <Route path="/auth/google/callback" element={<GoogleCallback />} />
-              <Route path="/2fa-setup" element={<ProtectedRoute><TwoFactorSetup /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
               <Route path="/design-studio" element={<DesignStudioLanding />} />

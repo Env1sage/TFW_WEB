@@ -112,7 +112,7 @@ export const api = {
     request<any>(`/products/${id}/stock`, { method: 'PATCH', body: JSON.stringify({ stock }) }),
 
   // Orders
-  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; couponCode?: string; discountAmount?: number; groupOrderId?: string; deliveryMethod?: string; deliveryConfig?: any; shippingCost?: number }) =>
+  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; paymentToken?: string; couponCode?: string; discountAmount?: number; groupOrderId?: string; deliveryMethod?: string; deliveryConfig?: any; shippingCost?: number }) =>
     request<any>('/products/orders', { method: 'POST', body: JSON.stringify({ items, shippingAddress, ...extra }) }),
 
   // Razorpay
@@ -120,7 +120,7 @@ export const api = {
     request<{ orderId: string; amount: number; currency: string; keyId: string; simulated?: boolean }>('/products/razorpay/create-order', { method: 'POST', body: JSON.stringify({ amount }) }),
 
   verifyRazorpayPayment: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
-    request<{ verified: boolean; simulated?: boolean }>('/products/razorpay/verify', { method: 'POST', body: JSON.stringify(data) }),
+    request<{ verified: boolean; simulated?: boolean; paymentToken?: string }>('/products/razorpay/verify', { method: 'POST', body: JSON.stringify(data) }),
 
   getMyOrders: () => request<any[]>('/products/orders/mine'),
 

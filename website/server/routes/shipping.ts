@@ -456,7 +456,7 @@ router.post('/zone-rate', async (req: Request, res: Response) => {
  * Body: { fromPin, toPin, weightGrams, lengthCm, widthCm, heightCm, declaredValue? }
  * Returns live rates from all enabled carriers + weight breakdown.
  */
-router.post('/rates', async (req: Request, res: Response) => {
+router.post('/rates', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { fromPin, toPin, weightGrams, lengthCm, widthCm, heightCm, declaredValue } = req.body;
 

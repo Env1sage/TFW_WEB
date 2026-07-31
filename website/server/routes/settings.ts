@@ -4,9 +4,13 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
-// Public: get a single setting by key
+// Keys accessible without authentication
+const PUBLIC_SETTINGS = new Set(['color_palette', 'upload_enabled', 'free_shipping_threshold', 'announcement_banner', 'store_info']);
+
+// Public: get a single setting by key (allowlisted keys only)
 router.get('/:key', async (req: Request, res: Response) => {
-  const { key } = req.params;
+  const key = String(req.params.key);
+  if (!PUBLIC_SETTINGS.has(key)) return res.status(403).json({ error: 'Forbidden' });
   const { rows } = await pool.query('SELECT value FROM website_settings WHERE key = $1', [key]);
   if (!rows.length) return res.status(404).json({ error: 'Not found' });
   res.json({ key, value: rows[0].value });

@@ -285,14 +285,18 @@ export async function initDB() {
     // Seed default admin if not exists
     const adminCheck = await client.query(`SELECT id FROM website_users WHERE email = $1`, ['admin@theframedwall.com']);
     if (adminCheck.rows.length === 0) {
-      const defaultPw = process.env.ADMIN_DEFAULT_PASSWORD || 'TFW@dmin2026!Secure';
-      const hashed = await bcrypt.hash(defaultPw, 12);
-      await client.query(
-        `INSERT INTO website_users (id, name, email, password, role, two_factor_enabled, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        ['admin-001', 'Admin', 'admin@theframedwall.com', hashed, 'admin', false]
-      );
-      console.log('Created default admin: admin@theframedwall.com (password set via ADMIN_DEFAULT_PASSWORD env var or secure default)');
+      const defaultPw = process.env.ADMIN_DEFAULT_PASSWORD;
+      if (!defaultPw) {
+        console.error('[FATAL] ADMIN_DEFAULT_PASSWORD env var not set — skipping admin seed. Set it and restart.');
+      } else {
+        const hashed = await bcrypt.hash(defaultPw, 12);
+        await client.query(
+          `INSERT INTO website_users (id, name, email, password, role, two_factor_enabled, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          ['admin-001', 'Admin', 'admin@theframedwall.com', hashed, 'admin', false]
+        );
+        console.log('Created default admin: admin@theframedwall.com');
+      }
     }
 
     // Seed categories if empty
