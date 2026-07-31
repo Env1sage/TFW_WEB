@@ -1697,7 +1697,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create product (admin only)
 router.post('/', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
-    const { name, description, price, category, categoryId, mockupId, image, images, customizable, colors, sizes, stock, featured, weightGrams, lengthCm, breadthCm, heightCm } = req.body;
+    const { name, description, price, category, categoryId, mockupId, image, images, customizable, colors, sizes, stock, featured, collectionOnly, weightGrams, lengthCm, breadthCm, heightCm } = req.body;
     if (!name || !price || !category) return res.status(400).json({ error: 'Name, price, and category required' });
 
     // Resolve category name from categoryId if provided
@@ -1727,6 +1727,7 @@ router.post('/', authMiddleware, requireRole('admin', 'product_manager'), async 
       rating: 0,
       reviewCount: 0,
       featured: featured ?? false,
+      collectionOnly: collectionOnly ?? false,
       weightGrams: weightGrams ?? 200,
       lengthCm: lengthCm ?? 30,
       breadthCm: breadthCm ?? 20,

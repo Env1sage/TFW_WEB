@@ -2005,7 +2005,7 @@ export default function Admin() {
                       return (
                         <tr key={p.id}>
                           <td>
-                            <img src={p.image} alt={p.name} className="table-thumb"
+                            <img src={p.image || (p.images && p.images[0]) || ''} alt={p.name} className="table-thumb"
                               onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/56x56/e2e8f0/94a3b8?text=No+Img'; }} />
                           </td>
                           <td>
@@ -2013,7 +2013,7 @@ export default function Admin() {
                               {p.name}
                               {p.collectionOnly && <span style={{ marginLeft: 6, fontSize: '0.65rem', padding: '1px 6px', background: '#ede9fe', color: '#5b21b6', borderRadius: 10, verticalAlign: 'middle', fontWeight: 600 }}>Collection</span>}
                             </strong>
-                            <code style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{p.id}</code>
+                            <code style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{(p as any).slug || p.id}</code>
                           </td>
                           <td>{p.category}</td>
                           <td>₹{p.price.toFixed(0)}</td>
