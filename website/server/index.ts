@@ -41,10 +41,10 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com'],
-      connectSrc: ["'self'", 'https://api.razorpay.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com', 'https://cdn.razorpay.com', 'https://checkout-static-next.razorpay.com'],
+      connectSrc: ["'self'", 'https://api.razorpay.com', 'https://cdn.razorpay.com', 'https://lumberjack.razorpay.com'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      frameSrc: ['https://api.razorpay.com'],
+      frameSrc: ['https://api.razorpay.com', 'https://checkout.razorpay.com'],
     },
   },
 }));
@@ -58,10 +58,10 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '1mb' }));
-// Design studio routes send base64 image data — needs larger limit
+// Large-limit parsers must come BEFORE the global 1mb limit so they run first
 app.use('/api/products/design-orders', express.json({ limit: '50mb' }));
 app.use('/api/products/saved-designs', express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Rate limiting
