@@ -1008,7 +1008,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       if (!product) return res.status(400).json({ error: `Product ${item.productId} not found` });
       const price = product.price * (item.quantity || 1);
       total += price;
-      orderItems.push({ ...item, price, productName: product.name, productImage: product.image });
+      orderItems.push({ ...item, price, productName: product.name, productImage: product.image || (product.images as any)?.[0] || '' });
     }
 
     // Server-side coupon validation and discount recompute
