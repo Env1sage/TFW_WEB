@@ -1003,7 +1003,9 @@ export default function Designer() {
       const ctx = tmpCanvas.getContext('2d')!;
       ctx.drawImage(imgEl, 0, 0);
       const blob = await new Promise<Blob>(res => tmpCanvas.toBlob(b => res(b!), 'image/png'));
-      const resultBlob = await removeBackground(blob);
+      const resultBlob = await removeBackground(blob, {
+        publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/',
+      });
       const url = URL.createObjectURL(resultBlob);
       const newEl = new Image(); newEl.crossOrigin = 'anonymous';
       newEl.onload = () => {

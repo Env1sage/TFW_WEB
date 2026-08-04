@@ -785,7 +785,9 @@ export default function Admin() {
       const resp = await fetch(url);
       if (!resp.ok) throw new Error('Failed to fetch image');
       const blob = await resp.blob();
-      const resultBlob = await removeBackground(blob);
+      const resultBlob = await removeBackground(blob, {
+        publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/',
+      });
       const file = new File([resultBlob], 'nobg.png', { type: 'image/png' });
       const { url: newUrl } = await api.uploadMockupImage(file);
       setMockupForm(prev => ({ ...prev, [field]: newUrl }));
