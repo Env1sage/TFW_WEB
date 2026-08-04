@@ -157,9 +157,25 @@ export default function Admin() {
     ctaLabel2: '', ctaUrl2: '',
     bgGradient: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
     accentColor: '#C6A75E', textColor: '#ffffff', textAlign: 'left',
+    imagePosition: 'center',
     active: true, sortOrder: 0, startDate: '', endDate: '',
   };
   const [bannerForm, setBannerForm] = useState({ ...defaultBannerForm });
+  const [bgMode, setBgMode] = useState<'solid' | 'gradient'>('gradient');
+  const [gradColor1, setGradColor1] = useState('#0E7C61');
+  const [gradColor2, setGradColor2] = useState('#0A5C49');
+  const [gradAngle, setGradAngle] = useState(135);
+  const parseBgGradient = (css: string) => {
+    const m = css.match(/linear-gradient\(\s*(-?\d+)deg,\s*(#[\da-fA-F]{3,8})[^,]*,\s*(#[\da-fA-F]{3,8})/);
+    return m ? { angle: parseInt(m[1]), color1: m[2], color2: m[3] } : null;
+  };
+  const buildBgGradient = (c1: string, c2: string, angle: number) =>
+    `linear-gradient(${angle}deg,${c1} 0%,${c2} 100%)`;
+  const initGradientFromBg = (bg: string) => {
+    const parsed = parseBgGradient(bg);
+    if (parsed) { setBgMode('gradient'); setGradColor1(parsed.color1); setGradColor2(parsed.color2); setGradAngle(parsed.angle); }
+    else { setBgMode('solid'); setGradColor1(bg.startsWith('#') ? bg : '#0E7C61'); }
+  };
   const [colForm, setColForm] = useState({ name: '', tagline: '', tag: 'Custom', gradient: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)', glow: '#0E7C61', shimmer: 'rgba(255,255,255,0.15)', symbol: '✨', badge: 'New', badgeColor: '#C6A75E', featured: false, active: true });
   const [editingCol, setEditingCol] = useState<any | null>(null);
   const [colProducts, setColProducts] = useState<Record<string, any[]>>({});
@@ -3530,6 +3546,7 @@ MSG91_SENDER_ID=TFWALL`}
                 <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => {
                   setEditingBanner(null);
                   setBannerForm({ ...defaultBannerForm });
+                  initGradientFromBg(defaultBannerForm.bgGradient);
                   setShowBannerModal(true);
                 }}>
                   <Plus size={15} /> New Banner
@@ -3543,7 +3560,7 @@ MSG91_SENDER_ID=TFWALL`}
             {!bannerLoading && bannerList.length === 0 && (
               <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-2)', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
                 <p style={{ marginBottom: 12 }}>No banners yet. Create your first promotional banner.</p>
-                <button className="btn btn-primary" onClick={() => { setEditingBanner(null); setBannerForm({ ...defaultBannerForm }); setShowBannerModal(true); }}>
+                <button className="btn btn-primary" onClick={() => { setEditingBanner(null); setBannerForm({ ...defaultBannerForm }); initGradientFromBg(defaultBannerForm.bgGradient); setShowBannerModal(true); }}>
                   <Plus size={15} /> Create First Banner
                 </button>
               </div>
@@ -3604,10 +3621,12 @@ MSG91_SENDER_ID=TFWALL`}
                             ctaLabel2: b.ctaLabel2, ctaUrl2: b.ctaUrl2,
                             bgGradient: b.bgGradient, accentColor: b.accentColor,
                             textColor: b.textColor, textAlign: b.textAlign || 'left',
+                            imagePosition: b.imagePosition || 'center',
                             active: b.active, sortOrder: b.sortOrder,
                             startDate: b.startDate ? b.startDate.substring(0, 10) : '',
                             endDate: b.endDate ? b.endDate.substring(0, 10) : '',
                           });
+                          initGradientFromBg(b.bgGradient);
                           setShowBannerModal(true);
                         }}>
                           <Edit3 size={15} />
@@ -3646,19 +3665,30 @@ MSG91_SENDER_ID=TFWALL`}
                     </div>
 
                     <div className="modal-body">
-                      {/* Live preview */}
-                      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 20, background: bannerForm.bgGradient, minHeight: 90, display: 'flex', alignItems: 'center', padding: '16px 20px', gap: 16, position: 'relative' }}>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: bannerForm.textAlign === 'center' ? 'center' : bannerForm.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: bannerForm.textAlign as any }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bannerForm.accentColor, color: '#fff', borderRadius: 100, padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700, marginBottom: 6 }}>
+                      {/* Live preview — accurate full-banner replica */}
+                      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 20, position: 'relative', minHeight: 160,
+                        ...(bannerForm.imageUrl
+                          ? { backgroundImage: `url(${bannerForm.imageUrl})`, backgroundSize: 'cover', backgroundPosition: bannerForm.imagePosition || 'center', backgroundRepeat: 'no-repeat' }
+                          : { background: bannerForm.bgGradient })
+                      }}>
+                        {bannerForm.imageUrl && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.38) 50%, rgba(0,0,0,0.1) 100%)', zIndex: 1 }} />}
+                        <div style={{ position: 'relative', zIndex: 2, padding: '20px 24px', minHeight: 160, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                          alignItems: bannerForm.textAlign === 'center' ? 'center' : bannerForm.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                          textAlign: bannerForm.textAlign as any }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bannerForm.accentColor, color: '#fff', borderRadius: 100, padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700, marginBottom: 8 }}>
                             {bannerForm.badgeText || BADGE_TYPES.find(t => t.value === bannerForm.badgeType)?.label}
                           </div>
-                          <div style={{ color: bannerForm.textColor, fontWeight: 800, fontSize: '1.1rem', lineHeight: 1.2 }}>{bannerForm.title || 'Banner Title'}</div>
-                          {bannerForm.subtitle && <div style={{ color: bannerForm.textColor, opacity: 0.8, fontSize: '0.8rem', marginTop: 4 }}>{bannerForm.subtitle}</div>}
-                          {bannerForm.ctaLabel && <div style={{ marginTop: 8, display: 'inline-block', background: bannerForm.accentColor, color: '#fff', borderRadius: 6, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600 }}>{bannerForm.ctaLabel} →</div>}
+                          {(bannerForm.title || !bannerForm.imageUrl) && (
+                            <div style={{ color: bannerForm.imageUrl ? '#fff' : bannerForm.textColor, fontWeight: 800, fontSize: '1.3rem', lineHeight: 1.2, marginBottom: 4 }}>
+                              {bannerForm.title || 'Banner Title'}
+                            </div>
+                          )}
+                          {bannerForm.subtitle && <div style={{ color: bannerForm.imageUrl ? 'rgba(255,255,255,0.85)' : bannerForm.textColor, fontSize: '0.82rem', marginBottom: 12 }}>{bannerForm.subtitle}</div>}
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: bannerForm.textAlign === 'center' ? 'center' : bannerForm.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+                            {bannerForm.ctaLabel && <div style={{ display: 'inline-block', background: bannerForm.accentColor, color: '#fff', borderRadius: 8, padding: '6px 14px', fontSize: '0.78rem', fontWeight: 600 }}>{bannerForm.ctaLabel} →</div>}
+                            {bannerForm.ctaLabel2 && <div style={{ display: 'inline-block', border: `1.5px solid ${bannerForm.imageUrl ? '#fff' : bannerForm.textColor}`, color: bannerForm.imageUrl ? '#fff' : bannerForm.textColor, borderRadius: 8, padding: '6px 14px', fontSize: '0.78rem', fontWeight: 600 }}>{bannerForm.ctaLabel2}</div>}
+                          </div>
                         </div>
-                        {bannerForm.imageUrl && (
-                          <img src={bannerForm.imageUrl} alt="" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        )}
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -3770,32 +3800,149 @@ MSG91_SENDER_ID=TFWALL`}
                           )}
                         </div>
 
-                        {/* Background gradient */}
+                        {/* Image focal point — only shown when image is set */}
+                        {bannerForm.imageUrl && (
+                          <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                            <label>Image Position <small style={{ color: 'var(--text-3)', fontWeight: 400 }}>— where to focus the image</small></label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 4, width: 120, marginTop: 4 }}>
+                              {[
+                                ['top left','↖'],['top center','↑'],['top right','↗'],
+                                ['center left','←'],['center','·'],['center right','→'],
+                                ['bottom left','↙'],['bottom center','↓'],['bottom right','↘'],
+                              ].map(([pos, icon]) => (
+                                <button key={pos} type="button" onClick={() => setBannerForm({ ...bannerForm, imagePosition: pos })}
+                                  style={{ height: 34, borderRadius: 6, border: `2px solid ${bannerForm.imagePosition === pos ? 'var(--primary)' : 'var(--border)'}`, background: bannerForm.imagePosition === pos ? 'var(--primary)' : 'var(--surface)', color: bannerForm.imagePosition === pos ? '#fff' : 'var(--text-2)', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .12s' }}>
+                                  {icon}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Background designer */}
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                          <label>Background</label>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                          <label style={{ marginBottom: 8, display: 'block' }}>Background <small style={{ color: 'var(--text-3)', fontWeight: 400 }}>(used when no image, or as fallback)</small></label>
+                          {/* Solid / Gradient tabs */}
+                          <div style={{ display: 'flex', gap: 0, marginBottom: 12, background: 'var(--surface-2,rgba(0,0,0,0.06))', borderRadius: 8, padding: 3, width: 'fit-content' }}>
+                            {(['solid','gradient'] as const).map(mode => (
+                              <button key={mode} type="button" onClick={() => {
+                                setBgMode(mode);
+                                if (mode === 'solid') setBannerForm(f => ({ ...f, bgGradient: gradColor1 }));
+                                else setBannerForm(f => ({ ...f, bgGradient: buildBgGradient(gradColor1, gradColor2, gradAngle) }));
+                              }}
+                                style={{ padding: '5px 16px', borderRadius: 6, border: 'none', background: bgMode === mode ? 'var(--surface)' : 'transparent', color: bgMode === mode ? 'var(--text)' : 'var(--text-3)', fontWeight: bgMode === mode ? 600 : 400, cursor: 'pointer', fontSize: '0.82rem', boxShadow: bgMode === mode ? '0 1px 3px rgba(0,0,0,0.12)' : 'none', transition: 'all .15s', textTransform: 'capitalize' }}>
+                                {mode === 'solid' ? '■ Solid' : '▥ Gradient'}
+                              </button>
+                            ))}
+                          </div>
+
+                          {bgMode === 'solid' ? (
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                              <div style={{ position: 'relative', flexShrink: 0 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: 10, background: gradColor1, cursor: 'pointer', border: '2px solid var(--border)' }}
+                                     onClick={() => (document.getElementById('bg-solid-picker') as HTMLInputElement)?.click()} />
+                                <input id="bg-solid-picker" type="color" value={gradColor1.startsWith('#') ? gradColor1 : '#0E7C61'}
+                                       onChange={e => { setGradColor1(e.target.value); setBannerForm(f => ({ ...f, bgGradient: e.target.value })); }}
+                                       style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+                              </div>
+                              <input value={gradColor1} onChange={e => { setGradColor1(e.target.value); setBannerForm(f => ({ ...f, bgGradient: e.target.value })); }} placeholder="#0E7C61" style={{ flex: 1 }} />
+                            </div>
+                          ) : (
+                            <div>
+                              {/* Gradient preview bar */}
+                              <div style={{ height: 32, borderRadius: 8, background: bannerForm.bgGradient, marginBottom: 12, border: '1px solid var(--border)' }} />
+                              {/* Color stops */}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                                {([
+                                  { id: 'gc1', label: 'Start color', color: gradColor1, setter: (v: string) => { setGradColor1(v); setBannerForm(f => ({ ...f, bgGradient: buildBgGradient(v, gradColor2, gradAngle) })); }},
+                                  { id: 'gc2', label: 'End color',   color: gradColor2, setter: (v: string) => { setGradColor2(v); setBannerForm(f => ({ ...f, bgGradient: buildBgGradient(gradColor1, v, gradAngle) })); }},
+                                ] as const).map(({ id, label, color, setter }) => (
+                                  <div key={id}>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 4 }}>{label}</div>
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                                        <div style={{ width: 34, height: 34, borderRadius: 8, background: color, cursor: 'pointer', border: '2px solid var(--border)' }}
+                                             onClick={() => (document.getElementById(id) as HTMLInputElement)?.click()} />
+                                        <input id={id} type="color" value={color.startsWith('#') ? color : '#000000'}
+                                               onChange={e => setter(e.target.value)}
+                                               style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+                                      </div>
+                                      <input value={color} onChange={e => setter(e.target.value)} style={{ flex: 1, fontSize: '0.82rem' }} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Direction */}
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 6 }}>Direction</div>
+                              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+                                {[{ a: 0,'l':'↓' },{ a: 45,'l':'↙' },{ a: 90,'l':'→' },{ a: 135,'l':'↘' },{ a: 180,'l':'↑' },{ a: 225,'l':'↗' },{ a: 270,'l':'←' },{ a: 315,'l':'↖' }].map(({ a, l }) => (
+                                  <button key={a} type="button" onClick={() => { setGradAngle(a); setBannerForm(f => ({ ...f, bgGradient: buildBgGradient(gradColor1, gradColor2, a) })); }}
+                                    style={{ width: 34, height: 34, borderRadius: 8, border: `2px solid ${gradAngle === a ? 'var(--primary)' : 'var(--border)'}`, background: gradAngle === a ? 'var(--primary)' : 'var(--surface)', color: gradAngle === a ? '#fff' : 'var(--text-2)', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .12s' }}>
+                                    {l}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* Quick presets */}
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 6 }}>Quick presets</div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {GRADIENT_PRESETS.filter(p => p.value).map(p => (
-                              <button key={p.label} onClick={() => setBannerForm({ ...bannerForm, bgGradient: p.value })}
-                                style={{ width: 32, height: 32, borderRadius: 8, background: p.value, border: bannerForm.bgGradient === p.value ? '3px solid white' : '3px solid transparent', cursor: 'pointer', boxShadow: '0 0 0 2px var(--primary)' }}
+                              <button key={p.label} type="button" onClick={() => {
+                                const parsed = parseBgGradient(p.value);
+                                if (parsed) { setGradColor1(parsed.color1); setGradColor2(parsed.color2); setGradAngle(parsed.angle); setBgMode('gradient'); }
+                                setBannerForm(f => ({ ...f, bgGradient: p.value }));
+                              }}
+                                style={{ width: 32, height: 32, borderRadius: 8, background: p.value, border: `3px solid ${bannerForm.bgGradient === p.value ? 'var(--primary)' : 'transparent'}`, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', transition: 'border-color .12s' }}
                                 title={p.label}
                               />
                             ))}
                           </div>
-                          <input value={bannerForm.bgGradient} onChange={e => setBannerForm({ ...bannerForm, bgGradient: e.target.value })} placeholder="linear-gradient(135deg,…)" />
                         </div>
 
-                        <div className="form-group">
-                          <label>Accent Color</label>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input type="color" value={bannerForm.accentColor} onChange={e => setBannerForm({ ...bannerForm, accentColor: e.target.value })} style={{ width: 40, height: 32, padding: 2, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)' }} />
-                            <input value={bannerForm.accentColor} onChange={e => setBannerForm({ ...bannerForm, accentColor: e.target.value })} style={{ flex: 1 }} />
+                        {/* Accent Color */}
+                        <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                          <label>Badge & Button Color</label>
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                            <div style={{ position: 'relative', flexShrink: 0 }}>
+                              <div style={{ width: 48, height: 48, borderRadius: 10, background: bannerForm.accentColor, cursor: 'pointer', border: '2px solid var(--border)' }}
+                                   onClick={() => (document.getElementById('accent-picker') as HTMLInputElement)?.click()} />
+                              <input id="accent-picker" type="color" value={bannerForm.accentColor.startsWith('#') ? bannerForm.accentColor : '#C6A75E'}
+                                     onChange={e => setBannerForm(f => ({ ...f, accentColor: e.target.value }))}
+                                     style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <input value={bannerForm.accentColor} onChange={e => setBannerForm(f => ({ ...f, accentColor: e.target.value }))} placeholder="#C6A75E" style={{ marginBottom: 6 }} />
+                              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                                {['#C6A75E','#0E7C61','#EF4444','#3B82F6','#8B5CF6','#F59E0B','#EC4899','#10B981','#ffffff'].map(c => (
+                                  <div key={c} onClick={() => setBannerForm(f => ({ ...f, accentColor: c }))}
+                                       style={{ width: 22, height: 22, borderRadius: 5, background: c, cursor: 'pointer', border: `2px solid ${bannerForm.accentColor === c ? 'var(--primary)' : 'var(--border)'}`, transition: 'border-color .1s' }} />
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div className="form-group">
-                          <label>Text Color</label>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <input type="color" value={bannerForm.textColor} onChange={e => setBannerForm({ ...bannerForm, textColor: e.target.value })} style={{ width: 40, height: 32, padding: 2, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)' }} />
-                            <input value={bannerForm.textColor} onChange={e => setBannerForm({ ...bannerForm, textColor: e.target.value })} style={{ flex: 1 }} />
+
+                        {/* Text Color */}
+                        <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                          <label>Text Color <small style={{ color: 'var(--text-3)', fontWeight: 400 }}>(used on gradient background)</small></label>
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                            <div style={{ position: 'relative', flexShrink: 0 }}>
+                              <div style={{ width: 48, height: 48, borderRadius: 10, background: bannerForm.textColor, cursor: 'pointer', border: '2px solid var(--border)' }}
+                                   onClick={() => (document.getElementById('text-color-picker') as HTMLInputElement)?.click()} />
+                              <input id="text-color-picker" type="color" value={bannerForm.textColor.startsWith('#') ? bannerForm.textColor : '#ffffff'}
+                                     onChange={e => setBannerForm(f => ({ ...f, textColor: e.target.value }))}
+                                     style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <input value={bannerForm.textColor} onChange={e => setBannerForm(f => ({ ...f, textColor: e.target.value }))} placeholder="#ffffff" style={{ marginBottom: 6 }} />
+                              <div style={{ display: 'flex', gap: 5 }}>
+                                {['#ffffff','#000000','#1e293b','#f8fafc','#ffd700'].map(c => (
+                                  <div key={c} onClick={() => setBannerForm(f => ({ ...f, textColor: c }))}
+                                       style={{ width: 22, height: 22, borderRadius: 5, background: c, cursor: 'pointer', border: `2px solid ${bannerForm.textColor === c ? 'var(--primary)' : 'var(--border)'}`, transition: 'border-color .1s' }} />
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </div>
 

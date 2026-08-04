@@ -20,6 +20,7 @@ export interface Banner {
   accentColor: string;
   textColor: string;
   textAlign: 'left' | 'center' | 'right';
+  imagePosition: string;
 }
 
 const BADGE_META: Record<string, { icon: JSX.Element; defaultLabel: string }> = {
@@ -130,6 +131,7 @@ export default function PromoBanner() {
             className={`promo-banner-slide${banner.imageUrl ? ' promo-banner-slide--img' : ''}`}
             style={banner.imageUrl ? {
               backgroundImage: `url(${banner.imageUrl})`,
+              backgroundPosition: banner.imagePosition || 'center',
               color: '#ffffff',
               '--accent': banner.accentColor,
             } as React.CSSProperties : {
