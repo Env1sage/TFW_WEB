@@ -309,7 +309,7 @@ export default function Navbar() {
           {user ? (
             <div className="profile-dropdown">
               <button className="icon-btn profile-btn" onClick={() => setProfileOpen(!profileOpen)}>
-                <div className="avatar-sm">{user.name.charAt(0).toUpperCase()}</div>
+                <div className="avatar-sm">{user.name ? user.name.charAt(0).toUpperCase() : <User size={16} />}</div>
               </button>
               <AnimatePresence>
                 {profileOpen && (
