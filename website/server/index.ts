@@ -42,7 +42,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com', 'https://cdn.razorpay.com', 'https://checkout-static-next.razorpay.com'],
-      connectSrc: ["'self'", 'https://api.razorpay.com', 'https://cdn.razorpay.com', 'https://lumberjack.razorpay.com'],
+      connectSrc: ["'self'", 'https://api.razorpay.com', 'https://cdn.razorpay.com', 'https://lumberjack.razorpay.com', 'https://staticimgly.com', 'https://cdn.imgly.io', 'https://models.imgly.io'],
       imgSrc: ["'self'", 'data:', 'https:'],
       frameSrc: ['https://api.razorpay.com', 'https://checkout.razorpay.com'],
     },
