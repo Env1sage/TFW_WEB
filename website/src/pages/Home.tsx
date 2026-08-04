@@ -56,7 +56,7 @@ const testimonials = [
 ];
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [featured, setFeatured] = useState<Product[]>([]);
   const [newsletter, setNewsletter] = useState('');
   const [newsletterSent, setNewsletterSent] = useState(false);
@@ -465,7 +465,7 @@ export default function Home() {
           <motion.div className="cta-banner" initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
             <h2>Ready to Create Something Amazing?</h2>
             <p>Join 10,000+ creators across India and start designing your custom products today.</p>
-            <Link to={user ? '/design-studio' : '/register'} className="btn btn-white btn-lg btn-shimmer">
+            <Link to={!authLoading && user ? '/design-studio' : '/register'} className="btn btn-white btn-lg btn-shimmer">
               <AnimatedEmoji emoji="✨" anim="wiggle" trigger="hover" size="1.1em" /> Start Designing Free <ArrowRight size={18} />
             </Link>
           </motion.div>

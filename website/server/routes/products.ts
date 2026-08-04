@@ -685,15 +685,16 @@ router.get('/analytics', authMiddleware, adminMiddleware, async (_req: Request, 
 router.post('/design-orders', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { productType, productName: clientProductName, colorHex, colorName, printSize, sides, designImages, uploadedImages, quantity, unitPrice, total, shippingAddress, customerEmail, customerName, groupOrderId,
-            deliveryMethod: dDeliveryMethod, deliveryConfig: dDeliveryConfig, shippingCost: dShippingCost } = req.body;
+            deliveryMethod: dDeliveryMethod, deliveryConfig: dDeliveryConfig, shippingCost: dShippingCost,
+            sendEmail: shouldSendEmail = true } = req.body;
     if (!productType || !designImages || !quantity) return res.status(400).json({ error: 'Product type, design images, and quantity are required' });
     const userId: string = (req as any).userId;
     let resolvedName = customerName || 'Customer';
     let resolvedEmail = customerEmail || '';
     const user = await db.findUserById(userId);
     if (user) {
-      resolvedName = user.name;
-      resolvedEmail = user.email;
+      resolvedName = user.name || customerName || 'Customer';
+      resolvedEmail = user.email || customerEmail || '';
     }
 
     // Generate ID first so design image filenames reference this order
@@ -753,43 +754,44 @@ router.post('/design-orders', authMiddleware, async (req: Request, res: Response
         mockupFrontImageUrl: mockupFrontImageUrl || undefined,
       };
 
-      if (groupOrderId) {
-        // Combined checkout: find the paired normal order(s) and send one combined email
-        const pairedOrders = await db.getOrdersByGroupId(groupOrderId).catch(() => [] as any[]);
-        if (pairedOrders.length > 0) {
-          const paired = pairedOrders[0];
-          const pairedItems: any[] = paired.items || [];
-          const pairedSubtotal = pairedItems.reduce((s: number, i: any) => s + (i.price || 0), 0);
-          const pairedDiscount = paired.discountAmount || 0;
-          const combinedSubtotal = pairedSubtotal + order.unitPrice * order.quantity;
-          const combinedShipping = await calculateShipping(order.shippingAddress, combinedSubtotal - pairedDiscount);
-          const combinedTotal = combinedSubtotal - pairedDiscount + combinedShipping;
-          const combinedData = {
-            groupOrderId,
-            customerName: resolvedName,
-            customerEmail: resolvedEmail,
-            productOrderId: paired.id,
-            designOrderIds: [order.id],
-            items: pairedItems,
-            designOrders: [baseEmailData],
-            subtotal: combinedSubtotal,
-            shippingCost: combinedShipping,
-            discountAmount: pairedDiscount,
-            total: combinedTotal,
-            shippingAddress: order.shippingAddress,
-            paymentMethod: 'Razorpay',
-            createdAt: order.createdAt,
-          };
-          sendCombinedOrderConfirmation(combinedData).catch(e => console.error('[Email] combined confirmation failed:', e));
-          sendAdminCombinedOrderNotification(combinedData).catch(e => console.error('[Email] admin combined notification failed:', e));
+      if (shouldSendEmail) {
+        if (groupOrderId) {
+          // Combined checkout: find the paired normal order(s) and send one combined email
+          const pairedOrders = await db.getOrdersByGroupId(groupOrderId).catch(() => [] as any[]);
+          if (pairedOrders.length > 0) {
+            const paired = pairedOrders[0];
+            const pairedItems: any[] = paired.items || [];
+            const pairedSubtotal = pairedItems.reduce((s: number, i: any) => s + (i.price || 0), 0);
+            const pairedDiscount = paired.discountAmount || 0;
+            const combinedSubtotal = pairedSubtotal + order.unitPrice * order.quantity;
+            const combinedShipping = await calculateShipping(order.shippingAddress, combinedSubtotal - pairedDiscount);
+            const combinedTotal = combinedSubtotal - pairedDiscount + combinedShipping;
+            const combinedData = {
+              groupOrderId,
+              customerName: resolvedName,
+              customerEmail: resolvedEmail,
+              productOrderId: paired.id,
+              designOrderIds: [order.id],
+              items: pairedItems,
+              designOrders: [baseEmailData],
+              subtotal: combinedSubtotal,
+              shippingCost: combinedShipping,
+              discountAmount: pairedDiscount,
+              total: combinedTotal,
+              shippingAddress: order.shippingAddress,
+              paymentMethod: 'Razorpay',
+              createdAt: order.createdAt,
+            };
+            sendCombinedOrderConfirmation(combinedData).catch(e => console.error('[Email] combined confirmation failed:', e));
+            sendAdminCombinedOrderNotification(combinedData).catch(e => console.error('[Email] admin combined notification failed:', e));
+          } else {
+            sendDesignOrderConfirmation(baseEmailData).catch(e => console.error('[Email] design order confirmation failed:', e));
+            sendAdminDesignOrderNotification(baseEmailData).catch(e => console.error('[Email] admin design notification failed:', e));
+          }
         } else {
-          // Paired normal order not found yet — send individual design confirmation
           sendDesignOrderConfirmation(baseEmailData).catch(e => console.error('[Email] design order confirmation failed:', e));
           sendAdminDesignOrderNotification(baseEmailData).catch(e => console.error('[Email] admin design notification failed:', e));
         }
-      } else {
-        sendDesignOrderConfirmation(baseEmailData).catch(e => console.error('[Email] design order confirmation failed:', e));
-        sendAdminDesignOrderNotification(baseEmailData).catch(e => console.error('[Email] admin design notification failed:', e));
       }
     }
     // Auto-push to Shiprocket (non-blocking)

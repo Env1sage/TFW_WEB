@@ -415,12 +415,15 @@ export default function Cart() {
           { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, paymentToken: paymentData.paymentToken, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost, customerEmail: form.email, customerName: form.fullName }
         );
       }
-      for (const d of designItems) {
+      for (let di = 0; di < designItems.length; di++) {
+        const d = designItems[di];
         await api.createDesignOrder({
           productType: d.productType, colorHex: d.colorHex, colorName: d.colorName,
           printSize: d.printSize, sides: d.sides, designImages: d.designImages,
           uploadedImages: d.uploadedImages, quantity: d.quantity, unitPrice: d.unitPrice,
           total: d.total, shippingAddress, groupOrderId, deliveryMethod, deliveryConfig, shippingCost,
+          customerEmail: form.email, customerName: form.fullName,
+          sendEmail: di === designItems.length - 1,
         });
       }
       // Track purchase event for each product

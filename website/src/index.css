@@ -148,14 +148,14 @@ input:disabled { background: var(--surface-2); color: var(--text-3); cursor: not
   line-height: 1.4; box-shadow: var(--clay-shadow-sm); font-family: var(--font-heading);
 }
 .btn-primary { background: var(--primary); color: #fff; box-shadow: var(--clay-shadow-sm); }
-.btn-primary:hover { background: var(--primary-light); color: #fff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(14,124,97,0.35); }
+.btn-primary:hover { background: var(--primary-hover); color: #fff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(14,124,97,0.35); }
 .btn-primary:active { transform: translateY(0); background: var(--primary-dark); box-shadow: var(--clay-shadow-pressed); }
 .btn-outline-dark { background: rgba(255,255,255,0.15); color: #fff; border: none; box-shadow: var(--clay-shadow-sm); }
 .btn-outline-dark:hover { background: rgba(255,255,255,0.25); color: #fff; }
 .btn-secondary { background: var(--surface); color: var(--text); box-shadow: var(--clay-shadow-sm); }
 .btn-secondary:hover { background: var(--surface-2); transform: translateY(-1px); }
 .btn-outline { background: var(--surface); color: var(--primary); border: none; box-shadow: var(--clay-shadow-sm); }
-.btn-outline:hover { background: var(--primary-light); color: #fff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(14,124,97,0.35); }
+.btn-outline:hover { background: var(--primary-hover); color: #fff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(14,124,97,0.35); }
 .btn-ghost { background: transparent; color: var(--text-2); padding: 0.5rem 0.75rem; box-shadow: none; }
 .btn-ghost:hover { background: var(--surface); box-shadow: var(--clay-shadow-sm); }
 .btn-white { background: #fff; color: var(--primary); box-shadow: var(--clay-shadow-sm); }
@@ -4748,7 +4748,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn.btn-primary:hover { background: var(--primary-light); box-shadow: 0 4px 16px rgba(14,124,97,0.35); }
+.btn.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 4px 16px rgba(14,124,97,0.35); }
 
 /* ── Layer list ── */
 .layer-list { display: flex; flex-direction: column; gap: 4px; }

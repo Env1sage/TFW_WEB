@@ -18,16 +18,16 @@ export default function Footer() {
               India's #1 custom print-on-demand platform. Design personalised t-shirts, mugs, canvas prints, and more — delivered pan-India.
             </p>
             <div className="social-links" style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="social-link-anim sl-instagram">
+              <a href="https://instagram.com/theframedwall" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="social-link-anim sl-instagram">
                 <Instagram size={20} />
               </a>
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="social-link-anim sl-facebook">
+              <a href="https://facebook.com/theframedwall" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="social-link-anim sl-facebook">
                 <Facebook size={20} />
               </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="social-link-anim sl-youtube">
+              <a href="https://youtube.com/@theframedwall" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="social-link-anim sl-youtube">
                 <Youtube size={20} />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="social-link-anim sl-twitter">
+              <a href="https://twitter.com/theframedwall" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="social-link-anim sl-twitter">
                 <Twitter size={20} />
               </a>
               <a href="mailto:hello@theframedwall.com" aria-label="Email" className="social-link-anim sl-mail">

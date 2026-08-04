@@ -349,10 +349,18 @@ export default function Admin() {
   const load = async () => {
     setLoading(true);
     try {
-      const [p, o, a, m, d, cats, mockupCats, coup, zones] = await Promise.all([
+      const [p, o, a, m, d, cats, mockupCats, coup, zones] = await Promise.allSettled([
         api.getProducts({ all: '1' }), api.getAllOrders(), api.getAnalytics(), api.getMockups(), api.getAllDesignOrders(), api.getCategories(), api.getMockupCategories(), api.getCoupons(), api.getShippingZones(),
       ]);
-      setProducts(p); setOrders(o); setAnalytics(a); setMockups(m); setDesignOrders(d); setCategories(cats); setMockupCategories(mockupCats); setCoupons(coup); setShippingZones(zones);
+      if (p.status === 'fulfilled') setProducts(p.value);
+      if (o.status === 'fulfilled') setOrders(o.value);
+      if (a.status === 'fulfilled') setAnalytics(a.value);
+      if (m.status === 'fulfilled') setMockups(m.value);
+      if (d.status === 'fulfilled') setDesignOrders(d.value);
+      if (cats.status === 'fulfilled') setCategories(cats.value);
+      if (mockupCats.status === 'fulfilled') setMockupCategories(mockupCats.value);
+      if (coup.status === 'fulfilled') setCoupons(coup.value);
+      if (zones.status === 'fulfilled') setShippingZones(zones.value);
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   };
