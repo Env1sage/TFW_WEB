@@ -11,6 +11,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [saving, setSaving] = useState(false);
@@ -19,14 +20,14 @@ export default function Profile() {
   const [showDisable, setShowDisable] = useState(false);
 
   useEffect(() => {
-    if (user) setName(user.name);
+    if (user) { setName(user.name); setEmail(user.email ?? ''); }
   }, [user]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.updateProfile({ name, currentPassword: currentPw || undefined, newPassword: newPw || undefined });
+      await api.updateProfile({ name, email: email || undefined, currentPassword: currentPw || undefined, newPassword: newPw || undefined });
       await refreshUser();
       setCurrentPw(''); setNewPw('');
       toast.success('Profile updated!');
@@ -69,7 +70,7 @@ export default function Profile() {
               </div>
               <div className="form-group">
                 <label>Email</label>
-                <div className="input-wrapper"><Mail size={18} /><input type="email" value={user.email ?? ''} disabled /></div>
+                <div className="input-wrapper"><Mail size={18} /><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" /></div>
               </div>
 
               <h3 style={{ marginTop: '1.5rem' }}><Lock size={18} /> Change Password</h3>
