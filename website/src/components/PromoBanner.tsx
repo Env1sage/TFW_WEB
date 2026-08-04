@@ -21,6 +21,8 @@ export interface Banner {
   textColor: string;
   textAlign: 'left' | 'center' | 'right';
   imagePosition: string;
+  textLeft: number;
+  textTop: number;
 }
 
 const BADGE_META: Record<string, { icon: JSX.Element; defaultLabel: string }> = {
@@ -150,7 +152,15 @@ export default function PromoBanner() {
             {banner.imageUrl && <div className="promo-slide-overlay" />}
 
             {/* Text content */}
-            <div className="promo-slide-content" style={{ textAlign: banner.textAlign || 'left', alignItems: banner.textAlign === 'center' ? 'center' : banner.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+            <div className="promo-slide-content" style={{
+              position: 'absolute',
+              left: `${banner.textLeft ?? 5}%`,
+              top: `${banner.textTop ?? 50}%`,
+              transform: 'translateY(-50%)',
+              maxWidth: '55%',
+              textAlign: banner.textAlign || 'left',
+              alignItems: banner.textAlign === 'center' ? 'center' : banner.textAlign === 'right' ? 'flex-end' : 'flex-start',
+            }}>
               <span className="promo-badge" style={{ background: banner.accentColor }}>
                 {badge.icon}
                 {badgeLabel}

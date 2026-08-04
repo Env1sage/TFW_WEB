@@ -55,6 +55,8 @@ function shapeBanner(r: any) {
     textColor: r.text_color || '#ffffff',
     textAlign: r.text_align || 'left',
     imagePosition: r.image_position || 'center',
+    textLeft: r.text_left ?? 5,
+    textTop: r.text_top ?? 50,
     active: r.active,
     sortOrder: r.sort_order,
     startDate: r.start_date || null,
@@ -93,7 +95,7 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
     const {
       title, subtitle, badgeText, badgeType, imageUrl,
       ctaLabel, ctaUrl, ctaLabel2, ctaUrl2,
-      bgGradient, accentColor, textColor, textAlign, imagePosition,
+      bgGradient, accentColor, textColor, textAlign, imagePosition, textLeft, textTop,
       active, sortOrder, startDate, endDate,
     } = req.body;
     if (!title?.trim() && !imageUrl) return res.status(400).json({ error: 'Add a title or an image' });
@@ -110,6 +112,8 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
       ctaUrl2: ctaUrl2 || '',
       textAlign: textAlign || 'left',
       imagePosition: imagePosition || 'center',
+      textLeft: textLeft ?? 5,
+      textTop: textTop ?? 50,
       bgGradient: bgGradient || 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
       accentColor: accentColor || '#C6A75E',
       textColor: textColor || '#ffffff',
@@ -127,13 +131,13 @@ router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
     const {
       title, subtitle, badgeText, badgeType, imageUrl,
       ctaLabel, ctaUrl, ctaLabel2, ctaUrl2,
-      bgGradient, accentColor, textColor, textAlign, imagePosition,
+      bgGradient, accentColor, textColor, textAlign, imagePosition, textLeft, textTop,
       active, sortOrder, startDate, endDate,
     } = req.body;
     const updated = await db.updateBanner(req.params.id as string, {
       title, subtitle, badgeText, badgeType, imageUrl,
       ctaLabel, ctaUrl, ctaLabel2, ctaUrl2,
-      bgGradient, accentColor, textColor, textAlign, imagePosition,
+      bgGradient, accentColor, textColor, textAlign, imagePosition, textLeft, textTop,
       active, sortOrder: sortOrder !== undefined ? Number(sortOrder) : undefined,
       startDate: startDate || null,
       endDate: endDate || null,

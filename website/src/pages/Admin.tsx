@@ -157,10 +157,24 @@ export default function Admin() {
     ctaLabel2: '', ctaUrl2: '',
     bgGradient: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
     accentColor: '#C6A75E', textColor: '#ffffff', textAlign: 'left',
-    imagePosition: 'center',
+    imagePosition: '50% 50%',
+    textLeft: 5, textTop: 50,
     active: true, sortOrder: 0, startDate: '', endDate: '',
   };
   const [bannerForm, setBannerForm] = useState({ ...defaultBannerForm });
+  const bannerPreviewRef = useRef<HTMLDivElement>(null);
+  const bannerDragRef = useRef<{ active: boolean; type: 'bg' | 'text'; startMouseX: number; startMouseY: number; startValX: number; startValY: number }>({ active: false, type: 'bg', startMouseX: 0, startMouseY: 0, startValX: 0, startValY: 0 });
+  const parseBgPos = (pos: string): [number, number] => {
+    const kw: Record<string, [number, number]> = {
+      'top left': [0,0], 'top center': [50,0], 'top right': [100,0],
+      'center left': [0,50], 'center': [50,50], 'center right': [100,50],
+      'bottom left': [0,100], 'bottom center': [50,100], 'bottom right': [100,100],
+      'left': [0,50], 'right': [100,50], 'top': [50,0], 'bottom': [50,100],
+    };
+    if (kw[pos]) return kw[pos];
+    const m = pos.match(/([\d.]+)%\s+([\d.]+)%/);
+    return m ? [parseFloat(m[1]), parseFloat(m[2])] : [50,50];
+  };
   const [bgMode, setBgMode] = useState<'solid' | 'gradient'>('gradient');
   const [gradColor1, setGradColor1] = useState('#0E7C61');
   const [gradColor2, setGradColor2] = useState('#0A5C49');
@@ -3621,7 +3635,8 @@ MSG91_SENDER_ID=TFWALL`}
                             ctaLabel2: b.ctaLabel2, ctaUrl2: b.ctaUrl2,
                             bgGradient: b.bgGradient, accentColor: b.accentColor,
                             textColor: b.textColor, textAlign: b.textAlign || 'left',
-                            imagePosition: b.imagePosition || 'center',
+                            imagePosition: b.imagePosition || '50% 50%',
+                            textLeft: b.textLeft ?? 5, textTop: b.textTop ?? 50,
                             active: b.active, sortOrder: b.sortOrder,
                             startDate: b.startDate ? b.startDate.substring(0, 10) : '',
                             endDate: b.endDate ? b.endDate.substring(0, 10) : '',
@@ -3665,16 +3680,60 @@ MSG91_SENDER_ID=TFWALL`}
                     </div>
 
                     <div className="modal-body">
-                      {/* Live preview — accurate full-banner replica */}
-                      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 20, position: 'relative', minHeight: 160,
-                        ...(bannerForm.imageUrl
-                          ? { backgroundImage: `url(${bannerForm.imageUrl})`, backgroundSize: 'cover', backgroundPosition: bannerForm.imagePosition || 'center', backgroundRepeat: 'no-repeat' }
-                          : { background: bannerForm.bgGradient })
-                      }}>
-                        {bannerForm.imageUrl && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.38) 50%, rgba(0,0,0,0.1) 100%)', zIndex: 1 }} />}
-                        <div style={{ position: 'relative', zIndex: 2, padding: '20px 24px', minHeight: 160, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                          alignItems: bannerForm.textAlign === 'center' ? 'center' : bannerForm.textAlign === 'right' ? 'flex-end' : 'flex-start',
-                          textAlign: bannerForm.textAlign as any }}>
+                      {/* Interactive canvas preview — drag text to reposition, drag image to shift focal */}
+                      <div
+                        ref={bannerPreviewRef}
+                        style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 4, position: 'relative', minHeight: 200, userSelect: 'none',
+                          cursor: bannerForm.imageUrl ? 'crosshair' : 'default',
+                          ...(bannerForm.imageUrl
+                            ? { backgroundImage: `url(${bannerForm.imageUrl})`, backgroundSize: 'cover', backgroundPosition: bannerForm.imagePosition || '50% 50%', backgroundRepeat: 'no-repeat' }
+                            : { background: bannerForm.bgGradient })
+                        }}
+                        onMouseDown={e => {
+                          if (!bannerForm.imageUrl) return;
+                          const rect = bannerPreviewRef.current?.getBoundingClientRect();
+                          if (!rect) return;
+                          const [sx, sy] = parseBgPos(bannerForm.imagePosition);
+                          bannerDragRef.current = { active: true, type: 'bg', startMouseX: e.clientX, startMouseY: e.clientY, startValX: sx, startValY: sy };
+                        }}
+                        onMouseMove={e => {
+                          const drag = bannerDragRef.current;
+                          if (!drag.active) return;
+                          const rect = bannerPreviewRef.current?.getBoundingClientRect();
+                          if (!rect) return;
+                          const dx = (e.clientX - drag.startMouseX) / rect.width * 100;
+                          const dy = (e.clientY - drag.startMouseY) / rect.height * 100;
+                          if (drag.type === 'bg') {
+                            const nx = Math.max(0, Math.min(100, drag.startValX + dx));
+                            const ny = Math.max(0, Math.min(100, drag.startValY + dy));
+                            setBannerForm(f => ({ ...f, imagePosition: `${Math.round(nx)}% ${Math.round(ny)}%` }));
+                          } else {
+                            const nx = Math.max(2, Math.min(88, drag.startValX + dx));
+                            const ny = Math.max(8, Math.min(92, drag.startValY + dy));
+                            setBannerForm(f => ({ ...f, textLeft: Math.round(nx), textTop: Math.round(ny) }));
+                          }
+                        }}
+                        onMouseUp={() => { bannerDragRef.current.active = false; }}
+                        onMouseLeave={() => { bannerDragRef.current.active = false; }}
+                      >
+                        {bannerForm.imageUrl && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.38) 50%, rgba(0,0,0,0.1) 100%)', zIndex: 1, pointerEvents: 'none' }} />}
+                        {/* Draggable text block */}
+                        <div
+                          style={{ position: 'absolute', zIndex: 2,
+                            left: `${bannerForm.textLeft}%`, top: `${bannerForm.textTop}%`,
+                            transform: 'translateY(-50%)', maxWidth: '55%',
+                            cursor: 'move', padding: '6px 4px',
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: bannerForm.textAlign === 'center' ? 'center' : bannerForm.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                            textAlign: bannerForm.textAlign as any,
+                          }}
+                          onMouseDown={e => {
+                            e.stopPropagation();
+                            const rect = bannerPreviewRef.current?.getBoundingClientRect();
+                            if (!rect) return;
+                            bannerDragRef.current = { active: true, type: 'text', startMouseX: e.clientX, startMouseY: e.clientY, startValX: bannerForm.textLeft, startValY: bannerForm.textTop };
+                          }}
+                        >
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bannerForm.accentColor, color: '#fff', borderRadius: 100, padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700, marginBottom: 8 }}>
                             {bannerForm.badgeText || BADGE_TYPES.find(t => t.value === bannerForm.badgeType)?.label}
                           </div>
@@ -3689,7 +3748,11 @@ MSG91_SENDER_ID=TFWALL`}
                             {bannerForm.ctaLabel2 && <div style={{ display: 'inline-block', border: `1.5px solid ${bannerForm.imageUrl ? '#fff' : bannerForm.textColor}`, color: bannerForm.imageUrl ? '#fff' : bannerForm.textColor, borderRadius: 8, padding: '6px 14px', fontSize: '0.78rem', fontWeight: 600 }}>{bannerForm.ctaLabel2}</div>}
                           </div>
                         </div>
+                        {/* Drag hints */}
+                        {bannerForm.imageUrl && <div style={{ position: 'absolute', bottom: 6, right: 8, zIndex: 10, fontSize: '0.62rem', color: 'rgba(255,255,255,0.75)', background: 'rgba(0,0,0,0.38)', borderRadius: 4, padding: '2px 7px', pointerEvents: 'none' }}>drag background to reposition</div>}
+                        <div style={{ position: 'absolute', bottom: 6, left: 8, zIndex: 10, fontSize: '0.62rem', color: 'rgba(255,255,255,0.75)', background: 'rgba(0,0,0,0.38)', borderRadius: 4, padding: '2px 7px', pointerEvents: 'none' }}>drag text to move</div>
                       </div>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 16, marginTop: 2 }}>↕ Drag the text block · {bannerForm.imageUrl ? 'Drag background to shift focal point' : 'Add an image to enable focal drag'}</p>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
@@ -3700,15 +3763,15 @@ MSG91_SENDER_ID=TFWALL`}
                           <label>Subtitle</label>
                           <input value={bannerForm.subtitle} onChange={e => setBannerForm({ ...bannerForm, subtitle: e.target.value })} placeholder="Shop our exclusive seasonal collection" />
                         </div>
-                        {/* Content alignment */}
+                        {/* Text alignment (within the text block) */}
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                          <label>Text Position</label>
+                          <label>Text Alignment <small style={{ color: 'var(--text-3)', fontWeight: 400 }}>— alignment within the text block</small></label>
                           <div style={{ display: 'flex', gap: 8 }}>
                             {(['left', 'center', 'right'] as const).map(align => (
                               <button key={align} type="button"
                                 onClick={() => setBannerForm({ ...bannerForm, textAlign: align })}
-                                style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `2px solid ${bannerForm.textAlign === align ? 'var(--primary)' : 'var(--border)'}`, background: bannerForm.textAlign === align ? 'var(--primary)' : 'var(--surface)', color: bannerForm.textAlign === align ? '#fff' : 'var(--text-2)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', textTransform: 'capitalize', transition: 'all .15s' }}>
-                                {align === 'left' ? '⬅ Left' : align === 'center' ? '↔ Center' : 'Right ➡'}
+                                style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `2px solid ${bannerForm.textAlign === align ? 'var(--primary)' : 'var(--border)'}`, background: bannerForm.textAlign === align ? 'var(--primary)' : 'var(--surface)', color: bannerForm.textAlign === align ? '#fff' : 'var(--text-2)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', textTransform: 'capitalize', transition: 'all .15s' }}>
+                                {align === 'left' ? '⬅' : align === 'center' ? '↔' : '➡'}
                               </button>
                             ))}
                           </div>
@@ -3800,24 +3863,6 @@ MSG91_SENDER_ID=TFWALL`}
                           )}
                         </div>
 
-                        {/* Image focal point — only shown when image is set */}
-                        {bannerForm.imageUrl && (
-                          <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                            <label>Image Position <small style={{ color: 'var(--text-3)', fontWeight: 400 }}>— where to focus the image</small></label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 4, width: 120, marginTop: 4 }}>
-                              {[
-                                ['top left','↖'],['top center','↑'],['top right','↗'],
-                                ['center left','←'],['center','·'],['center right','→'],
-                                ['bottom left','↙'],['bottom center','↓'],['bottom right','↘'],
-                              ].map(([pos, icon]) => (
-                                <button key={pos} type="button" onClick={() => setBannerForm({ ...bannerForm, imagePosition: pos })}
-                                  style={{ height: 34, borderRadius: 6, border: `2px solid ${bannerForm.imagePosition === pos ? 'var(--primary)' : 'var(--border)'}`, background: bannerForm.imagePosition === pos ? 'var(--primary)' : 'var(--surface)', color: bannerForm.imagePosition === pos ? '#fff' : 'var(--text-2)', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .12s' }}>
-                                  {icon}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
 
                         {/* Background designer */}
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
