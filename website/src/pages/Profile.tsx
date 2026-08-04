@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Mail, Shield, ShieldOff, Lock, Save, LogOut } from 'lucide-react';
+import { User, Mail, Lock, Save, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import toast from 'react-hot-toast';
@@ -15,9 +15,6 @@ export default function Profile() {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [saving, setSaving] = useState(false);
-  const [disabling2FA, setDisabling2FA] = useState(false);
-  const [disableCode, setDisableCode] = useState('');
-  const [showDisable, setShowDisable] = useState(false);
 
   useEffect(() => {
     if (user) { setName(user.name); setEmail(user.email ?? ''); }
@@ -31,13 +28,15 @@ export default function Profile() {
       await refreshUser();
       setCurrentPw(''); setNewPw('');
       toast.success('Profile updated!');
-    } catch (err: any) { toast.error(err.message || 'Update failed'); }
+    } catch (err: any) {
+      const msg = err.message || 'Update failed';
+      if (msg.includes('email_key') || msg.includes('unique') || msg.includes('duplicate')) {
+        toast.error('This email is already linked to another account.');
+      } else {
+        toast.error(msg);
+      }
+    }
     finally { setSaving(false); }
-  };
-
-  const handleDisable2FA = async () => {
-    // 2FA removed — phone OTP auth is used instead
-    toast('Two-factor auth is handled via OTP login');
   };
 
   const handleLogout = () => { logout(); navigate('/'); };
@@ -89,38 +88,6 @@ export default function Profile() {
             </motion.form>
 
             <motion.div className="section-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <h3><Shield size={18} /> Two-Factor Authentication</h3>
-              <p className="section-desc">
-                {user.twoFactorEnabled
-                  ? 'Two-factor authentication is currently enabled on your account.'
-                  : 'Add an extra layer of security to your account.'}
-              </p>
-
-              {user.twoFactorEnabled ? (
-                <>
-                  <div className="twofa-status enabled"><Shield size={18} /> Enabled</div>
-                  {!showDisable ? (
-                    <button className="btn btn-outline-danger" onClick={() => setShowDisable(true)}>
-                      <ShieldOff size={16} /> Disable 2FA
-                    </button>
-                  ) : (
-                    <div className="disable-2fa-form">
-                      <input type="text" className="code-input" maxLength={6} value={disableCode} onChange={e => setDisableCode(e.target.value.replace(/\D/g, ''))} placeholder="Enter 6-digit code" />
-                      <div className="btn-row">
-                        <button className="btn btn-danger" onClick={handleDisable2FA} disabled={disabling2FA}>
-                          {disabling2FA ? <div className="spinner-sm" /> : 'Confirm Disable'}
-                        </button>
-                        <button className="btn btn-ghost" onClick={() => { setShowDisable(false); setDisableCode(''); }}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Link to="/2fa-setup" className="btn btn-primary"><Shield size={16} /> Enable 2FA</Link>
-              )}
-            </motion.div>
-
-            <motion.div className="section-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <button className="btn btn-outline-danger btn-block" onClick={handleLogout}>
                 <LogOut size={16} /> Sign Out
               </button>
