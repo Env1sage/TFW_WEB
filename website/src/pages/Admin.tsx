@@ -3660,7 +3660,7 @@ MSG91_SENDER_ID=TFWALL`}
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                          <label>Title *</label>
+                          <label>Title</label>
                           <input value={bannerForm.title} onChange={e => setBannerForm({ ...bannerForm, title: e.target.value })} placeholder="Summer Sale — Up to 40% Off!" />
                         </div>
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
@@ -3804,7 +3804,7 @@ MSG91_SENDER_ID=TFWALL`}
                     <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
                       <button className="btn btn-secondary" onClick={() => setShowBannerModal(false)}>Cancel</button>
                       <button className="btn btn-primary" onClick={async () => {
-                        if (!bannerForm.title.trim()) return toast.error('Title is required');
+                        if (!bannerForm.title.trim() && !bannerForm.imageUrl) return toast.error('Add a title or an image');
                         try {
                           const payload = {
                             ...bannerForm,
