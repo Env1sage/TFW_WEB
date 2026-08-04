@@ -41,9 +41,10 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com', 'https://cdn.razorpay.com', 'https://checkout-static-next.razorpay.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'blob:', 'https://checkout.razorpay.com', 'https://cdn.razorpay.com', 'https://checkout-static-next.razorpay.com'],
+      workerSrc: ["'self'", 'blob:'],
       connectSrc: ["'self'", 'https://api.razorpay.com', 'https://cdn.razorpay.com', 'https://lumberjack.razorpay.com', 'https://staticimgly.com', 'https://cdn.imgly.io', 'https://models.imgly.io'],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
       frameSrc: ['https://api.razorpay.com', 'https://checkout.razorpay.com'],
     },
   },
