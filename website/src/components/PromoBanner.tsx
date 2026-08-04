@@ -19,6 +19,7 @@ export interface Banner {
   bgGradient: string;
   accentColor: string;
   textColor: string;
+  textAlign: 'left' | 'center' | 'right';
 }
 
 const BADGE_META: Record<string, { icon: JSX.Element; defaultLabel: string }> = {
@@ -147,7 +148,7 @@ export default function PromoBanner() {
             {banner.imageUrl && <div className="promo-slide-overlay" />}
 
             {/* Text content */}
-            <div className="promo-slide-content">
+            <div className="promo-slide-content" style={{ textAlign: banner.textAlign || 'left', alignItems: banner.textAlign === 'center' ? 'center' : banner.textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
               <span className="promo-badge" style={{ background: banner.accentColor }}>
                 {badge.icon}
                 {badgeLabel}

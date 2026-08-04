@@ -535,9 +535,12 @@ export async function initDB() {
         sort_order INT NOT NULL DEFAULT 0,
         start_date TIMESTAMPTZ,
         end_date TIMESTAMPTZ,
+        text_align TEXT NOT NULL DEFAULT 'left',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_banners_active ON website_banners(active, sort_order);
+      ALTER TABLE website_banners ADD COLUMN IF NOT EXISTS text_align TEXT NOT NULL DEFAULT 'left';
+      ALTER TABLE website_banners ALTER COLUMN title SET DEFAULT '';
     `);
 
     // ── Brands & Device Models (Category → Brand → Model → Design Studio) ──
@@ -2064,18 +2067,18 @@ export async function getAllBanners(): Promise<any[]> {
 export async function createBanner(data: {
   id: string; title: string; subtitle: string; badgeText: string; badgeType: string;
   imageUrl: string; ctaLabel: string; ctaUrl: string; ctaLabel2: string; ctaUrl2: string;
-  bgGradient: string; accentColor: string; textColor: string;
+  bgGradient: string; accentColor: string; textColor: string; textAlign: string;
   active: boolean; sortOrder: number; startDate?: string | null; endDate?: string | null;
 }): Promise<any> {
   const { rows } = await pool.query(
     `INSERT INTO website_banners
        (id,title,subtitle,badge_text,badge_type,image_url,cta_label,cta_url,
-        cta_label_2,cta_url_2,bg_gradient,accent_color,text_color,active,sort_order,start_date,end_date,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
+        cta_label_2,cta_url_2,bg_gradient,accent_color,text_color,text_align,active,sort_order,start_date,end_date,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
      RETURNING *`,
     [data.id, data.title, data.subtitle, data.badgeText, data.badgeType,
      data.imageUrl, data.ctaLabel, data.ctaUrl, data.ctaLabel2, data.ctaUrl2,
-     data.bgGradient, data.accentColor, data.textColor,
+     data.bgGradient, data.accentColor, data.textColor, data.textAlign || 'left',
      data.active, data.sortOrder, data.startDate || null, data.endDate || null]
   );
   return rows[0];
@@ -2084,7 +2087,7 @@ export async function createBanner(data: {
 export async function updateBanner(id: string, data: Partial<{
   title: string; subtitle: string; badgeText: string; badgeType: string;
   imageUrl: string; ctaLabel: string; ctaUrl: string; ctaLabel2: string; ctaUrl2: string;
-  bgGradient: string; accentColor: string; textColor: string;
+  bgGradient: string; accentColor: string; textColor: string; textAlign: string;
   active: boolean; sortOrder: number; startDate: string | null; endDate: string | null;
 }>): Promise<any | null> {
   const MAP: Record<string, string> = {
@@ -2092,6 +2095,7 @@ export async function updateBanner(id: string, data: Partial<{
     imageUrl: 'image_url', ctaLabel: 'cta_label', ctaUrl: 'cta_url',
     ctaLabel2: 'cta_label_2', ctaUrl2: 'cta_url_2',
     bgGradient: 'bg_gradient', accentColor: 'accent_color', textColor: 'text_color',
+    textAlign: 'text_align',
     active: 'active', sortOrder: 'sort_order', startDate: 'start_date', endDate: 'end_date',
   };
   const fields: string[] = [];

@@ -156,7 +156,7 @@ export default function Admin() {
     imageUrl: '', ctaLabel: 'Shop Now', ctaUrl: '/products',
     ctaLabel2: '', ctaUrl2: '',
     bgGradient: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
-    accentColor: '#C6A75E', textColor: '#ffffff',
+    accentColor: '#C6A75E', textColor: '#ffffff', textAlign: 'left',
     active: true, sortOrder: 0, startDate: '', endDate: '',
   };
   const [bannerForm, setBannerForm] = useState({ ...defaultBannerForm });
@@ -3601,8 +3601,8 @@ MSG91_SENDER_ID=TFWALL`}
                             ctaLabel: b.ctaLabel, ctaUrl: b.ctaUrl,
                             ctaLabel2: b.ctaLabel2, ctaUrl2: b.ctaUrl2,
                             bgGradient: b.bgGradient, accentColor: b.accentColor,
-                            textColor: b.textColor, active: b.active,
-                            sortOrder: b.sortOrder,
+                            textColor: b.textColor, textAlign: b.textAlign || 'left',
+                            active: b.active, sortOrder: b.sortOrder,
                             startDate: b.startDate ? b.startDate.substring(0, 10) : '',
                             endDate: b.endDate ? b.endDate.substring(0, 10) : '',
                           });
@@ -3646,12 +3646,13 @@ MSG91_SENDER_ID=TFWALL`}
                     <div className="modal-body">
                       {/* Live preview */}
                       <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 20, background: bannerForm.bgGradient, minHeight: 90, display: 'flex', alignItems: 'center', padding: '16px 20px', gap: 16, position: 'relative' }}>
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: bannerForm.textAlign === 'center' ? 'center' : bannerForm.textAlign === 'right' ? 'flex-end' : 'flex-start', textAlign: bannerForm.textAlign as any }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: bannerForm.accentColor, color: '#fff', borderRadius: 100, padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700, marginBottom: 6 }}>
                             {bannerForm.badgeText || BADGE_TYPES.find(t => t.value === bannerForm.badgeType)?.label}
                           </div>
                           <div style={{ color: bannerForm.textColor, fontWeight: 800, fontSize: '1.1rem', lineHeight: 1.2 }}>{bannerForm.title || 'Banner Title'}</div>
                           {bannerForm.subtitle && <div style={{ color: bannerForm.textColor, opacity: 0.8, fontSize: '0.8rem', marginTop: 4 }}>{bannerForm.subtitle}</div>}
+                          {bannerForm.ctaLabel && <div style={{ marginTop: 8, display: 'inline-block', background: bannerForm.accentColor, color: '#fff', borderRadius: 6, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600 }}>{bannerForm.ctaLabel} →</div>}
                         </div>
                         {bannerForm.imageUrl && (
                           <img src={bannerForm.imageUrl} alt="" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -3666,6 +3667,41 @@ MSG91_SENDER_ID=TFWALL`}
                         <div className="form-group" style={{ gridColumn: '1/-1' }}>
                           <label>Subtitle</label>
                           <input value={bannerForm.subtitle} onChange={e => setBannerForm({ ...bannerForm, subtitle: e.target.value })} placeholder="Shop our exclusive seasonal collection" />
+                        </div>
+                        {/* Content alignment */}
+                        <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                          <label>Text Position</label>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            {(['left', 'center', 'right'] as const).map(align => (
+                              <button key={align} type="button"
+                                onClick={() => setBannerForm({ ...bannerForm, textAlign: align })}
+                                style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: `2px solid ${bannerForm.textAlign === align ? 'var(--primary)' : 'var(--border)'}`, background: bannerForm.textAlign === align ? 'var(--primary)' : 'var(--surface)', color: bannerForm.textAlign === align ? '#fff' : 'var(--text-2)', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', textTransform: 'capitalize', transition: 'all .15s' }}>
+                                {align === 'left' ? '⬅ Left' : align === 'center' ? '↔ Center' : 'Right ➡'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* CTA buttons */}
+                        <div className="form-group" style={{ gridColumn: '1/-1', background: 'var(--surface-2,rgba(0,0,0,0.03))', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--border)' }}>
+                          <label style={{ marginBottom: 10, fontWeight: 600 }}>Button (CTA)</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label style={{ fontSize: '0.78rem' }}>Button Label</label>
+                              <input value={bannerForm.ctaLabel} onChange={e => setBannerForm({ ...bannerForm, ctaLabel: e.target.value })} placeholder="Shop Now" />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label style={{ fontSize: '0.78rem' }}>Link to Page</label>
+                              <input value={bannerForm.ctaUrl} onChange={e => setBannerForm({ ...bannerForm, ctaUrl: e.target.value })} placeholder="/products" />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label style={{ fontSize: '0.78rem' }}>Second Button <small style={{ color: 'var(--text-3)' }}>(optional)</small></label>
+                              <input value={bannerForm.ctaLabel2} onChange={e => setBannerForm({ ...bannerForm, ctaLabel2: e.target.value })} placeholder="View All" />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label style={{ fontSize: '0.78rem' }}>Second Button Link</label>
+                              <input value={bannerForm.ctaUrl2} onChange={e => setBannerForm({ ...bannerForm, ctaUrl2: e.target.value })} placeholder="/collections" />
+                            </div>
+                          </div>
                         </div>
                         <div className="form-group">
                           <label>Banner Type</label>
@@ -3759,24 +3795,6 @@ MSG91_SENDER_ID=TFWALL`}
                             <input type="color" value={bannerForm.textColor} onChange={e => setBannerForm({ ...bannerForm, textColor: e.target.value })} style={{ width: 40, height: 32, padding: 2, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)' }} />
                             <input value={bannerForm.textColor} onChange={e => setBannerForm({ ...bannerForm, textColor: e.target.value })} style={{ flex: 1 }} />
                           </div>
-                        </div>
-
-                        {/* CTAs */}
-                        <div className="form-group">
-                          <label>Primary CTA Label</label>
-                          <input value={bannerForm.ctaLabel} onChange={e => setBannerForm({ ...bannerForm, ctaLabel: e.target.value })} placeholder="Shop Now" />
-                        </div>
-                        <div className="form-group">
-                          <label>Primary CTA URL</label>
-                          <input value={bannerForm.ctaUrl} onChange={e => setBannerForm({ ...bannerForm, ctaUrl: e.target.value })} placeholder="/products" />
-                        </div>
-                        <div className="form-group">
-                          <label>Secondary CTA Label <small style={{ color: 'var(--text-3)' }}>(optional)</small></label>
-                          <input value={bannerForm.ctaLabel2} onChange={e => setBannerForm({ ...bannerForm, ctaLabel2: e.target.value })} placeholder="View All" />
-                        </div>
-                        <div className="form-group">
-                          <label>Secondary CTA URL</label>
-                          <input value={bannerForm.ctaUrl2} onChange={e => setBannerForm({ ...bannerForm, ctaUrl2: e.target.value })} placeholder="/collections" />
                         </div>
 
                         <div className="form-group">

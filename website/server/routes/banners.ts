@@ -53,6 +53,7 @@ function shapeBanner(r: any) {
     bgGradient: r.bg_gradient || 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
     accentColor: r.accent_color || '#C6A75E',
     textColor: r.text_color || '#ffffff',
+    textAlign: r.text_align || 'left',
     active: r.active,
     sortOrder: r.sort_order,
     startDate: r.start_date || null,
@@ -91,7 +92,7 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
     const {
       title, subtitle, badgeText, badgeType, imageUrl,
       ctaLabel, ctaUrl, ctaLabel2, ctaUrl2,
-      bgGradient, accentColor, textColor,
+      bgGradient, accentColor, textColor, textAlign,
       active, sortOrder, startDate, endDate,
     } = req.body;
     if (!title?.trim() && !imageUrl) return res.status(400).json({ error: 'Add a title or an image' });
@@ -106,6 +107,7 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
       ctaUrl: ctaUrl || '/products',
       ctaLabel2: ctaLabel2 || '',
       ctaUrl2: ctaUrl2 || '',
+      textAlign: textAlign || 'left',
       bgGradient: bgGradient || 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
       accentColor: accentColor || '#C6A75E',
       textColor: textColor || '#ffffff',
@@ -123,13 +125,13 @@ router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
     const {
       title, subtitle, badgeText, badgeType, imageUrl,
       ctaLabel, ctaUrl, ctaLabel2, ctaUrl2,
-      bgGradient, accentColor, textColor,
+      bgGradient, accentColor, textColor, textAlign,
       active, sortOrder, startDate, endDate,
     } = req.body;
     const updated = await db.updateBanner(req.params.id as string, {
       title, subtitle, badgeText, badgeType, imageUrl,
       ctaLabel, ctaUrl, ctaLabel2, ctaUrl2,
-      bgGradient, accentColor, textColor,
+      bgGradient, accentColor, textColor, textAlign,
       active, sortOrder: sortOrder !== undefined ? Number(sortOrder) : undefined,
       startDate: startDate || null,
       endDate: endDate || null,
