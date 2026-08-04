@@ -773,11 +773,23 @@ export default function Admin() {
     if (!url) return;
     setRemovingBgField(field);
     try {
-      const { url: newUrl } = await api.removeMockupBackground(url);
+      const { removeBackground } = await import('@imgly/background-removal');
+      // Load the image onto a canvas to get a blob
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = url; });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+      const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/png'));
+      const resultBlob = await removeBackground(blob);
+      // Upload the result PNG back to the server
+      const file = new File([resultBlob], 'nobg.png', { type: 'image/png' });
+      const { url: newUrl } = await api.uploadMockupImage(file);
       setMockupForm(prev => ({ ...prev, [field]: newUrl }));
       toast.success('Background removed!');
     } catch (e: any) {
-      toast.error(e.message || 'Background removal failed — set REMOVEBG_API_KEY to enable');
+      toast.error(e.message || 'Background removal failed');
     } finally {
       setRemovingBgField(null);
     }

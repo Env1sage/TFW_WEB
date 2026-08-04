@@ -143,7 +143,7 @@ export interface DeliveryOption {
 export interface Order {
   id: string;
   userId: string;
-  items: { productId: string; productName?: string; productImage?: string; quantity: number; color?: string; size?: string; customText?: string; price: number }[];
+  items: { productId: string; productName?: string; productImage?: string; quantity: number; color?: string; size?: string; customText?: string; price: number; phoneBrand?: string; phoneModel?: string }[];
   total: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shippingAddress: string;

@@ -1174,51 +1174,6 @@ router.put('/orders/:id/status', authMiddleware, requireRole('admin', 'order_man
   }
 });
 
-// Remove background from a mockup image using remove.bg API
-router.post('/mockups/remove-bg', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
-  const apiKey = process.env.REMOVEBG_API_KEY;
-  if (!apiKey) return res.status(501).json({ error: 'Background removal not configured — add REMOVEBG_API_KEY to .env.production' });
-
-  const { imageUrl } = req.body;
-  if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
-
-  try {
-    const formData = new FormData();
-    formData.append('size', 'auto');
-
-    if (imageUrl.startsWith('/uploads/')) {
-      // Resolve local file: MOCKUP_UPLOADS_DIR is .../uploads/mockups, go up one to get uploads/
-      const uploadsRoot = path.join(MOCKUP_UPLOADS_DIR, '..');
-      const localPath = path.join(uploadsRoot, imageUrl.replace(/^\/uploads\//, ''));
-      const fileBuffer = await fs.promises.readFile(localPath);
-      const blob = new Blob([fileBuffer], { type: 'image/png' });
-      formData.append('image_file', blob, 'image.png');
-    } else {
-      formData.append('image_url', imageUrl);
-    }
-
-    const resp = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
-      headers: { 'X-Api-Key': apiKey },
-      body: formData,
-    });
-
-    if (!resp.ok) {
-      const txt = await resp.text();
-      let msg = 'Background removal failed';
-      try { msg = JSON.parse(txt).errors?.[0]?.title || msg; } catch {}
-      return res.status(resp.status).json({ error: msg });
-    }
-
-    const buf = Buffer.from(await resp.arrayBuffer());
-    const filename = `${Date.now()}-nobg.png`;
-    await fs.promises.writeFile(path.join(MOCKUP_UPLOADS_DIR, filename), buf);
-    res.json({ url: `/uploads/mockups/${filename}` });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // Mockup image upload
 router.post('/mockups/upload', authMiddleware, requireRole('admin', 'product_manager'), (req: Request, res: Response) => {
   uploadMockup.single('image')(req, res, async (err: any) => {
