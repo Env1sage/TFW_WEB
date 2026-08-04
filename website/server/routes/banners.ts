@@ -94,10 +94,10 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
       bgGradient, accentColor, textColor,
       active, sortOrder, startDate, endDate,
     } = req.body;
-    if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+    if (!title?.trim() && !imageUrl) return res.status(400).json({ error: 'Add a title or an image' });
     const banner = await db.createBanner({
       id: uuid(),
-      title: title.trim(),
+      title: title?.trim() || '',
       subtitle: subtitle || '',
       badgeText: badgeText || '',
       badgeType: badgeType || 'featured',
