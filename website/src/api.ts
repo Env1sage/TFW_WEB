@@ -114,7 +114,7 @@ export const api = {
     request<any>(`/products/${id}/stock`, { method: 'PATCH', body: JSON.stringify({ stock }) }),
 
   // Orders
-  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; paymentToken?: string; couponCode?: string; discountAmount?: number; groupOrderId?: string; deliveryMethod?: string; deliveryConfig?: any; shippingCost?: number }) =>
+  createOrder: (items: any[], shippingAddress: string, extra?: { razorpayOrderId?: string; paymentId?: string; paymentToken?: string; couponCode?: string; discountAmount?: number; groupOrderId?: string; deliveryMethod?: string; deliveryConfig?: any; shippingCost?: number; customerEmail?: string; customerName?: string }) =>
     request<any>('/products/orders', { method: 'POST', body: JSON.stringify({ items, shippingAddress, ...extra }) }),
 
   // Razorpay

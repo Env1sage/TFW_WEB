@@ -983,7 +983,8 @@ router.post('/razorpay/verify', authMiddleware, async (req: Request, res: Respon
 router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { items, shippingAddress, razorpayOrderId, paymentId, paymentToken, couponCode, discountAmount, groupOrderId,
-            deliveryMethod, deliveryConfig, shippingCost: clientShippingCost } = req.body;
+            deliveryMethod, deliveryConfig, shippingCost: clientShippingCost,
+            customerEmail: bodyEmail, customerName: bodyName } = req.body;
     if (!items?.length || !shippingAddress) return res.status(400).json({ error: 'Items and address required' });
 
     // Verify payment token issued by /razorpay/verify
@@ -1070,7 +1071,9 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       const rawSubtotal = total; // sum of item prices before discount
       const shippingCost = await calculateShipping(shippingAddress, rawSubtotal - discount);
       const emailData = {
-        orderId: order.id, customerName: user.name, customerEmail: user.email ?? '',
+        orderId: order.id,
+        customerName: user.name || bodyName || 'Customer',
+        customerEmail: user.email || bodyEmail || '',
         items: orderItems, subtotal: rawSubtotal, shippingCost,
         discountAmount: discount, total: order.total,
         shippingAddress, createdAt: order.createdAt,
@@ -1084,7 +1087,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
       }
       // Auto-push to Shiprocket only for standard shipping
       if (resolvedDeliveryMethod === 'standard') {
-        autoShiprocketPush(order.id, false, order, user.name, user.email ?? undefined)
+        autoShiprocketPush(order.id, false, order, user.name || bodyName, user.email || bodyEmail || undefined)
           .catch(e => console.error('[Shiprocket] ❌ Unhandled error for order', order.id, e.message));
       }
     } else {

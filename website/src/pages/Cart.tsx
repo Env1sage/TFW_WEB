@@ -412,7 +412,7 @@ export default function Cart() {
         await api.createOrder(
           items.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText, phoneBrand: i.phoneBrand, phoneModel: i.phoneModel })),
           shippingAddress,
-          { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, paymentToken: paymentData.paymentToken, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost }
+          { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, paymentToken: paymentData.paymentToken, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost, customerEmail: form.email, customerName: form.fullName }
         );
       }
       for (const d of designItems) {
