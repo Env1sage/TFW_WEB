@@ -1832,95 +1832,138 @@ export default function Admin() {
         {/* Abandoned Carts Tab */}
         {tab === 'abandoned-carts' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h2 style={{ margin: '0 0 4px' }}>Abandoned Carts</h2>
-                <p style={{ color: 'var(--text-2)', fontSize: '0.88rem', margin: 0 }}>Automated drip messages for users who left items in cart</p>
+                <h2 style={{ margin: '0 0 6px', fontSize: '1.5rem', fontWeight: 700 }}>Abandoned Carts</h2>
+                <p style={{ color: 'var(--text-2)', fontSize: '0.875rem', margin: 0 }}>Track and recover carts with automated drip messages</p>
               </div>
-              <button className="btn btn-outline" onClick={() => loadAbandonedCarts(abandonedPage, abandonedFilter)} style={{ gap: 6 }}><RefreshCw size={15} /> Refresh</button>
+              <button className="btn btn-outline" onClick={() => loadAbandonedCarts(abandonedPage, abandonedFilter)} style={{ gap: 6, alignSelf: 'center' }}>
+                <RefreshCw size={14} /> Refresh
+              </button>
             </div>
 
             {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 22 }}>
-              {[
-                { label: 'Total Carts', value: abandonedStats.total, color: '#6366f1', bg: '#eef2ff' },
-                { label: 'Active', value: abandonedStats.active, color: '#f59e0b', bg: '#fef3c7' },
-                { label: 'Converted', value: abandonedStats.converted, color: '#10b981', bg: '#d1fae5' },
-                { label: 'Active Value', value: `₹${Math.round(abandonedStats.activeValue).toLocaleString()}`, color: '#3b82f6', bg: '#dbeafe' },
-              ].map(s => (
-                <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                  <div style={{ fontSize: '0.78rem', color: s.color, opacity: 0.8, marginTop: 4 }}>{s.label}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>
+              {([
+                { label: 'Total Carts', value: abandonedStats.total, Icon: ShoppingCart, color: '#6366f1', bg: '#eef2ff' },
+                { label: 'Active', value: abandonedStats.active, Icon: AlertTriangle, color: '#f59e0b', bg: '#fffbeb' },
+                { label: 'Converted', value: abandonedStats.converted, Icon: PackageCheck, color: '#10b981', bg: '#ecfdf5' },
+                { label: 'Active Value', value: `₹${Math.round(abandonedStats.activeValue).toLocaleString()}`, Icon: IndianRupee, color: '#3b82f6', bg: '#eff6ff' },
+              ] as const).map(s => (
+                <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <s.Icon size={20} color={s.color} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.1 }}>{s.value}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-3)', marginTop: 3, fontWeight: 500 }}>{s.label}</div>
+                  </div>
                 </div>
               ))}
             </div>
 
-            {/* Filter */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {/* Filter pills */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               {(['active', 'all', 'converted'] as const).map(f => (
-                <button key={f} className={`btn btn-sm ${abandonedFilter === f ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => { setAbandonedFilter(f); loadAbandonedCarts(1, f); }}>
-                  {f === 'active' ? 'Active' : f === 'converted' ? 'Converted' : 'All'}
+                <button key={f} onClick={() => { setAbandonedFilter(f); loadAbandonedCarts(1, f); }} style={{
+                  padding: '7px 18px', borderRadius: 999,
+                  border: `1.5px solid ${abandonedFilter === f ? '#6366f1' : 'var(--border)'}`,
+                  background: abandonedFilter === f ? '#6366f1' : 'transparent',
+                  color: abandonedFilter === f ? '#fff' : 'var(--text-2)',
+                  fontSize: '0.84rem', fontWeight: abandonedFilter === f ? 600 : 400,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                  {f === 'active' ? `Active (${abandonedStats.active})` : f === 'converted' ? `Converted (${abandonedStats.converted})` : `All (${abandonedStats.total})`}
                 </button>
               ))}
             </div>
 
             {/* Carts table */}
             {abandonedLoading ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>Loading...</div>
+              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-3)' }}>
+                <RefreshCw size={20} style={{ opacity: 0.4, display: 'block', margin: '0 auto 8px' }} />
+                Loading carts...
+              </div>
             ) : abandonedCarts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)', background: 'var(--surface)', borderRadius: 12 }}>No abandoned carts</div>
+              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-3)', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)' }}>
+                <ShoppingCart size={32} style={{ opacity: 0.25, display: 'block', margin: '0 auto 12px' }} />
+                No abandoned carts yet
+              </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead><tr>
-                    <th>Customer</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Drip Step</th>
-                    <th>Status</th>
-                    <th>Abandoned</th>
-                    <th></th>
-                  </tr></thead>
-                  <tbody>
-                    {abandonedCarts.map((c: any) => {
-                      const items = Array.isArray(c.items) ? c.items : [];
-                      const ago = Math.round((Date.now() - new Date(c.created_at).getTime()) / 60000);
-                      const agoStr = ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.round(ago / 60)}h ago` : `${Math.round(ago / 1440)}d ago`;
-                      return (
-                        <tr key={c.id}>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{c.name || '—'}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>{c.phone || c.email || '—'}</div>
-                          </td>
-                          <td style={{ maxWidth: 200 }}>
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {items.map((i: any) => i.product?.name).filter(Boolean).join(', ') || '—'}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{items.length} item{items.length !== 1 ? 's' : ''}</div>
-                          </td>
-                          <td style={{ fontWeight: 600 }}>₹{Math.round(parseFloat(c.total)).toLocaleString()}</td>
-                          <td>
-                            <span style={{ background: c.drip_step > 0 ? '#dbeafe' : '#f1f5f9', color: c.drip_step > 0 ? '#1d4ed8' : '#64748b', padding: '3px 9px', borderRadius: 20, fontSize: '0.78rem' }}>
-                              {c.drip_step > 0 ? `Step ${c.drip_step} sent` : 'Not started'}
-                            </span>
-                          </td>
-                          <td>
-                            <span style={{ background: c.converted ? '#d1fae5' : '#fef3c7', color: c.converted ? '#065f46' : '#92400e', padding: '3px 9px', borderRadius: 20, fontSize: '0.78rem' }}>
-                              {c.converted ? 'Converted' : 'Abandoned'}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--text-3)', fontSize: '0.82rem' }}>{agoStr}</td>
-                          <td>
-                            <button className="icon-btn danger" onClick={async () => { await api.deleteAbandonedCart(c.id); setAbandonedCarts(prev => prev.filter(x => x.id !== c.id)); }} title="Delete"><Trash2 size={15} /></button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div style={{ borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        {['Customer', 'Items', 'Total', 'Drip Step', 'Status', 'Abandoned', ''].map(h => (
+                          <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {abandonedCarts.map((c: any) => {
+                        const items = Array.isArray(c.items) ? c.items : [];
+                        const ago = Math.round((Date.now() - new Date(c.created_at).getTime()) / 60000);
+                        const agoStr = ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.round(ago / 60)}h ago` : `${Math.round(ago / 1440)}d ago`;
+                        const initials = (c.name || '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+                        const hue = (c.name || 'x').charCodeAt(0) * 37 % 360;
+                        return (
+                          <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: `hsl(${hue},55%,88%)`, color: `hsl(${hue},55%,32%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 700, flexShrink: 0 }}>
+                                  {initials}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.2 }}>{c.name || '—'}</div>
+                                  <div style={{ fontSize: '0.77rem', color: 'var(--text-3)', marginTop: 2 }}>{c.phone || c.email || '—'}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px', maxWidth: 200 }}>
+                              <div style={{ fontSize: '0.84rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+                                {items.map((i: any) => i.product?.name).filter(Boolean).join(', ') || '—'}
+                              </div>
+                              <div style={{ fontSize: '0.74rem', color: 'var(--text-3)', marginTop: 2 }}>{items.length} item{items.length !== 1 ? 's' : ''}</div>
+                            </td>
+                            <td style={{ padding: '14px 16px', fontWeight: 700, fontSize: '0.95rem' }}>₹{Math.round(parseFloat(c.total)).toLocaleString()}</td>
+                            <td style={{ padding: '14px 16px' }}>
+                              {c.drip_step > 0 ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#dbeafe', color: '#1d4ed8', padding: '4px 10px', borderRadius: 999, fontSize: '0.77rem', fontWeight: 600 }}>
+                                  <Send size={11} /> Step {c.drip_step} sent
+                                </span>
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,#f1f5f9)', color: 'var(--text-3)', padding: '4px 10px', borderRadius: 999, fontSize: '0.77rem' }}>
+                                  <Clock size={11} /> Not started
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              {c.converted ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: 999, fontSize: '0.77rem', fontWeight: 600 }}>
+                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#15803d', flexShrink: 0 }} /> Converted
+                                </span>
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fef9c3', color: '#a16207', padding: '4px 10px', borderRadius: 999, fontSize: '0.77rem', fontWeight: 600 }}>
+                                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ca8a04', flexShrink: 0 }} /> Abandoned
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '14px 16px', color: 'var(--text-3)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} /> {agoStr}</div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <button className="icon-btn danger" onClick={async () => { await api.deleteAbandonedCart(c.id); setAbandonedCarts(prev => prev.filter((x: any) => x.id !== c.id)); }} title="Delete"><Trash2 size={15} /></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
                 {abandonedPages > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
                     <button className="btn btn-outline btn-sm" disabled={abandonedPage <= 1} onClick={() => loadAbandonedCarts(abandonedPage - 1, abandonedFilter)}>← Prev</button>
                     <span style={{ color: 'var(--text-3)', padding: '6px 12px', fontSize: '0.85rem' }}>Page {abandonedPage} of {abandonedPages}</span>
                     <button className="btn btn-outline btn-sm" disabled={abandonedPage >= abandonedPages} onClick={() => loadAbandonedCarts(abandonedPage + 1, abandonedFilter)}>Next →</button>
@@ -1930,42 +1973,76 @@ export default function Admin() {
             )}
 
             {/* Drip Templates */}
-            <div style={{ marginTop: 40 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ marginTop: 48 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <h3 style={{ margin: '0 0 4px' }}>Drip Message Templates</h3>
-                  <p style={{ color: 'var(--text-2)', fontSize: '0.82rem', margin: 0 }}>
-                    Variables: <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{firstName}}'}</code>{' '}
-                    <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{items}}'}</code>{' '}
-                    <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{totalAmount}}'}</code>{' '}
-                    <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{cartLink}}'}</code>
-                  </p>
+                  <h3 style={{ margin: '0 0 8px', fontSize: '1.1rem', fontWeight: 700 }}>Drip Message Templates</h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>Variables:</span>
+                    {['{{firstName}}', '{{items}}', '{{totalAmount}}', '{{cartLink}}'].map(v => (
+                      <code key={v} style={{ background: 'var(--surface-2,#f1f5f9)', color: '#6366f1', padding: '2px 7px', borderRadius: 5, fontSize: '0.74rem', fontWeight: 600 }}>{v}</code>
+                    ))}
+                  </div>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => openDripForm()} style={{ gap: 6 }}><Plus size={14} /> New Template</button>
+                <button className="btn btn-primary btn-sm" onClick={() => openDripForm()} style={{ gap: 6, flexShrink: 0 }}><Plus size={14} /> New Template</button>
               </div>
 
               {dripLoading ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-3)' }}>Loading...</div>
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-3)' }}>Loading templates...</div>
               ) : dripTemplates.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', background: 'var(--surface)', borderRadius: 12, color: 'var(--text-3)' }}>No drip templates yet</div>
+                <div style={{ textAlign: 'center', padding: '48px', background: 'var(--surface)', borderRadius: 14, border: '1px dashed var(--border)', color: 'var(--text-3)' }}>
+                  <Bell size={28} style={{ opacity: 0.25, display: 'block', margin: '0 auto 10px' }} />
+                  No drip templates yet. Create one to start automating.
+                </div>
               ) : (
-                <div style={{ display: 'grid', gap: 12 }}>
-                  {dripTemplates.map(t => (
-                    <div key={t.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                            <span style={{ fontWeight: 700 }}>{t.name}</span>
-                            <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 20, fontSize: '0.73rem' }}>Step {t.step}</span>
-                            <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 20, fontSize: '0.73rem' }}>{t.delay_hours}h delay</span>
-                            <span style={{ background: t.active ? '#d1fae5' : '#fee2e2', color: t.active ? '#065f46' : '#991b1b', padding: '2px 8px', borderRadius: 20, fontSize: '0.73rem' }}>{t.active ? 'Active' : 'Inactive'}</span>
-                          </div>
-                          {t.subject && <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginBottom: 4 }}><strong>Subject:</strong> {t.subject}</div>}
-                          {t.sms_body && <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 500 }}><strong>SMS:</strong> {t.sms_body}</div>}
+                <div style={{ position: 'relative' }}>
+                  {dripTemplates.length > 1 && (
+                    <div style={{ position: 'absolute', left: 21, top: 44, bottom: 44, width: 2, background: 'var(--border)', zIndex: 0 }} />
+                  )}
+                  {dripTemplates.map((t, idx) => (
+                    <div key={t.id} style={{ display: 'flex', gap: 20, paddingBottom: idx < dripTemplates.length - 1 ? 16 : 0, position: 'relative', zIndex: 1 }}>
+                      <div style={{ flexShrink: 0, paddingTop: 12 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: t.active ? '#6366f1' : 'var(--surface-2,#e5e7eb)', color: t.active ? '#fff' : 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1rem', border: `3px solid ${t.active ? '#a5b4fc' : 'var(--border)'}` }}>
+                          {t.step}
                         </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="icon-btn" onClick={() => openDripForm(t)} title="Edit"><Edit3 size={15} /></button>
-                          <button className="icon-btn danger" onClick={() => deleteDripTemplate(t.id)} title="Delete"><Trash2 size={15} /></button>
+                      </div>
+                      <div style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', marginBottom: idx < dripTemplates.length - 1 ? 0 : 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{t.name}</span>
+                              <span style={{ background: '#eff6ff', color: '#2563eb', padding: '3px 9px', borderRadius: 999, fontSize: '0.74rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <Clock size={10} />{t.delay_hours}h delay
+                              </span>
+                              <span style={{ background: t.active ? '#dcfce7' : '#fee2e2', color: t.active ? '#15803d' : '#991b1b', padding: '3px 9px', borderRadius: 999, fontSize: '0.74rem', fontWeight: 600 }}>
+                                {t.active ? '● Active' : '○ Inactive'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'grid', gap: 8 }}>
+                              {t.subject && (
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                  <Mail size={13} style={{ color: 'var(--text-3)', marginTop: 2, flexShrink: 0 }} />
+                                  <div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Email Subject</div>
+                                    <div style={{ fontSize: '0.84rem', color: 'var(--text-2)' }}>{t.subject}</div>
+                                  </div>
+                                </div>
+                              )}
+                              {t.sms_body && (
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                  <Phone size={13} style={{ color: 'var(--text-3)', marginTop: 2, flexShrink: 0 }} />
+                                  <div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>SMS</div>
+                                    <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 420 }}>{t.sms_body}</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                            <button className="icon-btn" onClick={() => openDripForm(t)} title="Edit"><Edit3 size={15} /></button>
+                            <button className="icon-btn danger" onClick={() => deleteDripTemplate(t.id)} title="Delete"><Trash2 size={15} /></button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1983,24 +2060,24 @@ export default function Admin() {
                       <h3>{editingDrip ? 'Edit Drip Template' : 'New Drip Template'}</h3>
                       <button className="modal-close-btn" onClick={() => setShowDripForm(false)}><X size={18} /></button>
                     </div>
-                    <div className="modal-body" style={{ display: 'grid', gap: 14 }}>
+                    <div className="modal-body" style={{ display: 'grid', gap: 16 }}>
                       <div className="form-group"><label>Template Name</label><input value={dripForm.name} onChange={e => setDripForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Abandoned Cart — 1 Hour" /></div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                         <div className="form-group"><label>Step #</label><input type="number" min={1} value={dripForm.step} onChange={e => setDripForm(f => ({ ...f, step: parseInt(e.target.value) || 1 }))} /></div>
                         <div className="form-group"><label>Delay (hours after cart creation)</label><input type="number" min={1} value={dripForm.delay_hours} onChange={e => setDripForm(f => ({ ...f, delay_hours: parseInt(e.target.value) || 1 }))} /></div>
                       </div>
                       <div className="form-group"><label>Email Subject</label><input value={dripForm.subject} onChange={e => setDripForm(f => ({ ...f, subject: e.target.value }))} placeholder="You left something behind..." /></div>
                       <div className="form-group">
                         <label>Email Body</label>
-                        <textarea rows={6} value={dripForm.email_body} onChange={e => setDripForm(f => ({ ...f, email_body: e.target.value }))} placeholder="Hi {{firstName}}, your cart is waiting..." style={{ fontFamily: 'monospace', fontSize: '0.83rem', resize: 'vertical' }} />
+                        <textarea rows={5} value={dripForm.email_body} onChange={e => setDripForm(f => ({ ...f, email_body: e.target.value }))} placeholder="Hi {{firstName}}, your cart is waiting..." style={{ fontFamily: 'monospace', fontSize: '0.83rem', resize: 'vertical' }} />
                       </div>
                       <div className="form-group">
                         <label>SMS Body</label>
                         <textarea rows={3} value={dripForm.sms_body} onChange={e => setDripForm(f => ({ ...f, sms_body: e.target.value }))} placeholder="Hi {{firstName}}, your cart (₹{{totalAmount}}) is waiting: {{cartLink}}" style={{ fontFamily: 'monospace', fontSize: '0.83rem', resize: 'vertical' }} />
                       </div>
-                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <input type="checkbox" id="drip-active" checked={dripForm.active} onChange={e => setDripForm(f => ({ ...f, active: e.target.checked }))} style={{ width: 16, height: 16 }} />
-                        <label htmlFor="drip-active" style={{ margin: 0, cursor: 'pointer' }}>Active (will be sent by the automated cron)</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--surface-2,#f8fafc)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                        <input type="checkbox" id="drip-active" checked={dripForm.active} onChange={e => setDripForm(f => ({ ...f, active: e.target.checked }))} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                        <label htmlFor="drip-active" style={{ margin: 0, cursor: 'pointer', fontSize: '0.88rem', fontWeight: 500 }}>Active — will be sent automatically by the drip cron</label>
                       </div>
                     </div>
                     <div className="modal-footer">
