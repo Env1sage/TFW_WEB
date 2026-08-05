@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -128,7 +128,7 @@ function normalizePrintArea(pa: any): { layouts: PrintLayout[]; allowMultipleLay
   return { layouts, allowMultipleLayouts: false, allowBackPrint: layouts.some(l => l.side === 'BACK') };
 }
 
-type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'collections' | 'database' | 'shiprocket' | 'email' | 'colors' | 'settings' | 'leads' | 'inventory' | 'notifications' | 'brands' | 'banners' | 'shipping';
+type Tab = 'analytics' | 'products' | 'categories' | 'mockup-categories' | 'orders' | 'mockups' | 'coupons' | 'collections' | 'database' | 'shiprocket' | 'email' | 'colors' | 'settings' | 'leads' | 'inventory' | 'notifications' | 'brands' | 'banners' | 'shipping' | 'abandoned-carts';
 
 const defaultCoupon: Partial<Coupon> = {
   code: '', description: '', discountType: 'percentage', discountValue: 0,
@@ -324,6 +324,20 @@ export default function Admin() {
   const [bisNotifying, setBisNotifying] = useState<string | null>(null);
   const bisSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Abandoned Carts
+  const [abandonedCarts, setAbandonedCarts] = useState<any[]>([]);
+  const [abandonedStats, setAbandonedStats] = useState({ total: 0, active: 0, converted: 0, activeValue: 0 });
+  const [abandonedPage, setAbandonedPage] = useState(1);
+  const [abandonedPages, setAbandonedPages] = useState(1);
+  const [abandonedLoading, setAbandonedLoading] = useState(false);
+  const [abandonedFilter, setAbandonedFilter] = useState<'all' | 'active' | 'converted'>('active');
+  const [dripTemplates, setDripTemplates] = useState<any[]>([]);
+  const [dripLoading, setDripLoading] = useState(false);
+  const [showDripForm, setShowDripForm] = useState(false);
+  const [editingDrip, setEditingDrip] = useState<any | null>(null);
+  const defaultDripForm = { name: '', step: 1, delay_hours: 1, subject: '', email_body: '', sms_body: '', active: true };
+  const [dripForm, setDripForm] = useState({ ...defaultDripForm });
+
   // Print area editor
   const [paeDraft, setPaeDraft] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [activeLayoutId, setActiveLayoutId] = useState<string | null>(null);
@@ -404,6 +418,27 @@ export default function Admin() {
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   };
+
+  // ── Real-time polling: refresh active tab every 30s ───────────────────────
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const refreshActiveTab = useCallback(() => {
+    setLastRefresh(new Date());
+    if (tab === 'leads')           loadLeads(leadPage, leadSearch, leadStatusFilter, leadDateFilter);
+    else if (tab === 'notifications') loadBisRequests(bisPage, bisSearch, bisStatusFilter, bisProductFilter);
+    else if (tab === 'inventory')  { loadInvMetrics(); loadInventory(invPage, invSearch, invStatusFilter, invCategoryFilter, invSort); }
+    else if (tab === 'abandoned-carts') { loadAbandonedCarts(abandonedPage, abandonedFilter); }
+    else if (tab === 'analytics')  api.getAnalytics().then(setAnalytics).catch(() => {});
+    else if (tab === 'orders')     Promise.all([api.getAllOrders(), api.getAllDesignOrders()]).then(([o, d]) => { setOrders(o); setDesignOrders(d); }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, leadPage, leadSearch, leadStatusFilter, leadDateFilter, bisPage, bisSearch, bisStatusFilter, bisProductFilter, invPage, invSearch, invStatusFilter, invCategoryFilter, invSort, abandonedPage, abandonedFilter]);
+
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(refreshActiveTab, 30_000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [refreshActiveTab]);
 
   useEffect(() => {
     load();
@@ -603,6 +638,63 @@ export default function Admin() {
       setBisRequests(prev => prev.filter(r => r.id !== id));
       setBisTotal(t => t - 1);
     } catch { toast.error('Failed to delete request'); }
+  };
+
+  // Abandoned Carts
+  const loadAbandonedCarts = async (pg: number, filter: 'all' | 'active' | 'converted') => {
+    setAbandonedLoading(true);
+    try {
+      const converted = filter === 'all' ? undefined : filter === 'converted';
+      const data = await api.getAbandonedCarts({ page: pg, limit: 50, converted });
+      setAbandonedCarts(data.carts);
+      setAbandonedStats(data.stats);
+      setAbandonedPage(data.page);
+      setAbandonedPages(data.pages);
+    } catch { toast.error('Failed to load abandoned carts'); }
+    finally { setAbandonedLoading(false); }
+  };
+
+  const loadDripTemplates = async () => {
+    setDripLoading(true);
+    try {
+      setDripTemplates(await api.getDripTemplates());
+    } catch { toast.error('Failed to load drip templates'); }
+    finally { setDripLoading(false); }
+  };
+
+  const openDripForm = (tmpl?: any) => {
+    if (tmpl) {
+      setEditingDrip(tmpl);
+      setDripForm({ name: tmpl.name, step: tmpl.step, delay_hours: tmpl.delay_hours, subject: tmpl.subject, email_body: tmpl.email_body, sms_body: tmpl.sms_body, active: tmpl.active });
+    } else {
+      setEditingDrip(null);
+      setDripForm({ ...defaultDripForm });
+    }
+    setShowDripForm(true);
+  };
+
+  const saveDripTemplate = async () => {
+    try {
+      if (editingDrip) {
+        const updated = await api.updateDripTemplate(editingDrip.id, dripForm);
+        setDripTemplates(prev => prev.map(t => t.id === editingDrip.id ? updated : t));
+        toast.success('Template updated');
+      } else {
+        const created = await api.createDripTemplate(dripForm as any);
+        setDripTemplates(prev => [...prev, created]);
+        toast.success('Template created');
+      }
+      setShowDripForm(false);
+    } catch (e: any) { toast.error(e.message || 'Failed to save template'); }
+  };
+
+  const deleteDripTemplate = async (id: string) => {
+    if (!confirm('Delete this drip template?')) return;
+    try {
+      await api.deleteDripTemplate(id);
+      setDripTemplates(prev => prev.filter(t => t.id !== id));
+      toast.success('Template deleted');
+    } catch { toast.error('Failed to delete'); }
   };
 
   // Leads CRM
@@ -1313,8 +1405,15 @@ export default function Admin() {
   return (
     <div className="admin-page">
       <div className="container">
-        <motion.div className="page-header" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>Admin Dashboard</h1>
+        <motion.div className="page-header" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 2px #d1fae5', animation: 'pulse 2s infinite' }} />
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>Live · refreshes every 30s · last updated {lastRefresh.toLocaleTimeString()}</span>
+              <button className="btn btn-outline btn-sm" onClick={refreshActiveTab} style={{ gap: 4, padding: '3px 10px', fontSize: '0.75rem' }}><RefreshCw size={12} /> Now</button>
+            </div>
+          </div>
           <button className="btn btn-outline" onClick={() => { logout(); window.location.href = '/'; }} style={{ gap: 6 }}><LogOut size={16} /> Logout</button>
         </motion.div>
 
@@ -1324,6 +1423,7 @@ export default function Admin() {
           <button className={`tab ${tab === 'leads' ? 'active' : ''}`} onClick={() => { setTab('leads'); loadLeads(1, leadSearch, leadStatusFilter, leadDateFilter); }}><UserPlus size={16} /> Leads</button>
           <button className={`tab ${tab === 'inventory' ? 'active' : ''}`} onClick={() => { setTab('inventory'); loadInvMetrics(); loadInventory(1, invSearch, invStatusFilter, invCategoryFilter, invSort); }}><Boxes size={16} /> Inventory</button>
           <button className={`tab ${tab === 'notifications' ? 'active' : ''}`} onClick={() => { setTab('notifications'); loadBisRequests(1, bisSearch, bisStatusFilter, bisProductFilter); }}><Bell size={16} /> Back In Stock {bisStats.pending > 0 && <span className="tab-badge">{bisStats.pending}</span>}</button>
+          <button className={`tab ${tab === 'abandoned-carts' ? 'active' : ''}`} onClick={() => { setTab('abandoned-carts'); loadAbandonedCarts(1, abandonedFilter); loadDripTemplates(); }}><ShoppingCart size={16} /> Abandoned Carts {abandonedStats.active > 0 && <span className="tab-badge">{abandonedStats.active}</span>}</button>
           <button className={`tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><Package size={16} /> Products</button>
           <button className={`tab ${tab === 'categories' ? 'active' : ''}`} onClick={() => setTab('categories')}><Tag size={16} /> Categories</button>
           <button className={`tab ${tab === 'mockup-categories' ? 'active' : ''}`} onClick={() => setTab('mockup-categories')}><Tag size={16} /> Mockup Categories</button>
@@ -1725,6 +1825,192 @@ export default function Admin() {
                 </div>
               </div>
             )}
+
+          </motion.div>
+        )}
+
+        {/* Abandoned Carts Tab */}
+        {tab === 'abandoned-carts' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h2 style={{ margin: '0 0 4px' }}>Abandoned Carts</h2>
+                <p style={{ color: 'var(--text-2)', fontSize: '0.88rem', margin: 0 }}>Automated drip messages for users who left items in cart</p>
+              </div>
+              <button className="btn btn-outline" onClick={() => loadAbandonedCarts(abandonedPage, abandonedFilter)} style={{ gap: 6 }}><RefreshCw size={15} /> Refresh</button>
+            </div>
+
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 22 }}>
+              {[
+                { label: 'Total Carts', value: abandonedStats.total, color: '#6366f1', bg: '#eef2ff' },
+                { label: 'Active', value: abandonedStats.active, color: '#f59e0b', bg: '#fef3c7' },
+                { label: 'Converted', value: abandonedStats.converted, color: '#10b981', bg: '#d1fae5' },
+                { label: 'Active Value', value: `₹${Math.round(abandonedStats.activeValue).toLocaleString()}`, color: '#3b82f6', bg: '#dbeafe' },
+              ].map(s => (
+                <div key={s.label} style={{ background: s.bg, borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                  <div style={{ fontSize: '0.78rem', color: s.color, opacity: 0.8, marginTop: 4 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filter */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {(['active', 'all', 'converted'] as const).map(f => (
+                <button key={f} className={`btn btn-sm ${abandonedFilter === f ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => { setAbandonedFilter(f); loadAbandonedCarts(1, f); }}>
+                  {f === 'active' ? 'Active' : f === 'converted' ? 'Converted' : 'All'}
+                </button>
+              ))}
+            </div>
+
+            {/* Carts table */}
+            {abandonedLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>Loading...</div>
+            ) : abandonedCarts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)', background: 'var(--surface)', borderRadius: 12 }}>No abandoned carts</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead><tr>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Drip Step</th>
+                    <th>Status</th>
+                    <th>Abandoned</th>
+                    <th></th>
+                  </tr></thead>
+                  <tbody>
+                    {abandonedCarts.map((c: any) => {
+                      const items = Array.isArray(c.items) ? c.items : [];
+                      const ago = Math.round((Date.now() - new Date(c.created_at).getTime()) / 60000);
+                      const agoStr = ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.round(ago / 60)}h ago` : `${Math.round(ago / 1440)}d ago`;
+                      return (
+                        <tr key={c.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{c.name || '—'}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>{c.phone || c.email || '—'}</div>
+                          </td>
+                          <td style={{ maxWidth: 200 }}>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {items.map((i: any) => i.product?.name).filter(Boolean).join(', ') || '—'}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{items.length} item{items.length !== 1 ? 's' : ''}</div>
+                          </td>
+                          <td style={{ fontWeight: 600 }}>₹{Math.round(parseFloat(c.total)).toLocaleString()}</td>
+                          <td>
+                            <span style={{ background: c.drip_step > 0 ? '#dbeafe' : '#f1f5f9', color: c.drip_step > 0 ? '#1d4ed8' : '#64748b', padding: '3px 9px', borderRadius: 20, fontSize: '0.78rem' }}>
+                              {c.drip_step > 0 ? `Step ${c.drip_step} sent` : 'Not started'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ background: c.converted ? '#d1fae5' : '#fef3c7', color: c.converted ? '#065f46' : '#92400e', padding: '3px 9px', borderRadius: 20, fontSize: '0.78rem' }}>
+                              {c.converted ? 'Converted' : 'Abandoned'}
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-3)', fontSize: '0.82rem' }}>{agoStr}</td>
+                          <td>
+                            <button className="icon-btn danger" onClick={async () => { await api.deleteAbandonedCart(c.id); setAbandonedCarts(prev => prev.filter(x => x.id !== c.id)); }} title="Delete"><Trash2 size={15} /></button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {abandonedPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                    <button className="btn btn-outline btn-sm" disabled={abandonedPage <= 1} onClick={() => loadAbandonedCarts(abandonedPage - 1, abandonedFilter)}>← Prev</button>
+                    <span style={{ color: 'var(--text-3)', padding: '6px 12px', fontSize: '0.85rem' }}>Page {abandonedPage} of {abandonedPages}</span>
+                    <button className="btn btn-outline btn-sm" disabled={abandonedPage >= abandonedPages} onClick={() => loadAbandonedCarts(abandonedPage + 1, abandonedFilter)}>Next →</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Drip Templates */}
+            <div style={{ marginTop: 40 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px' }}>Drip Message Templates</h3>
+                  <p style={{ color: 'var(--text-2)', fontSize: '0.82rem', margin: 0 }}>
+                    Variables: <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{firstName}}'}</code>{' '}
+                    <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{items}}'}</code>{' '}
+                    <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{totalAmount}}'}</code>{' '}
+                    <code style={{ background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4 }}>{'{{cartLink}}'}</code>
+                  </p>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => openDripForm()} style={{ gap: 6 }}><Plus size={14} /> New Template</button>
+              </div>
+
+              {dripLoading ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-3)' }}>Loading...</div>
+              ) : dripTemplates.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', background: 'var(--surface)', borderRadius: 12, color: 'var(--text-3)' }}>No drip templates yet</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {dripTemplates.map(t => (
+                    <div key={t.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                            <span style={{ fontWeight: 700 }}>{t.name}</span>
+                            <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 20, fontSize: '0.73rem' }}>Step {t.step}</span>
+                            <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 20, fontSize: '0.73rem' }}>{t.delay_hours}h delay</span>
+                            <span style={{ background: t.active ? '#d1fae5' : '#fee2e2', color: t.active ? '#065f46' : '#991b1b', padding: '2px 8px', borderRadius: 20, fontSize: '0.73rem' }}>{t.active ? 'Active' : 'Inactive'}</span>
+                          </div>
+                          {t.subject && <div style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginBottom: 4 }}><strong>Subject:</strong> {t.subject}</div>}
+                          {t.sms_body && <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 500 }}><strong>SMS:</strong> {t.sms_body}</div>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="icon-btn" onClick={() => openDripForm(t)} title="Edit"><Edit3 size={15} /></button>
+                          <button className="icon-btn danger" onClick={() => deleteDripTemplate(t.id)} title="Delete"><Trash2 size={15} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Drip Template Form Modal */}
+            <AnimatePresence>
+              {showDripForm && (
+                <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={e => { if (e.target === e.currentTarget) setShowDripForm(false); }}>
+                  <motion.div className="modal" style={{ maxWidth: 600 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
+                    <div className="modal-header">
+                      <h3>{editingDrip ? 'Edit Drip Template' : 'New Drip Template'}</h3>
+                      <button className="modal-close-btn" onClick={() => setShowDripForm(false)}><X size={18} /></button>
+                    </div>
+                    <div className="modal-body" style={{ display: 'grid', gap: 14 }}>
+                      <div className="form-group"><label>Template Name</label><input value={dripForm.name} onChange={e => setDripForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Abandoned Cart — 1 Hour" /></div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div className="form-group"><label>Step #</label><input type="number" min={1} value={dripForm.step} onChange={e => setDripForm(f => ({ ...f, step: parseInt(e.target.value) || 1 }))} /></div>
+                        <div className="form-group"><label>Delay (hours after cart creation)</label><input type="number" min={1} value={dripForm.delay_hours} onChange={e => setDripForm(f => ({ ...f, delay_hours: parseInt(e.target.value) || 1 }))} /></div>
+                      </div>
+                      <div className="form-group"><label>Email Subject</label><input value={dripForm.subject} onChange={e => setDripForm(f => ({ ...f, subject: e.target.value }))} placeholder="You left something behind..." /></div>
+                      <div className="form-group">
+                        <label>Email Body</label>
+                        <textarea rows={6} value={dripForm.email_body} onChange={e => setDripForm(f => ({ ...f, email_body: e.target.value }))} placeholder="Hi {{firstName}}, your cart is waiting..." style={{ fontFamily: 'monospace', fontSize: '0.83rem', resize: 'vertical' }} />
+                      </div>
+                      <div className="form-group">
+                        <label>SMS Body</label>
+                        <textarea rows={3} value={dripForm.sms_body} onChange={e => setDripForm(f => ({ ...f, sms_body: e.target.value }))} placeholder="Hi {{firstName}}, your cart (₹{{totalAmount}}) is waiting: {{cartLink}}" style={{ fontFamily: 'monospace', fontSize: '0.83rem', resize: 'vertical' }} />
+                      </div>
+                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input type="checkbox" id="drip-active" checked={dripForm.active} onChange={e => setDripForm(f => ({ ...f, active: e.target.checked }))} style={{ width: 16, height: 16 }} />
+                        <label htmlFor="drip-active" style={{ margin: 0, cursor: 'pointer' }}>Active (will be sent by the automated cron)</label>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button className="btn btn-outline" onClick={() => setShowDripForm(false)}>Cancel</button>
+                      <button className="btn btn-primary" onClick={saveDripTemplate} style={{ gap: 6 }}><Save size={15} /> Save Template</button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </motion.div>
         )}

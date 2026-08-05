@@ -2,11 +2,12 @@ import { Router, Request, Response } from 'express';
 import { pool } from '../database.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { sendBackInStockEmail } from '../email.js';
+import { sendTransactionalSMS } from '../sms.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const BASE_URL = (process.env.CLIENT_URL || 'https://theframedwall.com').replace(/\/$/, '');
 
-async function triggerBackInStockNotifications(productId: string, productName: string, productImage: string, productPrice: number) {
+export async function triggerBackInStockNotifications(productId: string, productName: string, productImage: string, productPrice: number) {
   try {
     const { rows: pending } = await pool.query(
       `SELECT * FROM website_back_in_stock WHERE product_id = $1 AND status = 'pending'`,
@@ -18,6 +19,13 @@ async function triggerBackInStockNotifications(productId: string, productName: s
     for (const r of pending) {
       if (r.email) {
         await sendBackInStockEmail({ name: r.name, email: r.email, productName, productUrl, productImage, price: productPrice });
+      }
+      if (r.mobile && process.env.MSG91_BIS_TEMPLATE_ID) {
+        await sendTransactionalSMS(r.mobile, process.env.MSG91_BIS_TEMPLATE_ID, {
+          VAR1: r.name || 'there',
+          VAR2: productName,
+          VAR3: productUrl,
+        });
       }
       await pool.query(
         `UPDATE website_back_in_stock SET status = 'notified', notified_at = NOW() WHERE id = $1`,
@@ -278,7 +286,7 @@ router.post('/bulk', authMiddleware, async (req: Request, res: Response) => {
   if (typeof value !== 'number' || isNaN(value)) return res.status(400).json({ error: 'value must be a number' });
 
   const { rows: products } = await pool.query(
-    `SELECT id, name, sku, stock FROM website_products WHERE id = ANY($1::text[])`,
+    `SELECT id, name, sku, stock, price, image FROM website_products WHERE id = ANY($1::text[])`,
     [ids],
   );
 
@@ -294,6 +302,9 @@ router.post('/bulk', authMiddleware, async (req: Request, res: Response) => {
     await pool.query('UPDATE website_products SET stock = $1 WHERE id = $2', [after, p.id]);
     if (change !== 0) {
       await logChange(p.id, p.name, p.sku ?? '', before, change, 'bulk_update', note);
+    }
+    if (before <= 0 && after > 0) {
+      triggerBackInStockNotifications(p.id, p.name, p.image ?? '', parseFloat(p.price));
     }
     updated.push({ id: p.id, stockBefore: before, stockAfter: after });
   }

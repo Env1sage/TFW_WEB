@@ -40,6 +40,23 @@ export function adminMiddleware(req: Request, res: Response, next: NextFunction)
   next();
 }
 
+/* Sets userId/userRole if a valid token is present but does NOT fail if no token */
+export async function optionalAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return next();
+  try {
+    const decoded = jwt.verify(header.slice(7), JWT_SECRET!) as any;
+    if (!decoded.pending2FA) {
+      const user = await db.findUserById(decoded.id);
+      if (user && (decoded.tv ?? 0) === user.tokenVersion) {
+        (req as any).userId = user.id;
+        (req as any).userRole = user.role;
+      }
+    }
+  } catch {}
+  next();
+}
+
 export function requireRole(...allowed: UserRole[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     const role = (req as any).userRole as UserRole;

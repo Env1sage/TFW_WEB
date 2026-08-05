@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ShoppingCart, Minus, Plus, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors } from 'lucide-react';
 import { api, getSessionId } from '../api';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import type { Product, Brand, DeviceModel } from '../types';
 import ProductCard from '../components/ProductCard';
 import MockupPreview from '../components/MockupPreview';
@@ -241,11 +242,13 @@ export default function ProductDetail() {
   const [openSection, setOpenSection] = useState<string | null>('size-chart');
   const toggleSection = (key: string) => setOpenSection(v => v === key ? null : key);
 
-  // Notify modal
-  const [showNotifyModal, setShowNotifyModal] = useState(false);
-  const [notifyForm, setNotifyForm] = useState({ name: '', mobile: '', email: '' });
-  const [notifySubmitting, setNotifySubmitting] = useState(false);
-  const [notifyDone, setNotifyDone] = useState(false);
+  // Notify Me (BIS one-click)
+  const { user } = useAuth();
+  const [bisSubscribed, setBisSubscribed] = useState(false);
+  const [bisLoading, setBisLoading] = useState(false);
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
+  const [bisPhone, setBisPhone] = useState('');
+  const [bisPhoneSubmitting, setBisPhoneSubmitting] = useState(false);
 
   // Shipping estimate
   const [pinInput, setPinInput] = useState('');
@@ -338,16 +341,37 @@ export default function ProductDetail() {
     finally { setShippingLoading(false); }
   };
 
-  const handleNotifySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!notifyForm.name && !notifyForm.mobile && !notifyForm.email) { toast.error('Fill in at least one contact field'); return; }
-    if (notifyForm.mobile && !/^[6-9]\d{9}$/.test(notifyForm.mobile)) { toast.error('Enter a valid 10-digit mobile number'); return; }
-    setNotifySubmitting(true);
+  // Check BIS subscription state once product loads
+  useEffect(() => {
+    if (!product || product.stock > 0) return;
+    if (!user) return;
+    api.checkBisSubscription(product.id).then(r => setBisSubscribed(r.subscribed)).catch(() => {});
+  }, [product, user]);
+
+  const handleNotifyClick = async () => {
+    if (!product) return;
+    if (!user) { setShowPhonePrompt(true); return; }
+    setBisLoading(true);
     try {
-      await api.submitBackInStock({ productId: product!.id, ...notifyForm });
-      setNotifyDone(true);
-    } catch (err: any) { toast.error(err.message || 'Could not register notification'); }
-    finally { setNotifySubmitting(false); }
+      const res = await api.bisSubscribe(product.id);
+      setBisSubscribed(true);
+      toast.success(res.already ? 'You\'re already on the list!' : 'You\'ll be notified when it\'s back!');
+    } catch (err: any) { toast.error(err.message || 'Could not register'); }
+    finally { setBisLoading(false); }
+  };
+
+  const handlePhoneNotify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+    if (!/^[6-9]\d{9}$/.test(bisPhone)) { toast.error('Enter a valid 10-digit mobile number'); return; }
+    setBisPhoneSubmitting(true);
+    try {
+      await api.bisSubscribe(product.id, bisPhone);
+      setBisSubscribed(true);
+      setShowPhonePrompt(false);
+      toast.success('You\'ll be notified when it\'s back!');
+    } catch (err: any) { toast.error(err.message || 'Could not register'); }
+    finally { setBisPhoneSubmitting(false); }
   };
 
   if (loading) return <div className="page-spinner"><div className="spinner" /></div>;
@@ -685,9 +709,15 @@ export default function ProductDetail() {
                   <span className="pd-oos-badge">Out of Stock</span>
                   <p>Get notified when this is back!</p>
                 </div>
-                <button className="btn btn-notify btn-lg btn-block" onClick={() => { setShowNotifyModal(true); setNotifyDone(false); }}>
-                  <Bell size={18} /> Notify Me When Available
-                </button>
+                {bisSubscribed ? (
+                  <button className="btn btn-notify btn-lg btn-block" disabled>
+                    <Check size={18} /> You're on the list!
+                  </button>
+                ) : (
+                  <button className="btn btn-notify btn-lg btn-block" onClick={handleNotifyClick} disabled={bisLoading}>
+                    {bisLoading ? <><Loader size={16} className="spin" /> Registering...</> : <><Bell size={18} /> Notify Me When Available</>}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="pd-cta-group">
@@ -889,37 +919,30 @@ export default function ProductDetail() {
         )}
       </div>
 
-      {/* ── Notify Modal ── */}
+      {/* ── Phone prompt for guests ── */}
       <AnimatePresence>
-        {showNotifyModal && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={e => { if (e.target === e.currentTarget) setShowNotifyModal(false); }}>
+        {showPhonePrompt && (
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={e => { if (e.target === e.currentTarget) setShowPhonePrompt(false); }}>
             <motion.div className="notify-modal" initial={{ opacity: 0, y: 32, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
-              <button className="modal-close-btn" onClick={() => setShowNotifyModal(false)}><X size={18} /></button>
-              {notifyDone ? (
-                <div className="notify-success">
-                  <div className="notify-success-icon"><Check size={32} /></div>
-                  <h3>You're on the list!</h3>
-                  <p>We'll notify you when <strong>{product.name}</strong> is back in stock.</p>
-                  <button className="btn btn-primary" onClick={() => setShowNotifyModal(false)}>Done</button>
-                </div>
-              ) : (
-                <>
-                  <div className="notify-modal-header">
-                    <div className="notify-bell-icon"><Bell size={24} /></div>
-                    <h3>Notify Me When Available</h3>
-                    <p>We'll alert you the moment <strong>{product.name}</strong> is back.</p>
+              <button className="modal-close-btn" onClick={() => setShowPhonePrompt(false)}><X size={18} /></button>
+              <div className="notify-modal-header">
+                <div className="notify-bell-icon"><Bell size={24} /></div>
+                <h3>Notify Me When Available</h3>
+                <p>Enter your mobile number and we'll SMS you when <strong>{product.name}</strong> is back.</p>
+              </div>
+              <form className="notify-form" onSubmit={handlePhoneNotify}>
+                <div className="form-group">
+                  <label>Mobile number</label>
+                  <div className="phone-input-wrap">
+                    <span className="phone-prefix">+91</span>
+                    <input type="tel" placeholder="10-digit mobile" maxLength={10} value={bisPhone} onChange={e => setBisPhone(e.target.value.replace(/\D/g, ''))} autoFocus />
                   </div>
-                  <form className="notify-form" onSubmit={handleNotifySubmit}>
-                    <div className="form-group"><label>Name</label><input type="text" placeholder="Your name" value={notifyForm.name} onChange={e => setNotifyForm(f => ({ ...f, name: e.target.value }))} /></div>
-                    <div className="form-group"><label>Mobile <span className="field-hint">(SMS alert)</span></label><div className="phone-input-wrap"><span className="phone-prefix">+91</span><input type="tel" placeholder="10-digit mobile" maxLength={10} value={notifyForm.mobile} onChange={e => setNotifyForm(f => ({ ...f, mobile: e.target.value.replace(/\D/g, '') }))} /></div></div>
-                    <div className="form-group"><label>Email <span className="field-hint">(email alert)</span></label><input type="email" placeholder="you@example.com" value={notifyForm.email} onChange={e => setNotifyForm(f => ({ ...f, email: e.target.value }))} /></div>
-                    <p className="notify-privacy">No spam. Only notified about this product.</p>
-                    <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={notifySubmitting}>
-                      {notifySubmitting ? <><Loader size={16} className="spin" /> Registering...</> : <><Bell size={16} /> Notify Me</>}
-                    </button>
-                  </form>
-                </>
-              )}
+                </div>
+                <p className="notify-privacy">No spam. Only notified about this product.</p>
+                <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={bisPhoneSubmitting}>
+                  {bisPhoneSubmitting ? <><Loader size={16} className="spin" /> Registering...</> : <><Bell size={16} /> Notify Me</>}
+                </button>
+              </form>
             </motion.div>
           </motion.div>
         )}

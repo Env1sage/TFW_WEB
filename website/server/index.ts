@@ -19,6 +19,7 @@ import bannersRoutes from './routes/banners.js';
 import shippingRoutes from './routes/shipping.js';
 import deliveryRoutes from './routes/delivery.js';
 import analyticsRoutes from './routes/analytics.js';
+import abandonedCartsRoutes, { runAbandonedCartDrip } from './routes/abandonedCarts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -89,6 +90,7 @@ app.use('/api/banners', bannersRoutes);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/abandoned-carts', abandonedCartsRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {
@@ -132,6 +134,12 @@ initDB()
     const server = app.listen(PORT, () => {
       console.log(`API server running on http://localhost:${PORT} (PostgreSQL)`);
     });
+
+    // Abandoned cart drip cron — runs every 30 minutes
+    setInterval(async () => {
+      try { await runAbandonedCartDrip(); }
+      catch (e) { console.error('[Drip] Cron error:', e); }
+    }, 30 * 60 * 1000);
     // Graceful shutdown
     process.on('SIGTERM', () => {
       console.log('SIGTERM received, closing gracefully...');

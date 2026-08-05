@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js';
+import { findUserById } from '../database.js';
 import { sendBackInStockEmail } from '../email.js';
 import { sendTransactionalSMS } from '../sms.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -133,6 +134,85 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
   await pool.query('DELETE FROM website_back_in_stock WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
+});
+
+// ── One-click subscribe (auth optional, uses profile or just phone) ───────────
+router.post('/subscribe', optionalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId as string | undefined;
+    const { productId, phone } = req.body;
+    if (!productId) return res.status(400).json({ error: 'productId required' });
+
+    const { rows: products } = await pool.query(
+      'SELECT id, name, stock FROM website_products WHERE id = $1',
+      [productId],
+    );
+    if (!products.length) return res.status(404).json({ error: 'Product not found' });
+    if (products[0].stock > 0) return res.status(400).json({ error: 'Product is already in stock' });
+
+    let name = '', email = '', mobile = '';
+
+    if (userId) {
+      const user = await findUserById(userId);
+      if (user) { name = user.name || ''; email = user.email || ''; mobile = user.phone || ''; }
+    } else if (phone) {
+      mobile = phone.replace(/\D/g, '');
+    } else {
+      return res.status(400).json({ error: 'Login or provide a phone number' });
+    }
+
+    // Dedup check
+    if (email) {
+      const { rows } = await pool.query(
+        `SELECT id FROM website_back_in_stock WHERE product_id = $1 AND email = $2 AND status = 'pending'`,
+        [productId, email],
+      );
+      if (rows.length) return res.json({ ok: true, already: true });
+    }
+    if (mobile && !email) {
+      const { rows } = await pool.query(
+        `SELECT id FROM website_back_in_stock WHERE product_id = $1 AND mobile = $2 AND status = 'pending'`,
+        [productId, mobile],
+      );
+      if (rows.length) return res.json({ ok: true, already: true });
+    }
+
+    await pool.query(
+      `INSERT INTO website_back_in_stock (id, product_id, product_name, name, mobile, email, status, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'pending',NOW())`,
+      [uuidv4(), productId, products[0].name, name, mobile, email.toLowerCase()],
+    );
+
+    res.json({ ok: true, already: false });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Check if current user/phone already subscribed ────────────────────────────
+router.get('/check/:productId', optionalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId as string | undefined;
+    if (!userId) return res.json({ subscribed: false });
+
+    const user = await findUserById(userId);
+    if (!user) return res.json({ subscribed: false });
+
+    const conditions: string[] = [];
+    const params: any[] = [req.params.productId];
+    if (user.email) { conditions.push(`email = $${params.length + 1}`); params.push(user.email); }
+    if (user.phone) { conditions.push(`mobile = $${params.length + 1}`); params.push(user.phone); }
+
+    if (!conditions.length) return res.json({ subscribed: false });
+
+    const { rows } = await pool.query(
+      `SELECT id FROM website_back_in_stock WHERE product_id = $1 AND status = 'pending' AND (${conditions.join(' OR ')})`,
+      params,
+    );
+    res.json({ subscribed: rows.length > 0 });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Admin: manually trigger notifications for a product ───────────────────────

@@ -361,6 +361,10 @@ export const api = {
   // Back-In-Stock
   submitBackInStock: (data: { productId: string; name: string; mobile: string; email: string }) =>
     request<any>('/back-in-stock', { method: 'POST', body: JSON.stringify(data) }),
+  bisSubscribe: (productId: string, phone?: string) =>
+    request<{ ok: boolean; already: boolean }>('/back-in-stock/subscribe', { method: 'POST', body: JSON.stringify({ productId, phone }) }),
+  checkBisSubscription: (productId: string) =>
+    request<{ subscribed: boolean }>(`/back-in-stock/check/${productId}`),
   getBackInStockRequests: (opts: { search?: string; status?: string; product_id?: string; page?: number; limit?: number }) => {
     const p = new URLSearchParams();
     if (opts.search)     p.set('search', opts.search);
@@ -482,4 +486,30 @@ export const api = {
   },
   savePalette: (colors: { name: string; hex: string }[]) =>
     request<void>('/settings/color_palette', { method: 'PUT', body: JSON.stringify({ value: JSON.stringify(colors) }) }),
+
+  // Abandoned Carts
+  syncCart: (items: any[], designItems: any[], total: number) =>
+    request<{ ok: boolean }>('/abandoned-carts/sync', { method: 'POST', body: JSON.stringify({ items, designItems, total }) }),
+  convertCart: () =>
+    request<{ ok: boolean }>('/abandoned-carts/convert', { method: 'POST', body: '{}' }),
+  getAbandonedCarts: (opts?: { page?: number; limit?: number; converted?: boolean }) => {
+    const p = new URLSearchParams();
+    if (opts?.page)       p.set('page', String(opts.page));
+    if (opts?.limit)      p.set('limit', String(opts.limit));
+    if (opts?.converted !== undefined) p.set('converted', String(opts.converted));
+    return request<{
+      carts: any[]; total: number; page: number; pages: number;
+      stats: { total: number; active: number; converted: number; activeValue: number };
+    }>(`/abandoned-carts?${p}`);
+  },
+  deleteAbandonedCart: (id: string) =>
+    request<{ ok: boolean }>(`/abandoned-carts/${id}`, { method: 'DELETE' }),
+  getDripTemplates: () =>
+    request<any[]>('/abandoned-carts/drip-templates'),
+  createDripTemplate: (data: { name: string; step: number; delay_hours: number; subject: string; email_body: string; sms_body: string; active: boolean }) =>
+    request<any>('/abandoned-carts/drip-templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateDripTemplate: (id: string, data: Partial<{ name: string; step: number; delay_hours: number; subject: string; email_body: string; sms_body: string; active: boolean }>) =>
+    request<any>(`/abandoned-carts/drip-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteDripTemplate: (id: string) =>
+    request<{ ok: boolean }>(`/abandoned-carts/drip-templates/${id}`, { method: 'DELETE' }),
 };

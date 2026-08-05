@@ -49,6 +49,8 @@ services:
       MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
       MSG91_OTP_TEMPLATE_ID: ${MSG91_OTP_TEMPLATE_ID:-}
       MSG91_SENDER_ID: ${MSG91_SENDER_ID:-TFWALL}
+      MSG91_BIS_TEMPLATE_ID: ${MSG91_BIS_TEMPLATE_ID:-}
+      MSG91_DRIP_TEMPLATE_ID: ${MSG91_DRIP_TEMPLATE_ID:-}
     volumes:
       - uploads_data:/app/uploads
     networks:

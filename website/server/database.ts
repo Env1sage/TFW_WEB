@@ -659,6 +659,75 @@ export async function initDB() {
       ALTER TABLE website_products ADD COLUMN IF NOT EXISTS show_size_chart BOOLEAN NOT NULL DEFAULT TRUE;
     `);
 
+    // ── Abandoned carts + drip campaigns ─────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_abandoned_carts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT REFERENCES website_users(id) ON DELETE CASCADE,
+        email TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        items JSONB NOT NULL DEFAULT '[]',
+        design_items JSONB NOT NULL DEFAULT '[]',
+        total NUMERIC(10,2) NOT NULL DEFAULT 0,
+        converted BOOLEAN NOT NULL DEFAULT false,
+        drip_step INT NOT NULL DEFAULT 0,
+        last_drip_at TIMESTAMPTZ,
+        last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_abandoned_carts_user ON website_abandoned_carts(user_id) WHERE user_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_abandoned_carts_drip ON website_abandoned_carts(converted, last_updated);
+
+      CREATE TABLE IF NOT EXISTS website_drip_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        trigger_type TEXT NOT NULL DEFAULT 'abandoned_cart',
+        step INT NOT NULL DEFAULT 1,
+        delay_hours INT NOT NULL DEFAULT 1,
+        subject TEXT NOT NULL DEFAULT '',
+        email_body TEXT NOT NULL DEFAULT '',
+        sms_body TEXT NOT NULL DEFAULT '',
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    // Seed default drip templates (only if none exist)
+    const { rows: existingDrips } = await client.query('SELECT id FROM website_drip_templates LIMIT 1');
+    if (!existingDrips.length) {
+      const drips = [
+        {
+          id: uuidv4(), step: 1, delay_hours: 1,
+          name: 'Abandoned Cart — 1 Hour',
+          subject: 'You left something behind 🛒',
+          email_body: `Hi {{firstName}},\n\nWe noticed you left some items in your cart at TheFramedWall.\n\nYour cart:\n{{items}}\n\nTotal: ₹{{totalAmount}}\n\nComplete your order before items run out:\n{{cartLink}}\n\nWarm regards,\nThe TheFramedWall Team`,
+          sms_body: `Hi {{firstName}}, you left items worth ₹{{totalAmount}} in your TheFramedWall cart. Complete your order: {{cartLink}}`,
+        },
+        {
+          id: uuidv4(), step: 2, delay_hours: 24,
+          name: 'Abandoned Cart — 24 Hours',
+          subject: 'Still thinking it over?',
+          email_body: `Hi {{firstName}},\n\nYour cart is still waiting! Items can go out of stock quickly.\n\nYour cart:\n{{items}}\n\nTotal: ₹{{totalAmount}}\n\nShop now: {{cartLink}}\n\nWarm regards,\nThe TheFramedWall Team`,
+          sms_body: `Hi {{firstName}}, your TheFramedWall cart (₹{{totalAmount}}) is waiting! Shop now: {{cartLink}}`,
+        },
+        {
+          id: uuidv4(), step: 3, delay_hours: 72,
+          name: 'Abandoned Cart — 72 Hours',
+          subject: 'Last chance — items may go out of stock',
+          email_body: `Hi {{firstName}},\n\nThis is your last reminder. Items in your cart may go out of stock soon.\n\nYour cart:\n{{items}}\n\nTotal: ₹{{totalAmount}}\n\nOrder now: {{cartLink}}\n\nWarm regards,\nThe TheFramedWall Team`,
+          sms_body: `Last chance! TheFramedWall cart (₹{{totalAmount}}) may go out of stock. Order now: {{cartLink}}`,
+        },
+      ];
+      for (const d of drips) {
+        await client.query(
+          `INSERT INTO website_drip_templates (id, name, trigger_type, step, delay_hours, subject, email_body, sms_body, active) VALUES ($1,$2,'abandoned_cart',$3,$4,$5,$6,$7,true)`,
+          [d.id, d.name, d.step, d.delay_hours, d.subject, d.email_body, d.sms_body],
+        );
+      }
+      console.log('Seeded default drip templates');
+    }
+
     // Seed default size charts into existing categories (only if not already set)
     const defaultCharts: Record<string, any> = {
       'T-Shirts': { unit: 'inches', headers: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['34', '36', '38', '40', '42', '44', '46'] }, { label: 'Length', values: ['26', '27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['7', '7.5', '8', '8.5', '9', '9.5', '10'] }] },

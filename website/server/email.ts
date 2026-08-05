@@ -789,6 +789,17 @@ export async function sendBackInStockEmail(data: {
   await sendMail(data.email, `${data.productName} is back in stock!`, baseLayout('Back In Stock', body));
 }
 
+export async function sendAbandonedCartEmail(to: string, subject: string, renderedBody: string) {
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111;">TheFramedWall</h2>
+    <div style="color:#444;font-size:15px;line-height:1.6;white-space:pre-line;">${renderedBody}</div>
+    <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;text-align:center;">
+      You're receiving this because you added items to your cart on TheFramedWall.<br>
+      <a href="mailto:support@theframedwall.com" style="color:#0E7C61;">support@theframedwall.com</a>
+    </p>`;
+  await sendMail(to, subject, baseLayout('Your Cart', body));
+}
+
 export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: string; smtpConfigured: boolean }> {
   const smtpConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
   if (!smtpConfigured) {
