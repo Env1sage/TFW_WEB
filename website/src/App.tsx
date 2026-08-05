@@ -65,9 +65,14 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
-      <Toaster position="top-right" toastOptions={{
-        style: { borderRadius: '10px', background: '#1e293b', color: '#fff' },
-      }} />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: { borderRadius: '10px', background: '#1e293b', color: '#fff', fontSize: '0.9rem', maxWidth: '90vw', padding: '12px 16px' },
+          success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+        }}
+      />
       {isDesignStudio ? (
         <Routes>
           <Route path="/design-studio/customize/:id" element={<Customizer />} />

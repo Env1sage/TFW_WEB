@@ -995,7 +995,7 @@ export default function Designer() {
     const fc = fcRef.current; if (!fc) return;
     const activeObj = fc.getActiveObject();
     if (!activeObj || (activeObj as any).type !== 'image') return;
-    const toastId = toast.loading('Removing background… (first run downloads AI model, ~30s)');
+    const toastId = toast.loading('Removing background…');
     try {
       const { removeBackground } = await import('@imgly/background-removal');
       const imgEl = (activeObj as fabric.FabricImage).getElement() as HTMLImageElement;
