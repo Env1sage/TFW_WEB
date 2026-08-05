@@ -500,6 +500,15 @@ export default function Designer() {
       preserveObjectStacking: true,
     });
     fcRef.current = fc;
+
+    // Larger corner handles for touch — default 13px is too small for fingers
+    (fabric.FabricObject.prototype as any).cornerSize = 20;
+    (fabric.FabricObject.prototype as any).touchCornerSize = 44;
+    (fabric.FabricObject.prototype as any).cornerStyle = 'circle';
+    (fabric.FabricObject.prototype as any).transparentCorners = false;
+    (fabric.FabricObject.prototype as any).cornerColor = '#0E7C61';
+    (fabric.FabricObject.prototype as any).borderColor = '#0E7C61';
+    (fabric.FabricObject.prototype as any).padding = 6;
     const pa = getPrintArea();
     clipRef.current = new fabric.Rect({ left: pa.x, top: pa.y, width: pa.w, height: pa.h, absolutePositioned: true });
     loadMockup();
