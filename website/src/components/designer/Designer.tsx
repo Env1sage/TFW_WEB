@@ -997,12 +997,9 @@ export default function Designer() {
     try {
       const { removeBackground } = await import('@imgly/background-removal');
       const imgEl = (activeObj as fabric.FabricImage).getElement() as HTMLImageElement;
-      const tmpCanvas = document.createElement('canvas');
-      tmpCanvas.width = imgEl.naturalWidth || imgEl.width;
-      tmpCanvas.height = imgEl.naturalHeight || imgEl.height;
-      const ctx = tmpCanvas.getContext('2d')!;
-      ctx.drawImage(imgEl, 0, 0);
-      const blob = await new Promise<Blob>(res => tmpCanvas.toBlob(b => res(b!), 'image/png'));
+      const resp = await fetch(imgEl.src);
+      if (!resp.ok) throw new Error('Failed to fetch image');
+      const blob = await resp.blob();
       const resultBlob = await removeBackground(blob, {
         publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/',
       });
