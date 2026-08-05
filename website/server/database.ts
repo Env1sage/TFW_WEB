@@ -728,6 +728,34 @@ export async function initDB() {
       console.log('Seeded default drip templates');
     }
 
+    // ── Wishlist ────────────────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_wishlist (
+        user_id TEXT NOT NULL REFERENCES website_users(id) ON DELETE CASCADE,
+        product_id TEXT NOT NULL REFERENCES website_products(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, product_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_wishlist_user ON website_wishlist(user_id, created_at DESC);
+    `);
+
+    // ── Product reviews ─────────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_reviews (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES website_products(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES website_users(id) ON DELETE CASCADE,
+        rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        title TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        helpful_count INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (product_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_reviews_product ON website_reviews(product_id, created_at DESC);
+    `);
+
     // Seed default size charts into existing categories (only if not already set)
     const defaultCharts: Record<string, any> = {
       'T-Shirts': { unit: 'inches', headers: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['34', '36', '38', '40', '42', '44', '46'] }, { label: 'Length', values: ['26', '27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['7', '7.5', '8', '8.5', '9', '9.5', '10'] }] },

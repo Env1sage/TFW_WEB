@@ -512,4 +512,21 @@ export const api = {
     request<any>(`/abandoned-carts/drip-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteDripTemplate: (id: string) =>
     request<{ ok: boolean }>(`/abandoned-carts/drip-templates/${id}`, { method: 'DELETE' }),
+
+  // Cart stock validation
+  getCartStatus: (productIds: string[]) =>
+    request<{ id: string; stock: number; name: string }[]>('/products/cart-status', { method: 'POST', body: JSON.stringify({ productIds }) }),
+
+  // Wishlist
+  getWishlistIds: () => request<string[]>('/wishlist/ids'),
+  addToWishlist: (productId: string) => request<{ ok: boolean }>(`/wishlist/${productId}`, { method: 'POST' }),
+  removeFromWishlist: (productId: string) => request<{ ok: boolean }>(`/wishlist/${productId}`, { method: 'DELETE' }),
+
+  // Reviews
+  getReviews: (productId: string) => request<any[]>(`/reviews/${productId}`),
+  getMyReview: (productId: string) => request<any>(`/reviews/${productId}/mine`),
+  submitReview: (productId: string, data: { rating: number; title?: string; body?: string }) =>
+    request<{ ok: boolean }>(`/reviews/${productId}`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteReview: (reviewId: string) =>
+    request<{ ok: boolean }>(`/reviews/${reviewId}`, { method: 'DELETE' }),
 };

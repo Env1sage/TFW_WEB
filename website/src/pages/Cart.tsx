@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trash2, Minus, Plus, ShoppingBag, ArrowLeft, CreditCard, Palette, Tag, X,
   CheckCircle, Lock, Truck, Phone, ArrowRight, RotateCcw, Shield, Store,
-  Zap, MapPin, Clock, ChevronRight, Package,
+  Zap, MapPin, Clock, ChevronRight, Package, AlertTriangle,
 } from 'lucide-react';
 import { EmptyCartAnim } from '../components/EmptyCartAnim';
 import { useCart } from '../context/CartContext';
@@ -259,12 +259,54 @@ function DeliveryCard({
 
 /* ── Main Cart Component ──────────────────────────────────────────────────── */
 export default function Cart() {
-  const { items, designItems, removeItem, updateQuantity, removeDesignItem, updateDesignQuantity, clearCart, total, count } = useCart();
+  const { items, designItems, removeItem, updateQuantity, removeDesignItem, updateDesignQuantity, clearCart, total: cartTotal, count } = useCart();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Steps: 1 = cart, 2 = delivery, 3 = details + payment
   const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Stock status for cart items
+  const [stockStatus, setStockStatus] = useState<Record<string, { stock: number; name: string }>>({});
+
+  // Item selection (all selected by default)
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(items.map(i => i.cartItemId)));
+  const [selectedDesignIds, setSelectedDesignIds] = useState<Set<string>>(() => new Set(designItems.map(d => d.id)));
+
+  // Sync selection when cart items change
+  useEffect(() => {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      items.forEach(i => { if (!next.has(i.cartItemId)) next.add(i.cartItemId); });
+      return next;
+    });
+  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setSelectedDesignIds(prev => {
+      const next = new Set(prev);
+      designItems.forEach(d => { if (!next.has(d.id)) next.add(d.id); });
+      return next;
+    });
+  }, [designItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load live stock on cart mount
+  useEffect(() => {
+    const productIds = items.map(i => i.product.id).filter(Boolean);
+    if (!productIds.length) return;
+    api.getCartStatus(productIds).then(result => {
+      const map: Record<string, { stock: number; name: string }> = {};
+      result.forEach(r => { map[r.id] = { stock: r.stock, name: r.name }; });
+      setStockStatus(map);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Selected items for checkout
+  const selectedItems = items.filter(i => selectedItemIds.has(i.cartItemId));
+  const selectedDesignItems = designItems.filter(d => selectedDesignIds.has(d.id));
+  const total = selectedItems.reduce((s, i) => s + i.product.price * i.quantity, 0)
+    + selectedDesignItems.reduce((s, d) => s + d.total, 0);
+  const _ = cartTotal; // suppress unused warning — cartTotal drives abandoned cart sync
 
   // Address form
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '' });
@@ -375,6 +417,19 @@ export default function Cart() {
 
   const handleProceedToDelivery = () => {
     if (!user) { navigate('/login?redirect=/cart'); return; }
+    // Block if any selected item is OOS or unavailable
+    const oosSelected = selectedItems.find(i => {
+      const status = stockStatus[i.product.id];
+      return status !== undefined && status.stock <= 0;
+    });
+    if (oosSelected) {
+      toast.error(`"${oosSelected.product.name}" is out of stock. Please deselect or remove it.`);
+      return;
+    }
+    if (!selectedItems.length && !selectedDesignItems.length) {
+      toast.error('Select at least one item to proceed');
+      return;
+    }
     setStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -404,30 +459,30 @@ export default function Cart() {
     const shippingAddress = buildAddress();
     const deliveryMethod  = selectedDelivery?.type ?? 'standard';
     const deliveryConfig  = buildDeliveryConfig();
-    const groupOrderId = (items.length > 0 && designItems.length > 0)
+    const groupOrderId = (selectedItems.length > 0 && selectedDesignItems.length > 0)
       ? `grp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
       : undefined;
     try {
-      if (items.length > 0) {
+      if (selectedItems.length > 0) {
         await api.createOrder(
-          items.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText, phoneBrand: i.phoneBrand, phoneModel: i.phoneModel })),
+          selectedItems.map(i => ({ productId: i.product.id, quantity: i.quantity, color: i.color, size: i.size, customText: i.customText, phoneBrand: i.phoneBrand, phoneModel: i.phoneModel })),
           shippingAddress,
           { razorpayOrderId: paymentData.razorpayOrderId, paymentId: paymentData.paymentId, paymentToken: paymentData.paymentToken, couponCode: appliedCoupon?.code, discountAmount: appliedCoupon?.discountAmount, groupOrderId, deliveryMethod, deliveryConfig, shippingCost, customerEmail: form.email, customerName: form.fullName }
         );
       }
-      for (let di = 0; di < designItems.length; di++) {
-        const d = designItems[di];
+      for (let di = 0; di < selectedDesignItems.length; di++) {
+        const d = selectedDesignItems[di];
         await api.createDesignOrder({
           productType: d.productType, colorHex: d.colorHex, colorName: d.colorName,
           printSize: d.printSize, sides: d.sides, designImages: d.designImages,
           uploadedImages: d.uploadedImages, quantity: d.quantity, unitPrice: d.unitPrice,
           total: d.total, shippingAddress, groupOrderId, deliveryMethod, deliveryConfig, shippingCost,
           customerEmail: form.email, customerName: form.fullName,
-          sendEmail: di === designItems.length - 1,
+          sendEmail: di === selectedDesignItems.length - 1,
         });
       }
       // Track purchase event for each product
-      items.forEach(i => api.trackEvent({ type: 'purchase', productId: i.product.id, productName: i.product.name, category: i.product.category, brandId: (i.product as any).brandId, size: i.size || undefined, color: i.color || undefined, price: i.product.price, quantity: i.quantity, sessionId: getSessionId() }));
+      selectedItems.forEach(i => api.trackEvent({ type: 'purchase', productId: i.product.id, productName: i.product.name, category: i.product.category, brandId: (i.product as any).brandId, size: i.size || undefined, color: i.color || undefined, price: i.product.price, quantity: i.quantity, sessionId: getSessionId() }));
       clearCart();
       sessionStorage.removeItem('tfw_design_cart');
       navigate('/payment/success', { replace: true, state: { finalTotal, name: form.fullName || 'Customer', city: form.city || selectedDelivery?.storeInfo?.city || '' } });
@@ -806,13 +861,31 @@ export default function Cart() {
             <AnimatePresence>
               {items.map(item => {
                 const cartThumb = item.product.image || item.product.images?.[0] || (item.product.mockup as any)?.frontImage || '';
+                const liveStock = stockStatus[item.product.id];
+                const isUnavailable = liveStock !== undefined && liveStock.stock <= 0;
+                const isSelected = selectedItemIds.has(item.cartItemId);
                 return (
-                <motion.div key={item.cartItemId} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
+                <motion.div key={item.cartItemId} className={`cart-item ${isUnavailable ? 'cart-item--oos' : ''}`} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}
+                  style={{ opacity: isUnavailable ? 0.65 : 1 }}>
+                  {/* Checkbox */}
+                  <label className="cart-item-check" title={isUnavailable ? 'Out of stock' : 'Select item'} style={{ cursor: isUnavailable ? 'not-allowed' : 'pointer' }}>
+                    <input type="checkbox" checked={isSelected && !isUnavailable} disabled={isUnavailable}
+                      onChange={e => setSelectedItemIds(prev => {
+                        const next = new Set(prev);
+                        e.target.checked ? next.add(item.cartItemId) : next.delete(item.cartItemId);
+                        return next;
+                      })} />
+                  </label>
                   {cartThumb
                     ? <img src={cartThumb} alt={item.product.name} className="cart-item-img" />
                     : <div className="cart-item-img" style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} style={{ color: 'var(--text-3)' }} /></div>}
                   <div className="cart-item-info">
                     <Link to={`/products/${(item.product as any).slug || item.product.id}`}><h3>{item.product.name}</h3></Link>
+                    {isUnavailable && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#dc2626', fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>
+                        <AlertTriangle size={13} /> Out of stock — remove to continue
+                      </div>
+                    )}
                     <p className="cart-item-meta">
                       {item.color && <span className="color-dot" style={{ background: item.color, border: item.color === '#ffffff' ? '1px solid var(--border)' : 'none' }} />}
                       {item.size && <span>{item.size}</span>}
@@ -825,9 +898,9 @@ export default function Cart() {
                   </div>
                   <div className="cart-item-controls">
                     <div className="quantity-selector">
-                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)} disabled={item.quantity <= 1}><Minus size={14} /></button>
+                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)} disabled={item.quantity <= 1 || isUnavailable}><Minus size={14} /></button>
                       <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}><Plus size={14} /></button>
+                      <button onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)} disabled={isUnavailable}><Plus size={14} /></button>
                     </div>
                     <span className="cart-item-total">₹{(item.product.price * item.quantity).toFixed(0)}</span>
                     <button className="icon-btn danger" onClick={() => removeItem(item.cartItemId)}><Trash2 size={16} /></button>
@@ -839,8 +912,18 @@ export default function Cart() {
             <AnimatePresence>
               {designItems.map(d => {
                 const firstImage = Object.values(d.designImages || {}).find(img => img);
+                const isDesignSelected = selectedDesignIds.has(d.id);
                 return (
                   <motion.div key={d.id} className="cart-item" layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}>
+                    {/* Checkbox */}
+                    <label className="cart-item-check">
+                      <input type="checkbox" checked={isDesignSelected}
+                        onChange={e => setSelectedDesignIds(prev => {
+                          const next = new Set(prev);
+                          e.target.checked ? next.add(d.id) : next.delete(d.id);
+                          return next;
+                        })} />
+                    </label>
                     {firstImage ? (
                       <img src={firstImage} alt="Custom design" className="cart-item-img" style={{ objectFit: 'contain', background: 'var(--surface-2)' }} />
                     ) : (

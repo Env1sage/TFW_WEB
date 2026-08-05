@@ -349,6 +349,19 @@ router.get('/', async (_req: Request, res: Response) => {
   }
 });
 
+// POST /api/products/cart-status — check live stock for cart product IDs
+router.post('/cart-status', async (req: Request, res: Response) => {
+  try {
+    const { productIds } = req.body;
+    if (!Array.isArray(productIds) || !productIds.length) return res.json([]);
+    const { rows } = await pool.query(
+      `SELECT id, stock, name FROM website_products WHERE id = ANY($1::text[])`,
+      [productIds],
+    );
+    res.json(rows.map((r: any) => ({ id: r.id, stock: r.stock, name: r.name })));
+  } catch { res.status(500).json({ error: 'Failed to check cart status' }); }
+});
+
 // Product image upload
 router.post('/upload', authMiddleware, requireRole('admin', 'product_manager'), (req: Request, res: Response) => {
   uploadProduct.single('image')(req, res, async (err: any) => {
@@ -1008,7 +1021,8 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
     const orderItems = [];
     for (const item of items) {
       const product = await db.getProductById(item.productId);
-      if (!product) return res.status(400).json({ error: `Product ${item.productId} not found` });
+      if (!product) return res.status(400).json({ error: 'One or more items in your cart are no longer available. Please remove them and try again.' });
+      if (product.stock !== null && product.stock <= 0) return res.status(400).json({ error: `"${product.name}" is currently out of stock. Please remove it from your cart.` });
       const price = product.price * (item.quantity || 1);
       total += price;
       orderItems.push({ ...item, price, productName: product.name, productImage: product.image || (product.images as any)?.[0] || '' });

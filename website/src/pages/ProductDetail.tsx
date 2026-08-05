@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ShoppingCart, Minus, Plus, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors } from 'lucide-react';
+import { Star, ShoppingCart, Minus, Plus, Check, Palette, Ruler, Truck, Info, Bell, X, Loader, Package, MapPin, ChevronDown, Droplets, Wind, Sun, Scissors, Heart, ThumbsUp } from 'lucide-react';
 import { api, getSessionId } from '../api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -242,8 +242,74 @@ export default function ProductDetail() {
   const [openSection, setOpenSection] = useState<string | null>('size-chart');
   const toggleSection = (key: string) => setOpenSection(v => v === key ? null : key);
 
-  // Notify Me (BIS one-click)
+  // Wishlist
   const { user } = useAuth();
+  const [wishlisted, setWishlisted] = useState(false);
+
+  useEffect(() => {
+    if (!user || !product) return;
+    api.getWishlistIds().then(ids => setWishlisted(ids.includes(product.id))).catch(() => {});
+  }, [user, product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleWishlist = async () => {
+    if (!user) { toast.error('Log in to save items'); return; }
+    if (!product) return;
+    const next = !wishlisted;
+    setWishlisted(next);
+    try {
+      if (next) { await api.addToWishlist(product.id); toast.success('Saved to wishlist!'); }
+      else { await api.removeFromWishlist(product.id); toast.success('Removed from wishlist'); }
+    } catch { setWishlisted(!next); toast.error('Could not update wishlist'); }
+  };
+
+  // Reviews
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [myReview, setMyReview] = useState<{ id: string; rating: number; title: string; body: string } | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewBody, setReviewBody] = useState('');
+  const [reviewHover, setReviewHover] = useState(0);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+
+  useEffect(() => {
+    if (!product) return;
+    api.getReviews(product.id).then(setReviews).catch(() => {});
+    if (user) api.getMyReview(product.id).then(r => {
+      if (r) { setMyReview(r); setReviewRating(r.rating); setReviewTitle(r.title); setReviewBody(r.body); }
+    }).catch(() => {});
+  }, [product?.id, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product) return;
+    setSubmittingReview(true);
+    try {
+      await api.submitReview(product.id, { rating: reviewRating, title: reviewTitle, body: reviewBody });
+      toast.success(myReview ? 'Review updated!' : 'Review submitted!');
+      const updated = await api.getReviews(product.id);
+      setReviews(updated);
+      setMyReview({ id: '', rating: reviewRating, title: reviewTitle, body: reviewBody });
+      setShowReviewForm(false);
+      // Refresh product rating
+      const fresh = await api.getProduct(product.slug || product.id);
+      if (fresh) setProduct(p => p ? { ...p, rating: fresh.rating, reviewCount: fresh.reviewCount } : p);
+    } catch (err: any) { toast.error(err.message || 'Could not submit review'); }
+    finally { setSubmittingReview(false); }
+  };
+
+  const deleteReview = async () => {
+    if (!myReview?.id || !product) return;
+    try {
+      await api.deleteReview(myReview.id);
+      toast.success('Review deleted');
+      setMyReview(null); setReviewRating(5); setReviewTitle(''); setReviewBody('');
+      const updated = await api.getReviews(product.id);
+      setReviews(updated);
+    } catch { toast.error('Could not delete review'); }
+  };
+
+  // Notify Me (BIS one-click)
   const [bisSubscribed, setBisSubscribed] = useState(false);
   const [bisLoading, setBisLoading] = useState(false);
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
@@ -724,6 +790,13 @@ export default function ProductDetail() {
                 <button className="btn btn-primary btn-lg pd-add-btn btn-shimmer" onClick={handleAdd}>
                   <ShoppingCart size={18} /> Add to Cart — ₹{(product.price * quantity).toFixed(0)}
                 </button>
+                <button
+                  className={`pd-wishlist-btn ${wishlisted ? 'active' : ''}`}
+                  onClick={toggleWishlist}
+                  title={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+                >
+                  <Heart size={20} fill={wishlisted ? 'currentColor' : 'none'} />
+                </button>
               </div>
             )}
 
@@ -906,6 +979,98 @@ export default function ProductDetail() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ── Reviews Section ── */}
+        <section className="pd-reviews-section">
+          <div className="pd-reviews-header">
+            <div>
+              <h2 className="pd-section-title" style={{ marginBottom: 4 }}>Customer Reviews</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="pd-stars">
+                  {[1,2,3,4,5].map(i => <Star key={i} size={18} fill={i <= Math.round(product.rating) ? '#f59e0b' : 'none'} stroke="#f59e0b" />)}
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{product.rating.toFixed(1)}</span>
+                <span style={{ color: 'var(--text-3)', fontSize: '0.88rem' }}>({product.reviewCount} review{product.reviewCount !== 1 ? 's' : ''})</span>
+              </div>
+            </div>
+            {user && (
+              <button className="btn btn-outline" onClick={() => setShowReviewForm(v => !v)} style={{ gap: 6 }}>
+                <Star size={15} /> {myReview ? 'Edit My Review' : 'Write a Review'}
+              </button>
+            )}
+          </div>
+
+          {/* Review form */}
+          <AnimatePresence>
+            {showReviewForm && user && (
+              <motion.form className="pd-review-form" onSubmit={submitReview}
+                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <h4 style={{ margin: '0 0 12px', fontWeight: 600 }}>{myReview ? 'Update Your Review' : 'Your Review'}</h4>
+                {/* Star picker */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 14 }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-2)', marginRight: 6 }}>Rating:</span>
+                  {[1,2,3,4,5].map(i => (
+                    <button key={i} type="button" onClick={() => setReviewRating(i)}
+                      onMouseEnter={() => setReviewHover(i)} onMouseLeave={() => setReviewHover(0)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
+                      <Star size={26} fill={(reviewHover || reviewRating) >= i ? '#f59e0b' : 'none'} stroke="#f59e0b" />
+                    </button>
+                  ))}
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-3)', marginLeft: 6 }}>
+                    {['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'][reviewHover || reviewRating]}
+                  </span>
+                </div>
+                <div className="form-group" style={{ marginBottom: 10 }}>
+                  <label>Title (optional)</label>
+                  <input value={reviewTitle} onChange={e => setReviewTitle(e.target.value)} maxLength={100} placeholder="Summarise your experience" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 14 }}>
+                  <label>Review</label>
+                  <textarea rows={4} value={reviewBody} onChange={e => setReviewBody(e.target.value)} maxLength={2000} placeholder="What did you like or dislike?" style={{ resize: 'vertical' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={submittingReview} style={{ gap: 6 }}>
+                    {submittingReview ? <><div className="spinner-sm" /> Saving…</> : <><Check size={14} /> {myReview ? 'Update Review' : 'Submit Review'}</>}
+                  </button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowReviewForm(false)}>Cancel</button>
+                  {myReview && <button type="button" className="btn btn-outline btn-sm" style={{ color: '#dc2626', borderColor: '#dc2626' }} onClick={deleteReview}>Delete</button>}
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          {/* Review list */}
+          {reviews.length === 0 ? (
+            <div className="pd-reviews-empty">
+              <ThumbsUp size={28} style={{ opacity: 0.2 }} />
+              <p>No reviews yet — be the first!</p>
+            </div>
+          ) : (
+            <div className="pd-review-list">
+              {reviews.map((r: any) => {
+                const initials = (r.user_name || '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+                const hue = (r.user_name || 'x').charCodeAt(0) * 37 % 360;
+                const date = new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                return (
+                  <div key={r.id} className="pd-review-card">
+                    <div className="pd-review-avatar" style={{ background: `hsl(${hue},55%,88%)`, color: `hsl(${hue},55%,32%)` }}>{initials}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>{r.user_name}</span>
+                        <div style={{ display: 'flex', gap: 2 }}>
+                          {[1,2,3,4,5].map(i => <Star key={i} size={13} fill={i <= r.rating ? '#f59e0b' : 'none'} stroke="#f59e0b" />)}
+                        </div>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>{date}</span>
+                      </div>
+                      {r.title && <p style={{ fontWeight: 600, margin: '6px 0 4px', fontSize: '0.9rem' }}>{r.title}</p>}
+                      {r.body && <p style={{ color: 'var(--text-2)', fontSize: '0.88rem', lineHeight: 1.55, margin: 0 }}>{r.body}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* ── Related Products ── */}

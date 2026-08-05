@@ -1,19 +1,39 @@
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { Star, ShoppingCart, Eye } from 'lucide-react';
+import { Star, ShoppingCart, Eye, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import type { Product } from '../types';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 import MockupPreview from './MockupPreview';
 import { COLORS } from '../mockups';
+import toast from 'react-hot-toast';
 
 function colorName(hex: string): string {
   return COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
 }
 
-export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
+export default function ProductCard({ product, index = 0, wishlisted: initialWishlisted }: { product: Product; index?: number; wishlisted?: boolean }) {
   const { addItem } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [wishlisted, setWishlisted] = useState(initialWishlisted ?? false);
+
+  useEffect(() => { if (initialWishlisted !== undefined) setWishlisted(initialWishlisted); }, [initialWishlisted]);
+
+  const toggleWishlist = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!user) { toast.error('Log in to save items'); navigate('/login'); return; }
+    const next = !wishlisted;
+    setWishlisted(next);
+    try {
+      if (next) { await api.addToWishlist(product.id); toast.success('Saved to wishlist'); }
+      else { await api.removeFromWishlist(product.id); toast.success('Removed from wishlist'); }
+    } catch { setWishlisted(!next); toast.error('Could not update wishlist'); }
+  };
 
   const thumbImage = product.image || product.images?.[0] || product.mockup?.frontImage || '';
 
@@ -35,6 +55,14 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         />
         {product.featured && <span className="badge badge-featured">Featured</span>}
         {product.stock === 0 && <span className="badge badge-oos">Out of Stock</span>}
+        <button
+          className={`product-wishlist-btn ${wishlisted ? 'active' : ''}`}
+          onClick={toggleWishlist}
+          title={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+          aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+        >
+          <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} />
+        </button>
         <div className="product-card-overlay">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
             <button

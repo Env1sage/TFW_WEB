@@ -20,6 +20,8 @@ import shippingRoutes from './routes/shipping.js';
 import deliveryRoutes from './routes/delivery.js';
 import analyticsRoutes from './routes/analytics.js';
 import abandonedCartsRoutes, { runAbandonedCartDrip } from './routes/abandonedCarts.js';
+import wishlistRoutes from './routes/wishlist.js';
+import reviewsRoutes from './routes/reviews.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +93,8 @@ app.use('/api/shipping', shippingRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/abandoned-carts', abandonedCartsRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/reviews', reviewsRoutes);
 
 // Health check
 app.get('/api/health', async (_req, res) => {

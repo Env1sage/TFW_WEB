@@ -1414,6 +1414,17 @@ html.dark .footer { background: #0A0C10; }
 }
 .product-card-image .badge + .badge { left: auto; right: 0.75rem; }
 
+/* Wishlist button */
+.product-wishlist-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255,255,255,0.92); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #94a3b8; transition: all 0.18s; box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.product-wishlist-btn:hover { color: #ef4444; transform: scale(1.12); }
+.product-wishlist-btn.active { color: #ef4444; }
+
 /* Hover action overlay */
 .product-card-overlay {
   position: absolute; inset: 0;
@@ -1982,6 +1993,14 @@ html.dark .footer { background: #0A0C10; }
   transition: all var(--transition); box-shadow: var(--clay-shadow);
 }
 .cart-item:hover { box-shadow: var(--clay-shadow-lg); }
+.cart-item--oos { border: 1.5px solid #fca5a5; background: #fff5f5; }
+.cart-item-check {
+  display: flex; align-items: center; flex-shrink: 0;
+}
+.cart-item-check input[type="checkbox"] {
+  width: 18px; height: 18px; accent-color: var(--primary);
+  border-radius: 4px; cursor: pointer; flex-shrink: 0;
+}
 .cart-item-img {
   width: 90px; height: 90px; border-radius: var(--radius-sm);
   object-fit: cover; background: #fff; flex-shrink: 0;
@@ -7289,6 +7308,55 @@ html.dark .hero-badge {
 
 /* Related products */
 .pd-related-section { margin-top: 4rem; }
+
+/* ProductDetail wishlist button */
+.pd-wishlist-btn {
+  width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--border);
+  background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--text-3); transition: all 0.18s; flex-shrink: 0;
+}
+.pd-wishlist-btn:hover { border-color: #ef4444; color: #ef4444; transform: scale(1.08); }
+.pd-wishlist-btn.active { border-color: #ef4444; color: #ef4444; }
+.pd-wishlist-btn.active:hover { background: #fef2f2; }
+
+/* Reviews section */
+.pd-reviews-section { margin-top: 4rem; }
+.pd-reviews-header {
+  display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap;
+  gap: 12px; margin-bottom: 1.5rem;
+}
+.pd-stars { display: flex; gap: 3px; }
+.pd-review-form {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.5rem; margin-bottom: 1.5rem;
+}
+.pd-review-form .form-group { display: flex; flex-direction: column; gap: 6px; }
+.pd-review-form label { font-size: 0.82rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.pd-review-form input, .pd-review-form textarea {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px;
+  font-size: 0.92rem; background: var(--background); color: var(--text-1);
+  font-family: inherit; width: 100%; box-sizing: border-box;
+}
+.pd-review-form input:focus, .pd-review-form textarea:focus { outline: none; border-color: var(--primary); }
+.pd-reviews-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 3rem; color: var(--text-3); border: 1px dashed var(--border); border-radius: var(--radius-lg);
+}
+.pd-reviews-empty p { margin: 0; font-size: 0.9rem; }
+.pd-review-list { display: flex; flex-direction: column; gap: 16px; }
+.pd-review-card {
+  display: flex; gap: 14px; padding: 16px;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+}
+.pd-review-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.85rem;
+}
+.spinner-sm {
+  width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+}
 
 /* Rotated chevron utility */
 .rotated { transform: rotate(180deg); transition: transform var(--transition); }
