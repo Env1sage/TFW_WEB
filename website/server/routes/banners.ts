@@ -50,8 +50,8 @@ function shapeBanner(r: any) {
     ctaUrl: r.cta_url || '/products',
     ctaLabel2: r.cta_label_2 || '',
     ctaUrl2: r.cta_url_2 || '',
-    bgGradient: r.bg_gradient || 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
-    accentColor: r.accent_color || '#C6A75E',
+    bgGradient: r.bg_gradient || 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',  // matches BRAND.primary→primaryDark
+    accentColor: r.accent_color || '#C6A75E',  // matches BRAND.accent
     textColor: r.text_color || '#ffffff',
     textAlign: r.text_align || 'left',
     imagePosition: r.image_position || 'center',

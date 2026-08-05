@@ -31,9 +31,10 @@ interface DashboardData {
 }
 
 // ── Chart colour palettes ────────────────────────────────────────────────────
-const PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
-const GREEN = '#10b981';
-const INDIGO = '#6366f1';
+import { CHART_PALETTE, BRAND } from '../utils/palette';
+const PALETTE = CHART_PALETTE;
+const GREEN = BRAND.primary;
+const INDIGO = BRAND.accent;
 
 // ── Preset date ranges ───────────────────────────────────────────────────────
 type Preset = '7d' | '30d' | '90d' | 'custom';

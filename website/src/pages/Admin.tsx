@@ -9,6 +9,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import type { Product, Order, DesignOrder, Coupon, InventoryItem, InventoryMetrics, InventoryLog, ProductVariant } from '../types';
 import toast from 'react-hot-toast';
+import { BRAND, GRADIENT_PRESETS as BRAND_GRADIENT_PRESETS } from '../utils/palette';
 
 interface Mockup {
   id: string; name: string; category: string;
@@ -155,8 +156,8 @@ export default function Admin() {
     title: '', subtitle: '', badgeText: '', badgeType: 'featured',
     imageUrl: '', ctaLabel: 'Shop Now', ctaUrl: '/products',
     ctaLabel2: '', ctaUrl2: '',
-    bgGradient: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)',
-    accentColor: '#C6A75E', textColor: '#ffffff', textAlign: 'left',
+    bgGradient: `linear-gradient(135deg,${BRAND.primary} 0%,${BRAND.primaryDark} 100%)`,
+    accentColor: BRAND.accent, textColor: BRAND.white, textAlign: 'left',
     imagePosition: '50% 50%',
     textLeft: 5, textTop: 50,
     active: true, sortOrder: 0, startDate: '', endDate: '',
@@ -176,8 +177,8 @@ export default function Admin() {
     return m ? [parseFloat(m[1]), parseFloat(m[2])] : [50,50];
   };
   const [bgMode, setBgMode] = useState<'solid' | 'gradient'>('gradient');
-  const [gradColor1, setGradColor1] = useState('#0E7C61');
-  const [gradColor2, setGradColor2] = useState('#0A5C49');
+  const [gradColor1, setGradColor1] = useState(BRAND.primary);
+  const [gradColor2, setGradColor2] = useState(BRAND.primaryDark);
   const [gradAngle, setGradAngle] = useState(135);
   const parseBgGradient = (css: string) => {
     const m = css.match(/linear-gradient\(\s*(-?\d+)deg,\s*(#[\da-fA-F]{3,8})[^,]*,\s*(#[\da-fA-F]{3,8})/);
@@ -448,16 +449,7 @@ export default function Admin() {
     { value: 'seasonal',     label: 'Seasonal Offer'},
   ];
 
-  const GRADIENT_PRESETS = [
-    { label: 'Green',  value: 'linear-gradient(135deg,#0E7C61 0%,#0A5C49 100%)' },
-    { label: 'Gold',   value: 'linear-gradient(135deg,#C6A75E 0%,#a0883c 100%)' },
-    { label: 'Navy',   value: 'linear-gradient(135deg,#1b2a4a 0%,#0f1a30 100%)' },
-    { label: 'Purple', value: 'linear-gradient(135deg,#7C3AED 0%,#5B21B6 100%)' },
-    { label: 'Red',    value: 'linear-gradient(135deg,#DC2626 0%,#991B1B 100%)' },
-    { label: 'Teal',   value: 'linear-gradient(135deg,#0EA5E9 0%,#0369A1 100%)' },
-    { label: 'Slate',  value: 'linear-gradient(135deg,#334155 0%,#1E293B 100%)' },
-    { label: 'Custom', value: '' },
-  ];
+  const GRADIENT_PRESETS = BRAND_GRADIENT_PRESETS;
 
   const loadDb = async () => {
     setDbLoading(true);
@@ -3959,9 +3951,14 @@ MSG91_SENDER_ID=TFWALL`}
                             <div style={{ flex: 1 }}>
                               <input value={bannerForm.accentColor} onChange={e => setBannerForm(f => ({ ...f, accentColor: e.target.value }))} placeholder="#C6A75E" style={{ marginBottom: 6 }} />
                               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                                {['#C6A75E','#0E7C61','#EF4444','#3B82F6','#8B5CF6','#F59E0B','#EC4899','#10B981','#ffffff'].map(c => (
-                                  <div key={c} onClick={() => setBannerForm(f => ({ ...f, accentColor: c }))}
-                                       style={{ width: 22, height: 22, borderRadius: 5, background: c, cursor: 'pointer', border: `2px solid ${bannerForm.accentColor === c ? 'var(--primary)' : 'var(--border)'}`, transition: 'border-color .1s' }} />
+                                {(globalColors.length > 0 ? globalColors : [
+                                  { hex: BRAND.accent }, { hex: BRAND.primary }, { hex: BRAND.danger },
+                                  { hex: BRAND.info }, { hex: BRAND.purple }, { hex: BRAND.warning },
+                                  { hex: BRAND.white },
+                                ]).map(c => (
+                                  <div key={c.hex} onClick={() => setBannerForm(f => ({ ...f, accentColor: c.hex }))}
+                                       title={'name' in c ? c.name : c.hex}
+                                       style={{ width: 22, height: 22, borderRadius: 5, background: c.hex, cursor: 'pointer', border: `2px solid ${bannerForm.accentColor === c.hex ? 'var(--primary)' : 'var(--border)'}`, transition: 'border-color .1s' }} />
                                 ))}
                               </div>
                             </div>
@@ -3982,7 +3979,7 @@ MSG91_SENDER_ID=TFWALL`}
                             <div style={{ flex: 1 }}>
                               <input value={bannerForm.textColor} onChange={e => setBannerForm(f => ({ ...f, textColor: e.target.value }))} placeholder="#ffffff" style={{ marginBottom: 6 }} />
                               <div style={{ display: 'flex', gap: 5 }}>
-                                {['#ffffff','#000000','#1e293b','#f8fafc','#ffd700'].map(c => (
+                                {[BRAND.white, BRAND.black, BRAND.slateDark, BRAND.accent].map(c => (
                                   <div key={c} onClick={() => setBannerForm(f => ({ ...f, textColor: c }))}
                                        style={{ width: 22, height: 22, borderRadius: 5, background: c, cursor: 'pointer', border: `2px solid ${bannerForm.textColor === c ? 'var(--primary)' : 'var(--border)'}`, transition: 'border-color .1s' }} />
                                 ))}
