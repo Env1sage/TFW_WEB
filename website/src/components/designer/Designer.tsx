@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Package, Layers as LayersIcon, Upload, Type, Smile, ShoppingCart } from 'lucide-react';
+import toast from 'react-hot-toast';
 import * as fabric from 'fabric';
 import type { TabId } from './LeftPanel';
 import { compressImage } from '../../utils/imageCompression';
@@ -993,34 +994,53 @@ export default function Designer() {
   const handleRemoveBg = useCallback(async () => {
     const fc = fcRef.current; if (!fc) return;
     const activeObj = fc.getActiveObject();
-    if (!(activeObj instanceof fabric.FabricImage)) return;
+    if (!activeObj || (activeObj as any).type !== 'image') return;
+    const toastId = toast.loading('Removing background… (first run downloads AI model, ~30s)');
     try {
       const { removeBackground } = await import('@imgly/background-removal');
       const imgEl = (activeObj as fabric.FabricImage).getElement() as HTMLImageElement;
-      const resp = await fetch(imgEl.src);
-      if (!resp.ok) throw new Error('Failed to fetch image');
-      const blob = await resp.blob();
+      let blob: Blob;
+      if (imgEl.src.startsWith('data:')) {
+        const [header, data] = imgEl.src.split(',');
+        const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
+        const bytes = atob(data);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        blob = new Blob([arr], { type: mime });
+      } else {
+        const resp = await fetch(imgEl.src);
+        if (!resp.ok) throw new Error('Failed to fetch image');
+        blob = await resp.blob();
+      }
       const resultBlob = await removeBackground(blob, {
         publicPath: 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/',
       });
       const url = URL.createObjectURL(resultBlob);
-      const newEl = new Image(); newEl.crossOrigin = 'anonymous';
-      newEl.onload = () => {
-        const newFImg = new fabric.FabricImage(newEl, {
-          left: activeObj.left, top: activeObj.top,
-          scaleX: activeObj.scaleX, scaleY: activeObj.scaleY,
-          angle: activeObj.angle, clipPath: activeObj.clipPath,
-          originX: activeObj.originX, originY: activeObj.originY,
-        });
-        (newFImg as any).customId = (activeObj as any).customId;
-        (newFImg as any).layerName = (activeObj as any).layerName;
-        (newFImg as any).printZone = (activeObj as any).printZone;
-        fc.remove(activeObj);
-        fc.add(newFImg); fc.setActiveObject(newFImg); fc.renderAll();
-        URL.revokeObjectURL(url);
-      };
-      newEl.src = url;
-    } catch (e) { console.error('Background removal failed', e); }
+      await new Promise<void>((resolve, reject) => {
+        const newEl = new Image();
+        newEl.onload = () => {
+          const newFImg = new fabric.FabricImage(newEl, {
+            left: activeObj.left, top: activeObj.top,
+            scaleX: activeObj.scaleX, scaleY: activeObj.scaleY,
+            angle: activeObj.angle, clipPath: (activeObj as any).clipPath,
+            originX: activeObj.originX, originY: activeObj.originY,
+          });
+          (newFImg as any).customId = (activeObj as any).customId;
+          (newFImg as any).layerName = (activeObj as any).layerName;
+          (newFImg as any).printZone = (activeObj as any).printZone;
+          fc.remove(activeObj);
+          fc.add(newFImg); fc.setActiveObject(newFImg); fc.renderAll();
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        newEl.onerror = reject;
+        newEl.src = url;
+      });
+      toast.success('Background removed!', { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message || 'Background removal failed', { id: toastId });
+      console.error('Background removal failed', e);
+    }
   }, []);
 
   const handleDelete = useCallback(() => {
