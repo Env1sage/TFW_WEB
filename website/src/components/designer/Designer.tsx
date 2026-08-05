@@ -839,8 +839,9 @@ export default function Designer() {
       fill: '#000000', fontSize: isLayoutMode ? Math.max(14, Math.round(pa.w / 8)) : (editingPocket ? 14 : 36),
       fontFamily: 'Arial', clipPath: clip,
     });
+    const textCount = fc.getObjects().filter(o => !isGuide(o) && (o.type === 'i-text' || o.type === 'text')).length;
     (text as any).customId = crypto.randomUUID();
-    (text as any).layerName = activeLayout ? `${activeLayout.name} Text` : (editingPocket ? 'Pocket Text' : 'Text');
+    (text as any).layerName = editingPocket ? `Pocket Text ${textCount + 1}` : `Text ${textCount + 1}`;
     (text as any).printZone = zone;
     fc.add(text); fc.setActiveObject(text); fc.renderAll();
     if (isLayoutMode && effectiveLayoutId) {
@@ -959,8 +960,9 @@ export default function Designer() {
       stroke: preset.stroke, strokeWidth: preset.strokeWidth,
       textAlign: 'center', clipPath: clip ?? undefined,
     });
+    const textCount = fc.getObjects().filter(o => !isGuide(o) && (o.type === 'i-text' || o.type === 'text')).length;
     (text as any).customId = crypto.randomUUID();
-    (text as any).layerName = preset.label;
+    (text as any).layerName = `Text ${textCount + 1}`;
     (text as any).printZone = zone;
     fc.add(text); fc.setActiveObject(text); fc.renderAll();
     if (isLayoutMode && effectiveLayoutId) setSelectedLayoutIds(prev => prev.includes(effectiveLayoutId!) ? prev : [...prev, effectiveLayoutId!]);

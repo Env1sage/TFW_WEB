@@ -62,12 +62,12 @@ export interface TextStylePreset {
 
 const TEXT_STYLE_PRESETS: TextStylePreset[] = [
   { label: 'Bold Impact',   sampleText: 'YOUR TEXT', font: 'Impact',           size: 72, weight: 'bold', fill: '#1a1a1a' },
-  { label: 'Varsity',       sampleText: 'VARSITY',   font: 'Oswald',           size: 64, weight: '700',  fill: '#ffffff', stroke: '#1a1a1a', strokeWidth: 3 },
+  { label: 'Varsity',       sampleText: 'VARSITY',   font: 'Oswald',           size: 64, weight: '700',  fill: '#1a1a1a', stroke: '#C6A75E', strokeWidth: 2 },
   { label: 'Script',        sampleText: 'Your Text', font: 'Dancing Script',   size: 60, weight: '700',  fill: '#1a1a1a' },
   { label: 'Retro',         sampleText: 'RETRO',     font: 'Lobster',          size: 58, weight: '400',  fill: '#e74c3c' },
   { label: 'Classic',       sampleText: 'Classic',   font: 'Playfair Display', size: 56, weight: '700',  fill: '#2c3e50', italic: true },
   { label: 'Modern',        sampleText: 'MODERN',    font: 'Montserrat',       size: 60, weight: '700',  fill: '#0e7c61' },
-  { label: 'Shadow',        sampleText: 'SHADOW',    font: 'Impact',           size: 68, weight: 'bold', fill: '#ffffff', stroke: '#333333', strokeWidth: 2 },
+  { label: 'Shadow',        sampleText: 'SHADOW',    font: 'Impact',           size: 68, weight: 'bold', fill: '#1a1a1a', stroke: '#666666', strokeWidth: 1 },
   { label: 'Handwritten',   sampleText: 'Handwrite', font: 'Permanent Marker', size: 50, weight: '400',  fill: '#1a1a1a' },
 ];
 
