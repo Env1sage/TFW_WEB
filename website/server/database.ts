@@ -652,6 +652,28 @@ export async function initDB() {
     await client.query(`
       ALTER TABLE website_products ADD COLUMN IF NOT EXISTS collection_only BOOLEAN NOT NULL DEFAULT FALSE;
     `);
+
+    // ── Category size charts + per-product visibility ────────────────────────
+    await client.query(`
+      ALTER TABLE website_categories ADD COLUMN IF NOT EXISTS size_chart JSONB DEFAULT NULL;
+      ALTER TABLE website_products ADD COLUMN IF NOT EXISTS show_size_chart BOOLEAN NOT NULL DEFAULT TRUE;
+    `);
+
+    // Seed default size charts into existing categories (only if not already set)
+    const defaultCharts: Record<string, any> = {
+      'T-Shirts': { unit: 'inches', headers: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['34', '36', '38', '40', '42', '44', '46'] }, { label: 'Length', values: ['26', '27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['7', '7.5', '8', '8.5', '9', '9.5', '10'] }] },
+      'Polo T-Shirts': { unit: 'inches', headers: ['S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['38', '40', '42', '44', '46', '48'] }, { label: 'Length', values: ['27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['8', '8.5', '9', '9.5', '10', '10.5'] }] },
+      'Hoodies': { unit: 'inches', headers: ['S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['38', '40', '42', '44', '46', '48'] }, { label: 'Length', values: ['26', '27', '28', '29', '30', '31'] }, { label: 'Sleeve', values: ['24', '25', '26', '27', '28', '29'] }] },
+      'Shirts': { unit: 'inches', headers: ['S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['38', '40', '42', '44', '46', '48'] }, { label: 'Length', values: ['28', '29', '30', '31', '32', '33'] }, { label: 'Shoulder', values: ['16', '17', '18', '19', '20', '21'] }, { label: 'Sleeve', values: ['24', '25', '26', '27', '28', '29'] }] },
+      'Jackets': { unit: 'inches', headers: ['S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['40', '42', '44', '46', '48', '50'] }, { label: 'Length', values: ['27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['24', '25', '26', '27', '28', '29'] }] },
+      'Kids Clothing': { unit: 'inches', headers: ['2Y', '4Y', '6Y', '8Y', '10Y', '12Y'], rows: [{ label: 'Chest', values: ['24', '26', '28', '30', '32', '34'] }, { label: 'Length', values: ['14', '16', '18', '20', '22', '24'] }, { label: 'Sleeve', values: ['4.5', '5', '5.5', '6', '6.5', '7'] }] },
+    };
+    for (const [name, chart] of Object.entries(defaultCharts)) {
+      await client.query(
+        `UPDATE website_categories SET size_chart = $1::jsonb WHERE LOWER(name) = LOWER($2) AND size_chart IS NULL`,
+        [JSON.stringify(chart), name]
+      );
+    }
   } finally {
     client.release();
   }
@@ -826,6 +848,8 @@ export interface DBProduct {
   printAreas: { name: string; w: string; h: string }[];
   careInstructions: { text: string }[];
   faqs: { q: string; a: string }[];
+  sizeChart: any | null;
+  showSizeChart: boolean;
 }
 
 function rowToProduct(row: any): DBProduct {
@@ -847,6 +871,8 @@ function rowToProduct(row: any): DBProduct {
     printAreas: row.print_areas || [],
     careInstructions: row.care_instructions || [],
     faqs: row.faqs || [],
+    sizeChart: row.cat_size_chart || null,
+    showSizeChart: row.show_size_chart !== false,
   };
   // Attach mockup data if joined
   if (row.m_id) {
@@ -899,9 +925,11 @@ export async function getProducts(opts?: { category?: string; subcategory?: stri
 
   const { rows } = await pool.query(
     `SELECT p.*, m.id AS m_id, m.front_image AS m_front_image, m.back_image AS m_back_image,
-            m.front_shadow AS m_front_shadow, m.back_shadow AS m_back_shadow, m.print_area AS m_print_area
+            m.front_shadow AS m_front_shadow, m.back_shadow AS m_back_shadow, m.print_area AS m_print_area,
+            c.size_chart AS cat_size_chart
      FROM website_products p
      LEFT JOIN website_mockups m ON m.id = p.mockup_id
+     LEFT JOIN website_categories c ON c.id = p.category_id
      ${where} ${orderBy}`, params);
   return rows.map(rowToProduct);
 }
@@ -909,9 +937,11 @@ export async function getProducts(opts?: { category?: string; subcategory?: stri
 export async function getProductById(idOrSlug: string): Promise<DBProduct | null> {
   const { rows } = await pool.query(
     `SELECT p.*, m.id AS m_id, m.front_image AS m_front_image, m.back_image AS m_back_image,
-            m.front_shadow AS m_front_shadow, m.back_shadow AS m_back_shadow, m.print_area AS m_print_area
+            m.front_shadow AS m_front_shadow, m.back_shadow AS m_back_shadow, m.print_area AS m_print_area,
+            c.size_chart AS cat_size_chart
      FROM website_products p
      LEFT JOIN website_mockups m ON m.id = p.mockup_id
+     LEFT JOIN website_categories c ON c.id = p.category_id
      WHERE p.id = $1 OR p.slug = $1`, [idOrSlug]);
   return rows.length ? rowToProduct(rows[0]) : null;
 }
@@ -919,10 +949,11 @@ export async function getProductById(idOrSlug: string): Promise<DBProduct | null
 /* ── Category queries ── */
 export interface DBCategory {
   id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image: string;
+  sizeChart: any | null;
 }
 
 function rowToCategory(row: any): DBCategory {
-  return { id: row.id, name: row.name, slug: row.slug, createdAt: row.created_at, parentId: row.parent_id ?? null, image: row.image || '' };
+  return { id: row.id, name: row.name, slug: row.slug, createdAt: row.created_at, parentId: row.parent_id ?? null, image: row.image || '', sizeChart: row.size_chart || null };
 }
 
 export async function getCategories(): Promise<DBCategory[]> {
@@ -935,19 +966,20 @@ export async function getCategoryById(id: string): Promise<DBCategory | null> {
   return rows.length ? rowToCategory(rows[0]) : null;
 }
 
-export async function addCategory(c: { id: string; name: string; slug: string; parentId?: string | null }): Promise<DBCategory> {
+export async function addCategory(c: { id: string; name: string; slug: string; parentId?: string | null; sizeChart?: any }): Promise<DBCategory> {
   const { rows } = await pool.query(
-    `INSERT INTO website_categories (id, name, slug, parent_id, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *`,
-    [c.id, c.name, c.slug, c.parentId ?? null]
+    `INSERT INTO website_categories (id, name, slug, parent_id, size_chart, created_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
+    [c.id, c.name, c.slug, c.parentId ?? null, c.sizeChart ? JSON.stringify(c.sizeChart) : null]
   );
   return rowToCategory(rows[0]);
 }
 
-export async function updateCategory(id: string, patch: { name?: string; slug?: string; image?: string }): Promise<DBCategory | null> {
+export async function updateCategory(id: string, patch: { name?: string; slug?: string; image?: string; sizeChart?: any }): Promise<DBCategory | null> {
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   if (patch.name !== undefined) { sets.push(`name = $${idx}`); vals.push(patch.name); idx++; }
   if (patch.slug !== undefined) { sets.push(`slug = $${idx}`); vals.push(patch.slug); idx++; }
   if (patch.image !== undefined) { sets.push(`image = $${idx}`); vals.push(patch.image); idx++; }
+  if ('sizeChart' in patch) { sets.push(`size_chart = $${idx}`); vals.push(patch.sizeChart ? JSON.stringify(patch.sizeChart) : null); idx++; }
   if (sets.length === 0) return getCategoryById(id);
   vals.push(id);
   const { rows } = await pool.query(`UPDATE website_categories SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
@@ -1002,11 +1034,12 @@ export async function deleteMockupCategory(id: string) {
 export async function addProduct(p: any): Promise<DBProduct> {
   const slug = p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const { rows } = await pool.query(
-    `INSERT INTO website_products (id, slug, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, collection_only, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW()) RETURNING *`,
-    [p.id, slug, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5, p.collectionOnly ?? false]
+    `INSERT INTO website_products (id, slug, name, description, price, category, category_id, mockup_id, image, images, customizable, colors, sizes, stock, rating, review_count, featured, weight_grams, length_cm, breadth_cm, height_cm, collection_only, show_size_chart, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,NOW()) RETURNING *`,
+    [p.id, slug, p.name, p.description || '', p.price, p.category, p.categoryId || null, p.mockupId || null, p.image || '', JSON.stringify(p.images || []), p.customizable ?? true, JSON.stringify(p.colors || []), JSON.stringify(p.sizes || []), p.stock ?? 100, p.rating || 0, p.reviewCount || 0, p.featured ?? false, p.weightGrams ?? 200, p.lengthCm ?? 30, p.breadthCm ?? 20, p.heightCm ?? 5, p.collectionOnly ?? false, p.showSizeChart !== false]
   );
-  return rowToProduct(rows[0]);
+  // Fetch back with category join to get sizeChart
+  return (await getProductById(rows[0].id)) || rowToProduct(rows[0]);
 }
 
 export async function updateProduct(id: string, patch: Record<string, any>): Promise<DBProduct | null> {
@@ -1016,7 +1049,7 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
     image: 'image', customizable: 'customizable', stock: 'stock',
     rating: 'rating', reviewCount: 'review_count', featured: 'featured',
     weightGrams: 'weight_grams', lengthCm: 'length_cm', breadthCm: 'breadth_cm', heightCm: 'height_cm',
-    fabricInfo: 'fabric_info', collectionOnly: 'collection_only',
+    fabricInfo: 'fabric_info', collectionOnly: 'collection_only', showSizeChart: 'show_size_chart',
   };
   const jsonFields: Record<string, string> = {
     images: 'images', colors: 'colors', sizes: 'sizes', highlights: 'highlights',
@@ -1032,8 +1065,8 @@ export async function updateProduct(id: string, patch: Record<string, any>): Pro
   }
   if (sets.length === 0) return getProductById(id);
   vals.push(id);
-  const { rows } = await pool.query(`UPDATE website_products SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
-  return rows.length ? rowToProduct(rows[0]) : null;
+  await pool.query(`UPDATE website_products SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
+  return getProductById(id);
 }
 
 export async function deleteProduct(id: string) {

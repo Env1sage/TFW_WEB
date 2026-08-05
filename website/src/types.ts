@@ -53,6 +53,8 @@ export interface Product {
   careInstructions?: { text: string }[];
   faqs?: { q: string; a: string }[];
   collectionOnly?: boolean;
+  sizeChart?: { unit: string; headers: string[]; rows: { label: string; values: string[] }[] } | null;
+  showSizeChart?: boolean;
 }
 
 export interface ProductVariant {

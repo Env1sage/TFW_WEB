@@ -502,7 +502,7 @@ router.get('/categories', async (_req: Request, res: Response) => {
 // Create category (admin)
 router.post('/categories', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
-    const { name } = req.body;
+    const { name, sizeChart } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Category name is required' });
     const trimmed = name.trim();
     const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -511,7 +511,7 @@ router.post('/categories', authMiddleware, requireRole('admin', 'product_manager
     if (existing.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
       return res.status(409).json({ error: `Category "${trimmed}" already exists` });
     }
-    const category = await db.addCategory({ id: uuid(), name: trimmed, slug });
+    const category = await db.addCategory({ id: uuid(), name: trimmed, slug, sizeChart: sizeChart || null });
     res.status(201).json(category);
   } catch (e: any) {
     if ((e as any).code === '23505') return res.status(409).json({ error: 'A category with this name already exists' });
@@ -522,8 +522,8 @@ router.post('/categories', authMiddleware, requireRole('admin', 'product_manager
 // Update category (admin)
 router.put('/categories/:id', authMiddleware, requireRole('admin', 'product_manager'), async (req: Request, res: Response) => {
   try {
-    const { name, image } = req.body;
-    const updateData: { name?: string; slug?: string; image?: string } = {};
+    const { name, image, sizeChart } = req.body;
+    const updateData: { name?: string; slug?: string; image?: string; sizeChart?: any } = {};
     if (name !== undefined) {
       if (!name?.trim()) return res.status(400).json({ error: 'Category name is required' });
       const trimmed = name.trim();
@@ -536,6 +536,7 @@ router.put('/categories/:id', authMiddleware, requireRole('admin', 'product_mana
       updateData.slug = slug;
     }
     if (image !== undefined) updateData.image = image;
+    if ('sizeChart' in req.body) updateData.sizeChart = sizeChart || null;
     if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'Nothing to update' });
     const updated = await db.updateCategory(String(req.params.id), updateData);
     if (!updated) return res.status(404).json({ error: 'Category not found' });

@@ -361,7 +361,9 @@ export default function ProductDetail() {
   );
 
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
-  const sizeChart = SIZE_CHART[product.category];
+  const sizeChart = product.showSizeChart !== false
+    ? (product.sizeChart || SIZE_CHART[product.category] || null)
+    : null;
   const highlights = (product.highlights && product.highlights.length > 0) ? product.highlights : (PRODUCT_HIGHLIGHTS[product.category] || []);
   const printMethods = (product.printMethods && product.printMethods.length > 0) ? product.printMethods : (PRINTING_METHODS[product.category] || []);
   const printAreas = (product.printAreas && product.printAreas.length > 0) ? product.printAreas : (PRINT_AREAS[product.category] || []);

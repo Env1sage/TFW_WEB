@@ -29,8 +29,15 @@ interface Analytics {
   dailyRevenue: { date: string; revenue: number; orders: number }[];
 }
 
+interface SizeChartData {
+  unit: string;
+  headers: string[];
+  rows: { label: string; values: string[] }[];
+}
+
 interface Category {
   id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image?: string;
+  sizeChart?: SizeChartData | null;
 }
 
 interface MockupCategory {
@@ -74,6 +81,7 @@ const defaultProduct: Partial<Product> = {
   featured: false, collectionOnly: false, colors: [], sizes: [], rating: 4.5, reviewCount: 0,
   weightGrams: 200, lengthCm: 30, breadthCm: 20, heightCm: 5,
   highlights: [], fabricInfo: '', printMethods: [], printAreas: [], careInstructions: [], faqs: [],
+  showSizeChart: true,
 };
 
 const defaultMockup: Partial<Mockup> = {
@@ -212,6 +220,7 @@ export default function Admin() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [categoryFormName, setCategoryFormName] = useState('');
   const [categoryFormImage, setCategoryFormImage] = useState('');
+  const [categoryFormSizeChart, setCategoryFormSizeChart] = useState<SizeChartData | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -721,19 +730,19 @@ export default function Admin() {
   };
 
   // Category CRUD
-  const openNewCategory = () => { setEditingCategory(null); setCategoryFormName(''); setCategoryFormImage(''); setShowCategoryForm(true); };
-  const openEditCategory = (c: Category) => { setEditingCategory(c); setCategoryFormName(c.name); setCategoryFormImage(c.image || ''); setShowCategoryForm(true); };
-  const closeCategoryForm = () => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormName(''); setCategoryFormImage(''); };
+  const openNewCategory = () => { setEditingCategory(null); setCategoryFormName(''); setCategoryFormImage(''); setCategoryFormSizeChart(null); setShowCategoryForm(true); };
+  const openEditCategory = (c: Category) => { setEditingCategory(c); setCategoryFormName(c.name); setCategoryFormImage(c.image || ''); setCategoryFormSizeChart(c.sizeChart || null); setShowCategoryForm(true); };
+  const closeCategoryForm = () => { setShowCategoryForm(false); setEditingCategory(null); setCategoryFormName(''); setCategoryFormImage(''); setCategoryFormSizeChart(null); };
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryFormName.trim()) { toast.error('Category name is required'); return; }
     setSavingCategory(true);
     try {
       if (editingCategory) {
-        await api.updateCategory(editingCategory.id, { name: categoryFormName.trim(), image: categoryFormImage.trim() });
+        await api.updateCategory(editingCategory.id, { name: categoryFormName.trim(), image: categoryFormImage.trim(), sizeChart: categoryFormSizeChart });
         toast.success('Category updated');
       } else {
-        await api.createCategory({ name: categoryFormName.trim() });
+        await api.createCategory({ name: categoryFormName.trim(), sizeChart: categoryFormSizeChart });
         toast.success('Category created');
       }
       closeCategoryForm(); load();
@@ -2229,6 +2238,105 @@ export default function Admin() {
                           <img src={categoryFormImage} alt="Category preview" style={{ marginTop: 8, height: 80, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         )}
                       </div>
+
+                      {/* ── Size Chart Editor ── */}
+                      <div className="form-group">
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={!!categoryFormSizeChart} onChange={e => {
+                            if (e.target.checked) {
+                              setCategoryFormSizeChart({ unit: 'inches', headers: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['', '', '', '', '', '', ''] }, { label: 'Length', values: ['', '', '', '', '', '', ''] }] });
+                            } else {
+                              setCategoryFormSizeChart(null);
+                            }
+                          }} />
+                          Include Size Chart <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: '.78rem' }}>— auto-shown on product pages in this category</span>
+                        </label>
+
+                        {categoryFormSizeChart && (
+                          <div style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
+                            {/* Unit */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+                              <span style={{ fontSize: '.82rem', fontWeight: 600 }}>Unit:</span>
+                              {['inches', 'cm'].map(u => (
+                                <label key={u} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: '.82rem' }}>
+                                  <input type="radio" name="catChartUnit" value={u} checked={categoryFormSizeChart.unit === u}
+                                    onChange={() => setCategoryFormSizeChart(c => c ? { ...c, unit: u } : c)} />
+                                  {u}
+                                </label>
+                              ))}
+                            </div>
+
+                            {/* Column headers */}
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: '.8rem', fontWeight: 600, marginBottom: 6, color: 'var(--text-2)' }}>SIZE COLUMNS</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                                {categoryFormSizeChart.headers.map((h, hi) => (
+                                  <div key={hi} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <input type="text" value={h}
+                                      onChange={e => {
+                                        const nh = [...categoryFormSizeChart.headers]; nh[hi] = e.target.value;
+                                        setCategoryFormSizeChart(c => c ? { ...c, headers: nh } : c);
+                                      }}
+                                      style={{ width: 48, fontSize: '0.8rem', padding: '3px 5px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                                    />
+                                    <button type="button" onClick={() => {
+                                      const nh = categoryFormSizeChart.headers.filter((_, i) => i !== hi);
+                                      const nr = categoryFormSizeChart.rows.map(r => ({ ...r, values: r.values.filter((_, i) => i !== hi) }));
+                                      setCategoryFormSizeChart(c => c ? { ...c, headers: nh, rows: nr } : c);
+                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 2px', lineHeight: 1 }}>×</button>
+                                  </div>
+                                ))}
+                                <button type="button" className="btn btn-ghost" style={{ padding: '3px 10px', fontSize: '0.78rem' }}
+                                  onClick={() => {
+                                    const nh = [...categoryFormSizeChart.headers, ''];
+                                    const nr = categoryFormSizeChart.rows.map(r => ({ ...r, values: [...r.values, ''] }));
+                                    setCategoryFormSizeChart(c => c ? { ...c, headers: nh, rows: nr } : c);
+                                  }}>+ Column</button>
+                              </div>
+                            </div>
+
+                            {/* Rows */}
+                            <div>
+                              <div style={{ fontSize: '.8rem', fontWeight: 600, marginBottom: 6, color: 'var(--text-2)' }}>MEASUREMENTS</div>
+                              {categoryFormSizeChart.rows.map((row, ri) => (
+                                <div key={ri} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
+                                  <input type="text" value={row.label} placeholder="e.g. Chest"
+                                    onChange={e => {
+                                      const nr = [...categoryFormSizeChart.rows];
+                                      nr[ri] = { ...nr[ri], label: e.target.value };
+                                      setCategoryFormSizeChart(c => c ? { ...c, rows: nr } : c);
+                                    }}
+                                    style={{ width: 80, fontSize: '0.8rem', padding: '3px 5px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontWeight: 500 }}
+                                  />
+                                  {row.values.map((val, vi) => (
+                                    <input key={vi} type="text" value={val}
+                                      onChange={e => {
+                                        const nr = [...categoryFormSizeChart.rows];
+                                        const nv = [...nr[ri].values]; nv[vi] = e.target.value;
+                                        nr[ri] = { ...nr[ri], values: nv };
+                                        setCategoryFormSizeChart(c => c ? { ...c, rows: nr } : c);
+                                      }}
+                                      style={{ width: 40, fontSize: '0.8rem', padding: '3px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', textAlign: 'center' }}
+                                    />
+                                  ))}
+                                  <button type="button" onClick={() => {
+                                    const nr = categoryFormSizeChart.rows.filter((_, i) => i !== ri);
+                                    setCategoryFormSizeChart(c => c ? { ...c, rows: nr } : c);
+                                  }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}>
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              ))}
+                              <button type="button" className="btn btn-ghost" style={{ padding: '3px 10px', fontSize: '0.78rem', marginTop: 4 }}
+                                onClick={() => {
+                                  const nr = [...categoryFormSizeChart.rows, { label: '', values: categoryFormSizeChart.headers.map(() => '') }];
+                                  setCategoryFormSizeChart(c => c ? { ...c, rows: nr } : c);
+                                }}>+ Row</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="modal-actions">
                         <button type="button" className="btn btn-ghost" onClick={closeCategoryForm}>Cancel</button>
                         <button type="submit" className="btn btn-primary" disabled={savingCategory}>
@@ -4620,6 +4728,26 @@ MSG91_SENDER_ID=TFWALL`}
                           <option value="">— Select category —</option>
                           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
+                        {/* Size chart toggle — only shown if the selected category has a chart */}
+                        {(() => {
+                          const selCat = categories.find(c => c.id === (productForm as any).categoryId);
+                          if (!selCat?.sizeChart) return null;
+                          const chart = selCat.sizeChart;
+                          const show = (productForm as any).showSizeChart !== false;
+                          return (
+                            <div style={{ marginTop: 10 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '.85rem' }}>
+                                <input type="checkbox" checked={show} onChange={e => setProductForm(f => ({ ...f, showSizeChart: e.target.checked } as any))} />
+                                Show size chart on product page
+                              </label>
+                              {show && (
+                                <div style={{ marginTop: 6, padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 6, fontSize: '0.78rem', color: 'var(--text-2)' }}>
+                                  <strong style={{ color: 'var(--text)' }}>Chart preview ({chart.unit}):</strong> {chart.headers.join(' · ')} — {chart.rows.map((r: { label: string }) => r.label).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="form-row">

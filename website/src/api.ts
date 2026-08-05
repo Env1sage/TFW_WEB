@@ -69,13 +69,13 @@ export const api = {
     return request<any[]>(`/products${qs}`);
   },
 
-  getCategories: () => request<{ id: string; name: string; slug: string; createdAt: string; parentId?: string | null }[]>('/products/categories'),
+  getCategories: () => request<{ id: string; name: string; slug: string; createdAt: string; parentId?: string | null; sizeChart?: any }[]>('/products/categories'),
 
-  createCategory: (data: { name: string; image?: string }) =>
-    request<{ id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image: string }>('/products/categories', { method: 'POST', body: JSON.stringify(data) }),
+  createCategory: (data: { name: string; image?: string; sizeChart?: any }) =>
+    request<{ id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image: string; sizeChart?: any }>('/products/categories', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateCategory: (id: string, data: { name?: string; image?: string }) =>
-    request<{ id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image: string }>(`/products/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateCategory: (id: string, data: { name?: string; image?: string; sizeChart?: any }) =>
+    request<{ id: string; name: string; slug: string; createdAt: string; parentId?: string | null; image: string; sizeChart?: any }>(`/products/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   deleteCategory: (id: string) =>
     request<{ success: boolean }>(`/products/categories/${id}`, { method: 'DELETE' }),
