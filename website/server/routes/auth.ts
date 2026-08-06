@@ -128,12 +128,14 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 /* ── Update profile ── */
 router.put('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { name, email, currentPassword, newPassword } = req.body;
+    const { name, email, phone, defaultAddress, currentPassword, newPassword } = req.body;
     const user = await db.findUserById((req as any).userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const patch: Record<string, any> = {};
     if (name !== undefined) patch.name = name;
     if (email !== undefined) patch.email = email;
+    if (phone !== undefined) patch.phone = phone;
+    if (defaultAddress !== undefined) patch.defaultAddress = defaultAddress;
     if (newPassword) {
       if (!currentPassword) return res.status(400).json({ error: 'Current password required' });
       if (!user.password) return res.status(400).json({ error: 'Password not set' });

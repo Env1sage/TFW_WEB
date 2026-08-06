@@ -324,6 +324,7 @@ export default function Cart() {
 
   // Address form
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '' });
+  const [savedAddressLoaded, setSavedAddressLoaded] = useState(false);
 
   // Coupon
   const [couponInput, setCouponInput] = useState('');
@@ -373,6 +374,25 @@ export default function Cart() {
     }, 400);
     return () => { cancelled = true; clearTimeout(t); };
   }, [form.pincode, total]);
+
+  // Pre-fill address form from saved profile when user enters step 2
+  useEffect(() => {
+    if (step !== 2 || savedAddressLoaded || !user) return;
+    api.getProfile().then((profile: any) => {
+      const a = profile.defaultAddress || {};
+      setForm(f => ({
+        fullName:     f.fullName     || a.fullName     || profile.name  || '',
+        email:        f.email        || a.email        || profile.email || '',
+        phone:        f.phone        || a.phone        || profile.phone || '',
+        addressLine1: f.addressLine1 || a.addressLine1 || '',
+        addressLine2: f.addressLine2 || a.addressLine2 || '',
+        city:         f.city         || a.city         || '',
+        state:        f.state        || a.state        || '',
+        pincode:      f.pincode      || a.pincode      || '',
+      }));
+      setSavedAddressLoaded(true);
+    }).catch(() => setSavedAddressLoaded(true));
+  }, [step, savedAddressLoaded, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadDeliveryOptions = useCallback(async () => {
     setDeliveryLoading(true);
@@ -501,6 +521,17 @@ export default function Cart() {
       }
       // Track purchase event for each product
       selectedItems.forEach(i => api.trackEvent({ type: 'purchase', productId: i.product.id, productName: i.product.name, category: i.product.category, brandId: (i.product as any).brandId, size: i.size || undefined, color: i.color || undefined, price: i.product.price, quantity: i.quantity, sessionId: getSessionId() }));
+      // Save user's name, email, phone, and address for future pre-fill + drip emails
+      api.updateProfile({
+        name: form.fullName || undefined,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        defaultAddress: {
+          fullName: form.fullName, email: form.email, phone: form.phone,
+          addressLine1: form.addressLine1, addressLine2: form.addressLine2,
+          city: form.city, state: form.state, pincode: form.pincode,
+        },
+      }).catch(() => {});
       clearCart();
       sessionStorage.removeItem('tfw_design_cart');
       navigate('/payment/success', { replace: true, state: { finalTotal, name: form.fullName || 'Customer', city: form.city || selectedDelivery?.storeInfo?.city || '' } });
@@ -681,7 +712,14 @@ export default function Cart() {
           <div className="checkout-layout">
             <motion.div className="checkout-address-panel" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
               <div className="checkout-section-card">
-                <h2 className="checkout-section-title">Your Details</h2>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <h2 className="checkout-section-title" style={{ margin: 0 }}>Your Details</h2>
+                  {savedAddressLoaded && form.addressLine1 && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <CheckCircle size={13} /> Saved address loaded
+                    </span>
+                  )}
+                </div>
                 <div className="checkout-form">
                   <div className="checkout-form-row">
                     <div>

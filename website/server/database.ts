@@ -756,6 +756,11 @@ export async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_reviews_product ON website_reviews(product_id, created_at DESC);
     `);
 
+    // User saved profile (address + contact for pre-fill at checkout)
+    await client.query(`
+      ALTER TABLE website_users ADD COLUMN IF NOT EXISTS default_address JSONB;
+    `);
+
     // Seed default size charts into existing categories (only if not already set)
     const defaultCharts: Record<string, any> = {
       'T-Shirts': { unit: 'inches', headers: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['34', '36', '38', '40', '42', '44', '46'] }, { label: 'Length', values: ['26', '27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['7', '7.5', '8', '8.5', '9', '9.5', '10'] }] },
@@ -846,6 +851,11 @@ export interface DBUser {
   id: string; name: string; email: string | null; phone?: string; password: string | null;
   role: string; twoFactorSecret?: string; twoFactorEnabled: boolean;
   googleId?: string; avatar?: string; createdAt: string; tokenVersion: number;
+  defaultAddress?: {
+    fullName?: string; phone?: string; email?: string;
+    addressLine1?: string; addressLine2?: string;
+    city?: string; state?: string; pincode?: string;
+  };
 }
 
 function rowToUser(row: any): DBUser {
@@ -856,6 +866,7 @@ function rowToUser(row: any): DBUser {
     twoFactorEnabled: row.two_factor_enabled, googleId: row.google_id || undefined,
     tokenVersion: row.token_version ?? 0,
     avatar: row.avatar || undefined, createdAt: row.created_at,
+    defaultAddress: row.default_address ?? undefined,
   };
 }
 
@@ -890,7 +901,7 @@ export async function updateUser(id: string, patch: Record<string, any>): Promis
   const fieldMap: Record<string, string> = {
     name: 'name', email: 'email', phone: 'phone', password: 'password',
     twoFactorSecret: 'two_factor_secret', twoFactorEnabled: 'two_factor_enabled',
-    avatar: 'avatar', googleId: 'google_id',
+    avatar: 'avatar', googleId: 'google_id', defaultAddress: 'default_address',
   };
   const sets: string[] = []; const vals: any[] = []; let idx = 1;
   for (const [key, col] of Object.entries(fieldMap)) {

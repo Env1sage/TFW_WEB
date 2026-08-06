@@ -60,7 +60,7 @@ export const api = {
 
   getProfile: () => request<any>('/auth/me'),
 
-  updateProfile: (data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }) =>
+  updateProfile: (data: { name?: string; email?: string; phone?: string; defaultAddress?: Record<string, string>; currentPassword?: string; newPassword?: string }) =>
     request<any>('/auth/me', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Products
