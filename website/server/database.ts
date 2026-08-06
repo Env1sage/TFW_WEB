@@ -761,6 +761,26 @@ export async function initDB() {
       ALTER TABLE website_users ADD COLUMN IF NOT EXISTS default_address JSONB;
     `);
 
+    // Multiple saved addresses per user
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS website_user_addresses (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES website_users(id) ON DELETE CASCADE,
+        label TEXT NOT NULL DEFAULT '',
+        full_name TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        address_line1 TEXT NOT NULL DEFAULT '',
+        address_line2 TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT '',
+        pincode TEXT NOT NULL DEFAULT '',
+        is_default BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_addresses_user ON website_user_addresses(user_id, created_at ASC);
+    `);
+
     // Seed default size charts into existing categories (only if not already set)
     const defaultCharts: Record<string, any> = {
       'T-Shirts': { unit: 'inches', headers: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'], rows: [{ label: 'Chest', values: ['34', '36', '38', '40', '42', '44', '46'] }, { label: 'Length', values: ['26', '27', '28', '29', '30', '31', '32'] }, { label: 'Sleeve', values: ['7', '7.5', '8', '8.5', '9', '9.5', '10'] }] },

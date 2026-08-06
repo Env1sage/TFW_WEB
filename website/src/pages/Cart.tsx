@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trash2, Minus, Plus, ShoppingBag, ArrowLeft, CreditCard, Palette, Tag, X,
   CheckCircle, Lock, Truck, Phone, ArrowRight, RotateCcw, Shield, Store,
-  Zap, MapPin, Clock, ChevronRight, Package, AlertTriangle,
+  Zap, MapPin, Clock, ChevronRight, Package, AlertTriangle, Edit2,
 } from 'lucide-react';
 import { EmptyCartAnim } from '../components/EmptyCartAnim';
 import { useCart } from '../context/CartContext';
@@ -326,6 +326,13 @@ export default function Cart() {
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '' });
   const [savedAddressLoaded, setSavedAddressLoaded] = useState(false);
 
+  // Saved addresses
+  type SavedAddr = { id: string; label: string; fullName: string; phone: string; email: string; addressLine1: string; addressLine2: string; city: string; state: string; pincode: string; isDefault: boolean };
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddr[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+
   // Coupon
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
@@ -375,21 +382,30 @@ export default function Cart() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [form.pincode, total]);
 
-  // Pre-fill address form from saved profile when user enters step 2
+  // Load saved addresses + pre-fill form when user enters step 2
   useEffect(() => {
     if (step !== 2 || savedAddressLoaded || !user) return;
-    api.getProfile().then((profile: any) => {
-      const a = profile.defaultAddress || {};
-      setForm(f => ({
-        fullName:     f.fullName     || a.fullName     || profile.name  || '',
-        email:        f.email        || a.email        || profile.email || '',
-        phone:        f.phone        || a.phone        || profile.phone || '',
-        addressLine1: f.addressLine1 || a.addressLine1 || '',
-        addressLine2: f.addressLine2 || a.addressLine2 || '',
-        city:         f.city         || a.city         || '',
-        state:        f.state        || a.state        || '',
-        pincode:      f.pincode      || a.pincode      || '',
-      }));
+    Promise.all([api.getProfile(), api.getAddresses()]).then(([profile, addrs]: [any, any[]]) => {
+      setSavedAddresses(addrs);
+      // Use default saved address if any, else fall back to profile default_address
+      const def = addrs.find(a => a.isDefault) || addrs[0];
+      if (def) {
+        setSelectedAddressId(def.id);
+        setSaveAddress(false); // already saved
+        setForm({ fullName: def.fullName, email: def.email, phone: def.phone, addressLine1: def.addressLine1, addressLine2: def.addressLine2, city: def.city, state: def.state, pincode: def.pincode });
+      } else {
+        const a = profile.defaultAddress || {};
+        setForm(f => ({
+          fullName:     f.fullName     || a.fullName     || profile.name  || '',
+          email:        f.email        || a.email        || profile.email || '',
+          phone:        f.phone        || a.phone        || profile.phone || '',
+          addressLine1: f.addressLine1 || a.addressLine1 || '',
+          addressLine2: f.addressLine2 || a.addressLine2 || '',
+          city:         f.city         || a.city         || '',
+          state:        f.state        || a.state        || '',
+          pincode:      f.pincode      || a.pincode      || '',
+        }));
+      }
       setSavedAddressLoaded(true);
     }).catch(() => setSavedAddressLoaded(true));
   }, [step, savedAddressLoaded, user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -521,17 +537,22 @@ export default function Cart() {
       }
       // Track purchase event for each product
       selectedItems.forEach(i => api.trackEvent({ type: 'purchase', productId: i.product.id, productName: i.product.name, category: i.product.category, brandId: (i.product as any).brandId, size: i.size || undefined, color: i.color || undefined, price: i.product.price, quantity: i.quantity, sessionId: getSessionId() }));
-      // Save user's name, email, phone, and address for future pre-fill + drip emails
+      // Persist contact info to user profile (for drip emails + future pre-fill)
       api.updateProfile({
         name: form.fullName || undefined,
         email: form.email || undefined,
         phone: form.phone || undefined,
-        defaultAddress: {
-          fullName: form.fullName, email: form.email, phone: form.phone,
-          addressLine1: form.addressLine1, addressLine2: form.addressLine2,
-          city: form.city, state: form.state, pincode: form.pincode,
-        },
+        defaultAddress: { fullName: form.fullName, email: form.email, phone: form.phone, addressLine1: form.addressLine1, addressLine2: form.addressLine2, city: form.city, state: form.state, pincode: form.pincode },
       }).catch(() => {});
+      // Save address to address book
+      if (saveAddress) {
+        const addrPayload = { fullName: form.fullName, email: form.email, phone: form.phone, addressLine1: form.addressLine1, addressLine2: form.addressLine2, city: form.city, state: form.state, pincode: form.pincode, isDefault: savedAddresses.length === 0 };
+        if (editingAddressId) {
+          api.updateAddress(editingAddressId, addrPayload).catch(() => {});
+        } else if (!selectedAddressId) {
+          api.saveAddress(addrPayload).catch(() => {});
+        }
+      }
       clearCart();
       sessionStorage.removeItem('tfw_design_cart');
       navigate('/payment/success', { replace: true, state: { finalTotal, name: form.fullName || 'Customer', city: form.city || selectedDelivery?.storeInfo?.city || '' } });
@@ -711,12 +732,61 @@ export default function Cart() {
 
           <div className="checkout-layout">
             <motion.div className="checkout-address-panel" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+              {/* ── Saved address picker ── */}
+              {savedAddresses.length > 0 && (
+                <div className="checkout-section-card" style={{ marginBottom: 16 }}>
+                  <h2 className="checkout-section-title">Saved Addresses</h2>
+                  <div className="saved-addr-grid">
+                    {savedAddresses.map(addr => (
+                      <div
+                        key={addr.id}
+                        className={`saved-addr-card ${selectedAddressId === addr.id && editingAddressId !== addr.id ? 'saved-addr-card--selected' : ''}`}
+                        onClick={() => {
+                          setSelectedAddressId(addr.id);
+                          setEditingAddressId(null);
+                          setSaveAddress(false);
+                          setForm({ fullName: addr.fullName, email: addr.email, phone: addr.phone, addressLine1: addr.addressLine1, addressLine2: addr.addressLine2, city: addr.city, state: addr.state, pincode: addr.pincode });
+                        }}
+                      >
+                        <div className="saved-addr-body">
+                          {addr.label && <span className="saved-addr-label">{addr.label}</span>}
+                          <p className="saved-addr-name">{addr.fullName || '—'}</p>
+                          <p className="saved-addr-line">{addr.addressLine1}{addr.addressLine2 ? ', ' + addr.addressLine2 : ''}</p>
+                          <p className="saved-addr-line">{addr.city}, {addr.state} — {addr.pincode}</p>
+                          {addr.phone && <p className="saved-addr-line" style={{ color: 'var(--text-3)' }}>{addr.phone}</p>}
+                        </div>
+                        <div className="saved-addr-actions">
+                          <button className="icon-btn" title="Edit" onClick={e => { e.stopPropagation(); setEditingAddressId(addr.id); setSelectedAddressId(addr.id); setSaveAddress(true); setForm({ fullName: addr.fullName, email: addr.email, phone: addr.phone, addressLine1: addr.addressLine1, addressLine2: addr.addressLine2, city: addr.city, state: addr.state, pincode: addr.pincode }); }}>
+                            <Edit2 size={14} />
+                          </button>
+                          <button className="icon-btn danger" title="Delete" onClick={e => { e.stopPropagation(); api.deleteAddress(addr.id).then(() => { setSavedAddresses(p => p.filter(a => a.id !== addr.id)); if (selectedAddressId === addr.id) { setSelectedAddressId(null); setSaveAddress(true); } }).catch(() => toast.error('Could not delete address')); }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        {selectedAddressId === addr.id && editingAddressId !== addr.id && (
+                          <div className="saved-addr-selected-badge"><CheckCircle size={14} /> Selected</div>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      className="saved-addr-card saved-addr-add"
+                      onClick={() => { setSelectedAddressId(null); setEditingAddressId(null); setSaveAddress(true); setForm({ fullName: '', email: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '' }); }}
+                    >
+                      <Plus size={22} />
+                      <span>Add new address</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="checkout-section-card">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h2 className="checkout-section-title" style={{ margin: 0 }}>Your Details</h2>
-                  {savedAddressLoaded && form.addressLine1 && (
+                  <h2 className="checkout-section-title" style={{ margin: 0 }}>
+                    {editingAddressId ? 'Edit Address' : selectedAddressId ? 'Delivery Details' : 'New Address'}
+                  </h2>
+                  {savedAddressLoaded && !savedAddresses.length && form.addressLine1 && (
                     <span style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <CheckCircle size={13} /> Saved address loaded
+                      <CheckCircle size={13} /> Saved info loaded
                     </span>
                   )}
                 </div>
@@ -761,6 +831,14 @@ export default function Cart() {
                     </select>
                   </div>
                 </div>
+
+                {/* Save address checkbox */}
+                {(!selectedAddressId || editingAddressId) && (
+                  <label className="save-addr-check">
+                    <input type="checkbox" checked={saveAddress} onChange={e => setSaveAddress(e.target.checked)} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} />
+                    <span>{editingAddressId ? 'Update this saved address' : 'Save this address for future orders'}</span>
+                  </label>
+                )}
               </div>
 
               <div className="checkout-trust-row">

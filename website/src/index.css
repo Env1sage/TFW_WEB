@@ -7311,6 +7311,50 @@ html.dark .hero-badge {
 /* Related products */
 .pd-related-section { margin-top: 4rem; }
 
+/* Saved address picker */
+.saved-addr-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;
+}
+.saved-addr-card {
+  position: relative; border: 2px solid var(--border); border-radius: var(--radius-lg);
+  padding: 14px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+  background: var(--surface); display: flex; flex-direction: column; gap: 4px;
+}
+.saved-addr-card:hover { border-color: var(--primary); }
+.saved-addr-card--selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14,124,97,.12); }
+.saved-addr-add {
+  border: 2px dashed var(--border); color: var(--text-3);
+  align-items: center; justify-content: center; gap: 8px; font-weight: 600;
+  font-size: 0.88rem; background: none; min-height: 100px;
+}
+.saved-addr-add:hover { border-color: var(--primary); color: var(--primary); }
+.saved-addr-label {
+  display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--primary); background: var(--primary-50);
+  padding: 1px 8px; border-radius: 20px; margin-bottom: 4px;
+}
+.saved-addr-name { font-weight: 700; font-size: 0.9rem; margin: 0; color: var(--text-1); }
+.saved-addr-line { font-size: 0.8rem; color: var(--text-2); margin: 0; line-height: 1.4; }
+.saved-addr-body { flex: 1; }
+.saved-addr-actions {
+  position: absolute; top: 10px; right: 10px;
+  display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s;
+}
+.saved-addr-card:hover .saved-addr-actions { opacity: 1; }
+.saved-addr-selected-badge {
+  display: flex; align-items: center; gap: 4px; margin-top: 8px;
+  font-size: 0.75rem; font-weight: 600; color: var(--primary);
+}
+.save-addr-check {
+  display: flex; align-items: center; gap: 8px; margin-top: 16px;
+  font-size: 0.88rem; color: var(--text-2); cursor: pointer; user-select: none;
+}
+.save-addr-check input { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .saved-addr-grid { grid-template-columns: 1fr; }
+  .saved-addr-actions { opacity: 1; }
+}
+
 /* Wishlist page */
 .wishlist-page { padding: 2rem 0 4rem; min-height: 60vh; }
 .wishlist-empty {

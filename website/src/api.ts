@@ -63,6 +63,12 @@ export const api = {
   updateProfile: (data: { name?: string; email?: string; phone?: string; defaultAddress?: Record<string, string>; currentPassword?: string; newPassword?: string }) =>
     request<any>('/auth/me', { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Saved addresses
+  getAddresses: () => request<any[]>('/addresses'),
+  saveAddress: (data: Record<string, any>) => request<any>('/addresses', { method: 'POST', body: JSON.stringify(data) }),
+  updateAddress: (id: string, data: Record<string, any>) => request<any>(`/addresses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteAddress: (id: string) => request<{ ok: boolean }>(`/addresses/${id}`, { method: 'DELETE' }),
+
   // Products
   getProducts: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
