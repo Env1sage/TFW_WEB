@@ -126,6 +126,47 @@ export async function sendTransactionalSMS(phone: string, templateId: string, va
   console.log(`[SMS DEV] Transactional to +91${phone}:`, variables);
 }
 
+/**
+ * Send a plain-text promotional/marketing SMS (e.g. abandoned cart drip).
+ * Uses Fast2SMS quick route — no DLT template registration required.
+ * Falls back to MSG91 Flow if MSG91_DRIP_TEMPLATE_ID is configured.
+ */
+export async function sendDripSMS(phone: string, message: string, templateId?: string, variables?: Record<string, string>): Promise<void> {
+  // MSG91 Flow with a registered drip template
+  if (SMS_PROVIDER === 'msg91' && templateId && variables) {
+    const result = await sendViaMSG91Flow(phone, templateId, variables);
+    if (!result.ok) console.error('[SMS Drip] MSG91 send failed:', result.message);
+    return;
+  }
+
+  // Fast2SMS quick route — plain text promotional message
+  if (FAST2SMS_API_KEY) {
+    try {
+      const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        method: 'POST',
+        headers: { authorization: FAST2SMS_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          route: 'q',
+          message,
+          language: 'english',
+          flash: 0,
+          numbers: phone,
+        }),
+      });
+      const raw = await res.json().catch(() => ({}));
+      if (!res.ok || raw.return === false) {
+        console.error('[SMS Drip] Fast2SMS failed:', raw.message?.[0] || res.status);
+      }
+    } catch (e) {
+      console.error('[SMS Drip] Fast2SMS error:', e);
+    }
+    return;
+  }
+
+  // Dev fallback
+  console.log(`[SMS DEV Drip] +91${phone}: ${message}`);
+}
+
 /** Test the SMS configuration. Returns a result object — never throws. */
 export async function testSMSConfig(phone: string): Promise<SMSResult & { configured: boolean }> {
   const configured = !!(

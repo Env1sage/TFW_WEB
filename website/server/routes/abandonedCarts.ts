@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { pool, findUserById } from '../database.js';
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js';
 import { sendAbandonedCartEmail } from '../email.js';
-import { sendTransactionalSMS } from '../sms.js';
+import { sendTransactionalSMS, sendDripSMS } from '../sms.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -221,7 +221,19 @@ export async function runAbandonedCartDrip() {
         shopLink: BASE_URL,
       };
 
-      if (cart.email && tmpl.email_body) {
+      // Primary channel: SMS
+      if (cart.phone && tmpl.sms_body) {
+        try {
+          const smsText = applyTemplateVars(tmpl.sms_body, vars);
+          const dripTemplateId = process.env.MSG91_DRIP_TEMPLATE_ID;
+          await sendDripSMS(cart.phone, smsText, dripTemplateId, dripTemplateId ? { VAR1: firstName, VAR2: parseFloat(cart.total).toFixed(0), VAR3: cartLink } : undefined);
+        } catch (e) {
+          console.error('[Drip] SMS error:', e);
+        }
+      }
+
+      // Fallback channel: email (only if no phone or SMS body missing)
+      if (!cart.phone && cart.email && tmpl.email_body) {
         try {
           await sendAbandonedCartEmail(
             cart.email,
@@ -230,18 +242,6 @@ export async function runAbandonedCartDrip() {
           );
         } catch (e) {
           console.error('[Drip] Email error:', e);
-        }
-      }
-
-      if (cart.phone && tmpl.sms_body && process.env.MSG91_DRIP_TEMPLATE_ID) {
-        try {
-          await sendTransactionalSMS(cart.phone, process.env.MSG91_DRIP_TEMPLATE_ID, {
-            VAR1: firstName,
-            VAR2: parseFloat(cart.total).toFixed(0),
-            VAR3: cartLink,
-          });
-        } catch (e) {
-          console.error('[Drip] SMS error:', e);
         }
       }
 
