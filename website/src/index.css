@@ -1362,6 +1362,7 @@ html.dark .footer { background: #0A0C10; }
   position: relative;
   display: flex;
   flex-direction: column;
+  height: 100%;
   box-shadow: var(--clay-shadow);
   /* Targeted transitions — never use "all" */
   transition:

@@ -65,14 +65,13 @@ export default function Wishlist() {
         ) : (
           <div className="products-grid">
             {products.map((product, i) => (
-              <div key={product.id} style={{ position: 'relative' }}>
-                <ProductCard
-                  product={product}
-                  index={i}
-                  wishlisted
-                  onWishlistChange={(removed) => { if (removed) handleRemove(product.id); }}
-                />
-              </div>
+              <ProductCard
+                key={product.id}
+                product={product}
+                index={i}
+                wishlisted
+                onWishlistChange={(removed) => { if (removed) handleRemove(product.id); }}
+              />
             ))}
           </div>
         )}
