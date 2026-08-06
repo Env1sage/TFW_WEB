@@ -1889,11 +1889,12 @@ html.dark .footer { background: #0A0C10; }
 }
 .otp-box {
   width: 48px; height: 56px;
-  text-align: center; font-size: 1.5rem; font-weight: 700;
+  text-align: center; font-size: 1.6rem; font-weight: 700;
   border: 2px solid var(--border); border-radius: var(--radius);
   background: var(--bg); color: var(--text);
   outline: none; transition: border-color .15s, box-shadow .15s;
-  font-family: var(--font-heading);
+  font-family: ui-monospace, 'SF Mono', 'Courier New', monospace;
+  letter-spacing: 0;
 }
 .otp-box:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14,124,97,.18); }
 
@@ -2341,7 +2342,7 @@ a.order-item-name:hover { color: var(--primary); }
 }
 .order-design-thumb {
   width: 80px; height: 80px; object-fit: contain;
-  border-radius: var(--radius-sm); background: var(--surface);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border); flex-shrink: 0;
 }
 .order-design-details { flex: 1; min-width: 0; }
@@ -5194,7 +5195,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
   .orders-page { padding-bottom: 2rem; }
   .order-card { padding: 1.25rem; }
   .order-design-row { flex-direction: column; align-items: flex-start; }
-  .order-design-thumb { width: 100%; max-height: 220px; height: auto; object-fit: contain; }
+  .order-design-thumb { width: 100%; max-height: 220px; height: auto; object-fit: contain; background: none; }
   .order-design-meta { flex-wrap: wrap; gap: 4px; }
   .orders-tabs .tab { padding: 0.5rem 0.85rem; font-size: 0.83rem; }
 
