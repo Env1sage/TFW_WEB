@@ -7309,6 +7309,22 @@ html.dark .hero-badge {
 /* Related products */
 .pd-related-section { margin-top: 4rem; }
 
+/* Wishlist page */
+.wishlist-page { padding: 2rem 0 4rem; min-height: 60vh; }
+.wishlist-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 5rem 1rem; color: var(--text-3); text-align: center;
+}
+.wishlist-empty h2 { color: var(--text-1); margin: 0; }
+.wishlist-empty p { margin: 0; max-width: 340px; }
+.wishlist-loading { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; }
+.wishlist-skeleton {
+  height: 340px; border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
 /* ProductDetail wishlist button */
 .pd-wishlist-btn {
   width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--border);

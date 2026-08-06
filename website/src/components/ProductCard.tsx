@@ -15,7 +15,7 @@ function colorName(hex: string): string {
   return COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())?.name ?? hex;
 }
 
-export default function ProductCard({ product, index = 0, wishlisted: initialWishlisted }: { product: Product; index?: number; wishlisted?: boolean }) {
+export default function ProductCard({ product, index = 0, wishlisted: initialWishlisted, onWishlistChange }: { product: Product; index?: number; wishlisted?: boolean; onWishlistChange?: (removed: boolean) => void }) {
   const { addItem } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -30,8 +30,8 @@ export default function ProductCard({ product, index = 0, wishlisted: initialWis
     const next = !wishlisted;
     setWishlisted(next);
     try {
-      if (next) { await api.addToWishlist(product.id); toast.success('Saved to wishlist'); }
-      else { await api.removeFromWishlist(product.id); toast.success('Removed from wishlist'); }
+      if (next) { await api.addToWishlist(product.id); toast.success('Saved to wishlist'); onWishlistChange?.(false); }
+      else { await api.removeFromWishlist(product.id); toast.success('Removed from wishlist'); onWishlistChange?.(true); }
     } catch { setWishlisted(!next); toast.error('Could not update wishlist'); }
   };
 

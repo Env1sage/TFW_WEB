@@ -518,6 +518,7 @@ export const api = {
     request<{ id: string; stock: number; name: string }[]>('/products/cart-status', { method: 'POST', body: JSON.stringify({ productIds }) }),
 
   // Wishlist
+  getWishlist: () => request<any[]>('/wishlist'),
   getWishlistIds: () => request<string[]>('/wishlist/ids'),
   addToWishlist: (productId: string) => request<{ ok: boolean }>(`/wishlist/${productId}`, { method: 'POST' }),
   removeFromWishlist: (productId: string) => request<{ ok: boolean }>(`/wishlist/${productId}`, { method: 'DELETE' }),

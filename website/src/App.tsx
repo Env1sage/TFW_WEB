@@ -47,6 +47,7 @@ import AdminLogin from './pages/AdminLogin';
 import CategoryBrands from './pages/CategoryBrands';
 import BrandModels from './pages/BrandModels';
 import Analytics from './pages/Analytics';
+import Wishlist from './pages/Wishlist';
 
 function AppContent() {
   const location = useLocation();
@@ -104,6 +105,7 @@ function AppContent() {
               <Route path="/orders/:id/track" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
               <Route path="/design-studio" element={<DesignStudioLanding />} />

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, User, LogOut, Shield, Menu, X, Search, Package, Palette, Sparkles, Moon, Sun, Tag, Copy, CheckCircle, ChevronDown, Shirt, Layers, HardHat, CreditCard, Sticker, Tags, ShoppingBag, Monitor, Printer, BookOpen, Coffee, Home, type LucideIcon } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Shield, Menu, X, Search, Package, Palette, Sparkles, Moon, Sun, Tag, Copy, CheckCircle, ChevronDown, Shirt, Layers, HardHat, CreditCard, Sticker, Tags, ShoppingBag, Monitor, Printer, BookOpen, Coffee, Home, Heart, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useTheme } from '../context/ThemeContext';
@@ -301,6 +301,11 @@ export default function Navbar() {
             {dark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
+          {user && (
+            <Link to="/wishlist" className="icon-btn" title="Wishlist" aria-label="Wishlist">
+              <Heart size={20} />
+            </Link>
+          )}
           <Link to="/cart" className="icon-btn cart-btn">
             <ShoppingCart size={20} />
             {count > 0 && <span key={count} className="cart-badge cart-badge-pop">{count}</span>}

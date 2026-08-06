@@ -949,7 +949,7 @@ export interface DBProduct {
   showSizeChart: boolean;
 }
 
-function rowToProduct(row: any): DBProduct {
+export function rowToProduct(row: any): DBProduct {
   const product: DBProduct = {
     id: row.id, slug: row.slug || row.id, name: row.name, description: row.description,
     price: parseFloat(row.price), category: row.category,

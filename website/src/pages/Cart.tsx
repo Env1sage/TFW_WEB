@@ -268,6 +268,7 @@ export default function Cart() {
 
   // Stock status for cart items
   const [stockStatus, setStockStatus] = useState<Record<string, { stock: number; name: string }>>({});
+  const [stockLoaded, setStockLoaded] = useState(false);
 
   // Item selection (all selected by default)
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(items.map(i => i.cartItemId)));
@@ -290,15 +291,28 @@ export default function Cart() {
     });
   }, [designItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load live stock on cart mount
+  // Load live stock on cart mount; auto-deselect unavailable items
   useEffect(() => {
     const productIds = items.map(i => i.product.id).filter(Boolean);
-    if (!productIds.length) return;
+    if (!productIds.length) { setStockLoaded(true); return; }
     api.getCartStatus(productIds).then(result => {
       const map: Record<string, { stock: number; name: string }> = {};
       result.forEach(r => { map[r.id] = { stock: r.stock, name: r.name }; });
       setStockStatus(map);
-    }).catch(() => {});
+      setStockLoaded(true);
+      // Auto-deselect items that are deleted or OOS
+      setSelectedItemIds(prev => {
+        const next = new Set(prev);
+        productIds.forEach(id => {
+          const entry = map[id];
+          if (!entry || entry.stock <= 0) {
+            // find cartItemId(s) for this productId
+            items.filter(i => i.product.id === id).forEach(i => next.delete(i.cartItemId));
+          }
+        });
+        return next;
+      });
+    }).catch(() => { setStockLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selected items for checkout
@@ -417,13 +431,17 @@ export default function Cart() {
 
   const handleProceedToDelivery = () => {
     if (!user) { navigate('/login?redirect=/cart'); return; }
-    // Block if any selected item is OOS or unavailable
-    const oosSelected = selectedItems.find(i => {
+    // Block if any selected item is deleted or OOS
+    const badSelected = selectedItems.find(i => {
       const status = stockStatus[i.product.id];
-      return status !== undefined && status.stock <= 0;
+      return stockLoaded && (!status || status.stock <= 0);
     });
-    if (oosSelected) {
-      toast.error(`"${oosSelected.product.name}" is out of stock. Please deselect or remove it.`);
+    if (badSelected) {
+      const status = stockStatus[badSelected.product.id];
+      const msg = !status
+        ? `"${badSelected.product.name}" is no longer available. Please remove it.`
+        : `"${badSelected.product.name}" is out of stock. Please deselect or remove it.`;
+      toast.error(msg);
       return;
     }
     if (!selectedItems.length && !selectedDesignItems.length) {
@@ -862,13 +880,15 @@ export default function Cart() {
               {items.map(item => {
                 const cartThumb = item.product.image || item.product.images?.[0] || (item.product.mockup as any)?.frontImage || '';
                 const liveStock = stockStatus[item.product.id];
-                const isUnavailable = liveStock !== undefined && liveStock.stock <= 0;
+                const isDeleted = stockLoaded && liveStock === undefined;
+                const isOos = stockLoaded && liveStock !== undefined && liveStock.stock <= 0;
+                const isUnavailable = isDeleted || isOos;
                 const isSelected = selectedItemIds.has(item.cartItemId);
                 return (
                 <motion.div key={item.cartItemId} className={`cart-item ${isUnavailable ? 'cart-item--oos' : ''}`} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20, height: 0 }}
                   style={{ opacity: isUnavailable ? 0.65 : 1 }}>
                   {/* Checkbox */}
-                  <label className="cart-item-check" title={isUnavailable ? 'Out of stock' : 'Select item'} style={{ cursor: isUnavailable ? 'not-allowed' : 'pointer' }}>
+                  <label className="cart-item-check" title={isUnavailable ? 'Unavailable' : 'Select item'} style={{ cursor: isUnavailable ? 'not-allowed' : 'pointer' }}>
                     <input type="checkbox" checked={isSelected && !isUnavailable} disabled={isUnavailable}
                       onChange={e => setSelectedItemIds(prev => {
                         const next = new Set(prev);
@@ -881,9 +901,20 @@ export default function Cart() {
                     : <div className="cart-item-img" style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} style={{ color: 'var(--text-3)' }} /></div>}
                   <div className="cart-item-info">
                     <Link to={`/products/${(item.product as any).slug || item.product.id}`}><h3>{item.product.name}</h3></Link>
-                    {isUnavailable && (
+                    {isDeleted && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#dc2626', fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>
-                        <AlertTriangle size={13} /> Out of stock — remove to continue
+                        <AlertTriangle size={13} /> No longer available — please remove this item
+                      </div>
+                    )}
+                    {isOos && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
+                          <AlertTriangle size={13} /> Out of stock
+                        </span>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: '0.75rem', padding: '2px 10px', gap: 4 }}
+                          onClick={() => api.bisSubscribe(item.product.id).then(() => toast.success('We\'ll notify you when it\'s back!')).catch(() => toast.error('Could not subscribe'))}>
+                          Notify me when back
+                        </button>
                       </div>
                     )}
                     <p className="cart-item-meta">
